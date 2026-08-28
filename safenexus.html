@@ -1,0 +1,2125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SafeNexus 2026 — Fleet Safety ERP</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css" />
+  <style>
+    /* ══════════════════════════════════════════════════════════════
+       SafeNexus 2026 — Office/Fluent shell
+       Title bar · ribbon · nav pane · work area · status bar
+       ══════════════════════════════════════════════════════════════ */
+    :root {
+      --title: #185ABD;
+      --brand: #0F6CBD;
+      --brand-dark: #115EA3;
+      --ribbon: #FFFFFF;
+      --app: #F5F5F5;
+      --pane: #FAF9F8;
+      --card: #FFFFFF;
+      --stroke: #E1DFDD;
+      --stroke-soft: #EDEBE9;
+      --stroke-strong: #C8C6C4;
+      --text: #242424;
+      --text2: #616161;
+      --text3: #8A8886;
+      --hover: #F5F5F5;
+      --sel: #EBF3FC;
+      --band: #FCFCFC;
+      --green: #0E700E;
+      --green-bg: #DFF6DD;
+      --red: #C50F1F;
+      --red-bg: #FDE7E9;
+      --gold: #BC4B09;
+      --gold-bg: #FDF3E3;
+      --purple: #5C2E91;
+      --purple-bg: #F0EAF7;
+      --teal: #0F6C6C;
+      --teal-bg: #E0F0F0;
+      --status: #F0F0F0;
+      --ui: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+      --num: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; }
+
+    body {
+      font: 400 13px var(--ui);
+      color: var(--text);
+      background: var(--app);
+      overflow: hidden;
+    }
+
+    button, input, select, textarea { font-family: var(--ui); }
+    button:focus-visible, .grid tbody tr:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+    input[type=checkbox] { width: 13px; height: 13px; cursor: pointer; accent-color: var(--brand); }
+
+    ::-webkit-scrollbar { width: 12px; height: 12px; }
+    ::-webkit-scrollbar-thumb { background: var(--stroke-strong); border: 3px solid #fff; border-radius: 6px; }
+    ::-webkit-scrollbar-track { background: #fff; }
+
+    .app { height: 100vh; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+
+    /* ── TITLE BAR ────────────────────────────────────────────── */
+    .titlebar {
+      height: 38px; flex-shrink: 0; background: var(--title); color: #fff;
+      display: flex; align-items: center; gap: 10px; padding: 0 8px;
+    }
+    .qat { display: flex; gap: 2px; align-items: center; }
+    .qat-logo { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .qat button {
+      background: transparent; border: none; padding: 4px; cursor: pointer;
+      display: flex; color: #fff; border-radius: 3px;
+    }
+    .qat button:hover { background: rgba(255, 255, 255, .16); }
+    .qat i { font-size: 15px; }
+    .tb-searchwrap { flex: 1; display: flex; justify-content: center; min-width: 0; }
+    .tb-search {
+      background: rgba(255, 255, 255, .16); border-radius: 4px; height: 25px; width: 420px; max-width: 100%;
+      display: flex; align-items: center; gap: 6px; padding: 0 10px;
+    }
+    .tb-search i { font-size: 14px; flex-shrink: 0; }
+    .tb-search input {
+      background: transparent; border: none; outline: none; color: #fff;
+      font: 400 12px var(--ui); width: 100%;
+    }
+    .tb-search input::placeholder { color: rgba(255, 255, 255, .75); }
+    .tb-org { font-size: 12px; opacity: .9; white-space: nowrap; }
+    .tb-acct {
+      width: 26px; height: 26px; border-radius: 50%; background: #fff; color: var(--title);
+      font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+      border: none; cursor: pointer; flex-shrink: 0;
+    }
+    .winbtns { display: flex; gap: 2px; margin-left: 4px; }
+    .winbtns i { font-size: 12px; padding: 4px 8px; }
+
+    /* ── RIBBON ───────────────────────────────────────────────── */
+    .tabstrip {
+      background: var(--ribbon); display: flex; align-items: flex-end;
+      flex-shrink: 0; overflow-x: auto; scrollbar-width: none;
+    }
+    .tabstrip::-webkit-scrollbar { height: 0; }
+    .app.collapsed .tabstrip { border-bottom: 1px solid var(--stroke); }
+    .file-btn {
+      background: var(--title); color: #fff; border: none; font: 600 13px var(--ui);
+      padding: 8px 15px; cursor: pointer; flex-shrink: 0;
+    }
+    .file-btn:hover { background: var(--brand-dark); }
+    .rtab {
+      background: transparent; border: none; border-bottom: 2px solid transparent;
+      font: 400 12.5px var(--ui); color: var(--text); padding: 8px 11px 7px;
+      cursor: pointer; flex-shrink: 0; white-space: nowrap;
+    }
+    .rtab:hover { background: var(--hover); }
+    .rtab.on { border-bottom-color: var(--brand); color: var(--brand-dark); font-weight: 600; }
+    .ctx-tab { display: flex; flex-direction: column; align-items: center; margin-left: 6px; flex-shrink: 0; }
+    .ctx-tab .ctx-top {
+      font-size: 10px; color: var(--purple); background: var(--purple-bg);
+      padding: 1px 10px; border-radius: 3px 3px 0 0; width: 100%; text-align: center;
+    }
+    .ctx-tab .ctx-main {
+      background: var(--purple-bg); font: 600 12px var(--ui); color: var(--purple);
+      padding: 5px 12px; width: 100%; text-align: center;
+    }
+    .tabstrip .collapse-btn {
+      margin-left: auto; background: transparent; border: none; cursor: pointer;
+      padding: 6px 8px; display: flex; color: var(--text2); flex-shrink: 0;
+    }
+
+    .ribbon {
+      background: var(--ribbon); border-bottom: 1px solid var(--stroke);
+      display: flex; height: 96px; overflow-x: auto; flex-shrink: 0; scrollbar-width: thin;
+    }
+    .app.collapsed .ribbon { display: none; }
+    .rgroup {
+      display: flex; flex-direction: column; border-right: 1px solid var(--stroke-soft);
+      padding: 5px 8px 2px; flex-shrink: 0;
+    }
+    .rgroup-row { display: flex; gap: 3px; flex: 1; }
+    .rgroup-label { text-align: center; font-size: 10.5px; color: var(--text3); padding-top: 2px; }
+    .rgroup-small { display: flex; flex-direction: column; gap: 2px; justify-content: center; min-width: 138px; }
+    .rbtn {
+      display: flex; align-items: center; border: 1px solid transparent; border-radius: 4px;
+      background: transparent; cursor: pointer; font: 400 11px var(--ui); color: var(--text); flex-shrink: 0;
+    }
+    .rbtn:hover { background: var(--hover); border-color: var(--stroke); }
+    .rbtn i { color: var(--brand-dark); flex-shrink: 0; }
+    .rbtn.lg {
+      flex-direction: column; gap: 4px; width: 66px; height: 66px;
+      padding: 6px 2px; text-align: center; justify-content: center; line-height: 1.15;
+    }
+    .rbtn.lg i { font-size: 21px; }
+    .rbtn.sm { flex-direction: row; gap: 7px; width: 100%; height: 22px; padding: 0 6px; text-align: left; }
+    .rbtn.sm i { font-size: 15px; }
+    .rbtn.sm span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ── WORKSPACE ────────────────────────────────────────────── */
+    .workspace { flex: 1; display: flex; min-height: 0; }
+
+    .navpane {
+      width: 208px; background: var(--pane); padding: 8px; overflow-y: auto; flex-shrink: 0;
+    }
+    .nav-head {
+      font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+      color: var(--text3); padding: 6px 9px 4px;
+    }
+    .nav-head.spaced { padding-top: 14px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 7px; width: 100%; text-align: left;
+      font: 400 12.5px var(--ui); padding: 6px 9px; border-radius: 3px; border: none;
+      cursor: pointer; margin-bottom: 1px; background: transparent; color: var(--text);
+    }
+    .nav-item:hover { background: var(--hover); }
+    .nav-item.on { background: var(--sel); color: var(--brand-dark); font-weight: 600; }
+    .nav-item i { font-size: 15px; color: var(--text2); flex-shrink: 0; }
+    .nav-item.on i { color: var(--brand); }
+    .nav-item .lbl { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .nav-item .cnt { font-size: 11px; color: var(--text3); font-family: var(--num); }
+
+    .splitter { width: 6px; flex-shrink: 0; cursor: col-resize; background: var(--stroke); transition: background .12s; }
+    .splitter:hover { background: var(--brand); }
+
+    .content { flex: 1; overflow-y: auto; min-width: 0; padding: 14px; background: var(--app); }
+    .content.plain { background: #fff; padding: 0; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    /* ── STATUS BAR ───────────────────────────────────────────── */
+    .statusbar {
+      height: 26px; flex-shrink: 0; background: var(--status); border-top: 1px solid var(--stroke);
+      display: flex; align-items: center; padding: 0 12px; gap: 14px;
+      font-size: 11.5px; color: var(--text2); overflow: hidden; white-space: nowrap;
+    }
+    .statusbar .msg { margin-left: auto; color: var(--text3); }
+    .statusbar .msg.live { color: var(--brand-dark); font-weight: 600; }
+    .statusbar button {
+      background: transparent; border: none; cursor: pointer; font: 400 11.5px var(--ui);
+      color: var(--text2); display: flex; align-items: center; gap: 4px;
+    }
+    .statusbar .conn { color: var(--text3); }
+
+    /* ── PANELS / TILES ───────────────────────────────────────── */
+    .panel { background: #fff; border: 1px solid var(--stroke); border-radius: 4px; margin-bottom: 14px; }
+    .panel-hd {
+      padding: 9px 12px; border-bottom: 1px solid var(--stroke-soft); background: var(--pane);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .panel-hd h2 { font-size: 13px; font-weight: 600; }
+    .panel-hd .note { font-size: 12px; color: var(--text3); }
+    .panel-hd .right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+    .panel-body { padding: 12px; }
+    .panel-body.flush { padding: 0; }
+
+    .link { font-size: 12px; color: var(--brand-dark); cursor: pointer; background: none; border: none; padding: 0; }
+    .link:hover { text-decoration: underline; }
+
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+
+    .tile { background: #fff; border: 1px solid var(--stroke); border-radius: 4px; padding: 11px 13px; }
+    .tile-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .tile-ico {
+      width: 26px; height: 26px; border-radius: 3px; display: flex;
+      align-items: center; justify-content: center;
+    }
+    .tile-ico i { font-size: 15px; }
+    .tile-val { font: 600 24px var(--num); letter-spacing: -.4px; color: var(--text); }
+    .tile-lbl { font-size: 12px; color: var(--text2); margin-top: 2px; }
+    .tile-trend { font-size: 11px; margin-top: 5px; display: flex; align-items: center; gap: 4px; }
+    .tile-trend i { font-size: 13px; }
+    .t-up { color: var(--green); }
+    .t-dn { color: var(--red); }
+    .t-warn { color: var(--gold); }
+
+    /* ── BADGES ───────────────────────────────────────────────── */
+    .bdg {
+      display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 7px;
+      border-radius: 3px; white-space: nowrap;
+    }
+    .bdg.grey { background: var(--stroke-soft); color: var(--text2); }
+    .bdg.blue { background: var(--sel); color: var(--brand-dark); }
+    .bdg.green { background: var(--green-bg); color: var(--green); }
+    .bdg.red { background: var(--red-bg); color: var(--red); }
+    .bdg.gold { background: var(--gold-bg); color: var(--gold); }
+    .bdg.purple { background: var(--purple-bg); color: var(--purple); }
+    .bdg.teal { background: var(--teal-bg); color: var(--teal); }
+
+    /* ── BUTTONS ──────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px; font: 600 13px var(--ui);
+      padding: 6px 14px; border-radius: 4px; cursor: pointer; white-space: nowrap;
+      background: #fff; color: var(--text); border: 1px solid var(--stroke-strong);
+    }
+    .btn:hover { background: var(--hover); }
+    .btn i { font-size: 15px; }
+    .btn.sm { font-size: 12px; padding: 4px 9px; }
+    .btn.sm i { font-size: 14px; }
+    .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .btn.primary:hover { background: var(--brand-dark); border-color: var(--brand-dark); }
+    .btn.active { background: var(--sel); border-color: var(--brand); color: var(--brand-dark); }
+    .btn.danger { background: var(--red); border-color: var(--red); color: #fff; }
+
+    /* ── COMMAND STRIP (filters) ──────────────────────────────── */
+    .cmdstrip {
+      padding: 8px 12px; background: var(--pane); border: 1px solid var(--stroke); border-bottom: none;
+      border-radius: 4px 4px 0 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    }
+    .cmdstrip + .panel { border-radius: 0 0 4px 4px; }
+    .findbox {
+      display: flex; align-items: center; gap: 6px; border: 1px solid var(--stroke-strong);
+      border-radius: 3px; padding: 3px 8px; background: #fff; width: 230px;
+    }
+    .findbox i { font-size: 14px; color: var(--text3); }
+    .findbox input { border: none; outline: none; font: 400 12.5px var(--ui); width: 100%; background: transparent; }
+    .cmdstrip .count { margin-left: auto; font-size: 12px; color: var(--text3); }
+
+    /* ── DATA GRID ────────────────────────────────────────────── */
+    .gridwrap { overflow-x: auto; background: #fff; }
+    table.grid { width: 100%; border-collapse: collapse; }
+    table.grid th {
+      position: sticky; top: 0; z-index: 3; height: 32px; padding: 0 9px; text-align: left;
+      font: 600 11.5px var(--ui); color: var(--text2); background: var(--pane);
+      border-bottom: 1px solid var(--stroke-strong); border-right: 1px solid var(--stroke-soft);
+      white-space: nowrap; user-select: none; cursor: pointer;
+    }
+    table.grid th:last-child { border-right: none; }
+    table.grid th.num { text-align: right; }
+    table.grid td {
+      padding: 6px 9px; font-size: 12.5px; color: var(--text);
+      border-bottom: 1px solid var(--stroke-soft); vertical-align: middle; height: 34px;
+    }
+    table.grid td.num { text-align: right; font-family: var(--num); }
+    table.grid td.mono { font-family: var(--num); font-weight: 600; letter-spacing: .2px; }
+    table.grid tbody tr { border-left: 3px solid transparent; }
+    table.grid tbody tr:nth-child(even) { background: var(--band); }
+    table.grid tbody tr:hover { background: var(--hover); }
+    table.grid tbody tr.sel { background: var(--sel); border-left-color: var(--brand); }
+    .grid-foot {
+      padding: 5px 12px; background: var(--pane); border-top: 1px solid var(--stroke);
+      display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); flex-wrap: wrap;
+    }
+    .grid-foot .pager { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+    .pgbtn {
+      background: #fff; border: 1px solid var(--stroke-strong); border-radius: 3px;
+      padding: 3px 6px; cursor: pointer; display: flex; color: var(--text2);
+    }
+    .pgbtn i { font-size: 13px; }
+    .pgbtn:hover { background: var(--hover); }
+
+    /* ── LIST ROWS ────────────────────────────────────────────── */
+    .lrow {
+      display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+      border-bottom: 1px solid var(--stroke-soft); cursor: pointer;
+    }
+    .lrow:last-child { border-bottom: none; }
+    .lrow:hover { background: var(--hover); }
+    .lrow .ri { flex: 1; min-width: 0; }
+    .lrow .ri .n { font-size: 12.5px; font-weight: 600; color: var(--text); }
+    .lrow .ri .s { font-size: 11.5px; color: var(--text3); margin-top: 1px; }
+    .lrow .rr { text-align: right; flex-shrink: 0; }
+
+    /* ── AVATARS ──────────────────────────────────────────────── */
+    .av {
+      width: 28px; height: 28px; border-radius: 3px; display: flex; align-items: center;
+      justify-content: center; font: 600 11px var(--num); flex-shrink: 0;
+    }
+    .av.lg { width: 44px; height: 44px; font-size: 15px; border-radius: 4px; }
+    .av.blue { background: var(--sel); color: var(--brand-dark); }
+    .av.green { background: var(--green-bg); color: var(--green); }
+    .av.gold, .av.amber { background: var(--gold-bg); color: var(--gold); }
+    .av.purple { background: var(--purple-bg); color: var(--purple); }
+    .av.red { background: var(--red-bg); color: var(--red); }
+    .av i { font-size: 15px; }
+
+    /* ── FORMS ────────────────────────────────────────────────── */
+    .field { margin-bottom: 11px; }
+    .field-lbl { font-size: 11.5px; color: var(--text2); margin-bottom: 3px; font-weight: 600; }
+    .inp {
+      width: 100%; font: 400 13px var(--ui); padding: 6px 8px; border: 1px solid var(--stroke-strong);
+      border-radius: 3px; outline: none; background: #fff; color: var(--text);
+    }
+    .inp:focus { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+    select.inp { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23616161' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; padding-right: 26px; }
+    textarea.inp { resize: vertical; line-height: 1.5; }
+    .field-hint { font-size: 11.5px; color: var(--text3); margin-top: 3px; }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+    .kv { display: flex; font-size: 12.5px; padding: 4px 0; border-bottom: 1px solid var(--stroke-soft); }
+    .kv:last-child { border-bottom: none; }
+    .kv .k { width: 150px; color: var(--text3); flex-shrink: 0; }
+    .kv .v { flex: 1; }
+
+    .sec-head {
+      font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+      color: var(--text2); margin: 0 0 6px; display: flex; gap: 8px; align-items: baseline;
+    }
+
+    /* ── INFO BAR ─────────────────────────────────────────────── */
+    .infobar {
+      background: var(--sel); border: 1px solid #CFE4FA; border-left: 3px solid var(--brand);
+      border-radius: 3px; padding: 8px 11px; font-size: 12.5px; color: var(--brand-dark);
+      line-height: 1.5; margin-bottom: 12px; display: flex; gap: 8px; align-items: flex-start;
+    }
+    .infobar i { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── CHARTS ───────────────────────────────────────────────── */
+    .barchart { display: flex; align-items: flex-end; gap: 8px; height: 110px; padding: 0 2px; }
+    .barchart .bar { flex: 1; background: var(--brand); min-height: 3px; border-radius: 2px 2px 0 0; position: relative; }
+    .barchart .bar:hover { background: var(--brand-dark); }
+    .barlabels { display: flex; gap: 8px; padding: 5px 2px 0; border-top: 1px solid var(--stroke-soft); margin-top: 4px; }
+    .barlabels span { flex: 1; text-align: center; font-size: 10.5px; color: var(--text3); }
+
+    .meter { background: var(--stroke-soft); border-radius: 2px; height: 8px; overflow: hidden; }
+    .meter > div { height: 8px; background: var(--brand); }
+    .meter > div.green { background: var(--green); }
+    .meter > div.gold { background: #BC7B09; }
+    .meter > div.red { background: var(--red); }
+
+    /* ── HIERARCHY ────────────────────────────────────────────── */
+    .hier { display: flex; align-items: center; gap: 9px; padding: 7px 12px; border-bottom: 1px solid var(--stroke-soft); }
+    .hier:last-child { border-bottom: none; }
+    .hier .rail { flex-shrink: 0; align-self: stretch; }
+
+    /* ── MODULE CARDS ─────────────────────────────────────────── */
+    .modcard { border: 1px solid var(--stroke); border-radius: 4px; padding: 11px; background: #fff; cursor: pointer; }
+    .modcard:hover { border-color: var(--brand); }
+    .modcard.on { border-color: var(--brand); background: var(--sel); }
+    .modcard .mi {
+      width: 30px; height: 30px; border-radius: 3px; display: flex;
+      align-items: center; justify-content: center; margin-bottom: 8px;
+    }
+    .modcard .mi i { font-size: 17px; }
+    .modcard .mn { font-size: 12.5px; font-weight: 600; }
+    .modcard .md { font-size: 11.5px; color: var(--text3); margin-top: 2px; line-height: 1.4; }
+
+    /* ── TOGGLE ───────────────────────────────────────────────── */
+    .toggle {
+      width: 38px; height: 20px; border-radius: 10px; background: var(--stroke-strong);
+      cursor: pointer; position: relative; flex-shrink: 0; border: none; padding: 0;
+    }
+    .toggle.on { background: var(--brand); }
+    .toggle span {
+      width: 16px; height: 16px; border-radius: 50%; background: #fff;
+      position: absolute; top: 2px; left: 2px; transition: left .15s;
+    }
+    .toggle.on span { left: 20px; }
+
+    /* ── TABS (in-page, document tabs) ────────────────────────── */
+    .doctabs { display: flex; background: var(--pane); border-bottom: 1px solid var(--stroke); padding: 0 8px; }
+    .doctab {
+      background: transparent; border: none; border-bottom: 2px solid transparent;
+      font: 400 12.5px var(--ui); color: var(--text2); padding: 8px 13px; cursor: pointer;
+    }
+    .doctab:hover { color: var(--text); }
+    .doctab.on { color: var(--brand-dark); font-weight: 600; border-bottom-color: var(--brand); }
+    .docpanel { display: none; }
+    .docpanel.on { display: block; }
+
+    /* ── DOC HEADER (company profile) ─────────────────────────── */
+    .dochead {
+      background: #fff; border: 1px solid var(--stroke); border-bottom: none;
+      border-radius: 4px 4px 0 0; padding: 16px 18px; display: flex; gap: 16px; align-items: flex-start;
+    }
+    .dochead .mark {
+      width: 52px; height: 52px; background: var(--title); border-radius: 4px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .strip {
+      display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--stroke);
+      border-radius: 3px; overflow: hidden; max-width: 420px; margin-top: 14px;
+    }
+    .strip > div { padding: 8px; text-align: center; border-right: 1px solid var(--stroke); background: var(--pane); }
+    .strip > div:last-child { border-right: none; }
+    .strip .v { font: 600 18px var(--num); color: var(--brand-dark); }
+    .strip .l { font-size: 10.5px; color: var(--text3); margin-top: 1px; }
+
+    /* ── MODALS ───────────────────────────────────────────────── */
+    .overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, .32); z-index: 60;
+      align-items: flex-start; justify-content: center; padding-top: 60px;
+    }
+    .overlay.open { display: flex; }
+    .dlg {
+      background: #fff; width: 540px; max-width: 94vw; max-height: 82vh; border-radius: 6px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, .28); display: flex; flex-direction: column;
+    }
+    .dlg-hd {
+      background: var(--title); color: #fff; padding: 9px 14px; border-radius: 6px 6px 0 0;
+      display: flex; align-items: center; font-size: 13.5px; font-weight: 600;
+    }
+    .dlg-hd button { margin-left: auto; background: transparent; border: none; cursor: pointer; color: #fff; display: flex; }
+    .dlg-hd i { font-size: 16px; }
+    .dlg-body { padding: 16px; overflow-y: auto; flex: 1; }
+    .dlg-foot {
+      padding: 10px 14px; border-top: 1px solid var(--stroke-soft); background: var(--pane);
+      display: flex; gap: 8px; justify-content: flex-end; border-radius: 0 0 6px 6px;
+    }
+    .dlg-note { font-size: 12.5px; color: var(--text2); margin-bottom: 12px; line-height: 1.6; }
+
+    /* ── BACKSTAGE (File) ─────────────────────────────────────── */
+    .backstage { display: none; position: absolute; inset: 0; z-index: 50; }
+    .backstage.open { display: flex; }
+    .bs-rail { width: 210px; background: var(--title); color: #fff; padding: 14px 0; flex-shrink: 0; }
+    .bs-rail button {
+      background: transparent; border: none; color: #fff; display: flex; align-items: center; gap: 10px;
+      padding: 9px 18px; width: 100%; text-align: left; cursor: pointer; font: 400 13px var(--ui);
+    }
+    .bs-rail button:hover { background: rgba(255, 255, 255, .12); }
+    .bs-rail i { font-size: 16px; }
+    .bs-body { flex: 1; background: #fff; padding: 28px 32px; overflow-y: auto; }
+    .bs-body h1 { font-size: 25px; font-weight: 600; margin-bottom: 18px; }
+    .bs-cols { display: flex; gap: 36px; flex-wrap: wrap; }
+    .bs-cols > div { min-width: 260px; }
+    .bs-cols h3 { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+
+    /* ── TOAST ────────────────────────────────────────────────── */
+    .toastwrap { position: fixed; bottom: 36px; right: 18px; z-index: 80; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+      background: #fff; border: 1px solid var(--stroke-strong); border-left: 3px solid var(--green);
+      border-radius: 4px; box-shadow: 0 8px 26px rgba(0, 0, 0, .18); padding: 10px 13px;
+      display: flex; align-items: center; gap: 9px; min-width: 280px; font-size: 12.5px;
+      animation: slideIn .18s ease;
+    }
+    .toast i { font-size: 17px; color: var(--green); }
+    @keyframes slideIn { from { transform: translateX(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+    @media (max-width: 1100px) {
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .grid-3 { grid-template-columns: 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .navpane, .splitter { display: none; }
+      .tb-org, .winbtns { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app" id="app">
+
+    <!-- ══════════════ TITLE BAR ══════════════ -->
+    <div class="titlebar">
+      <div class="qat">
+        <div class="qat-logo">
+          <svg viewBox="0 0 90 90" width="20" height="20" fill="none">
+            <polygon points="8,80 36,10 52,10 36,46" fill="#fff" opacity=".9" />
+            <polygon points="82,80 52,46 52,10 95,80" fill="#93C5FD" opacity=".95" />
+            <polygon points="36,46 52,10 44,28" fill="#CFE4FA" />
+          </svg>
+        </div>
+        <button title="Save" onclick="run('save')"><i class="ti ti-device-floppy"></i></button>
+        <button title="Undo" onclick="run('undo')"><i class="ti ti-arrow-back-up"></i></button>
+        <button title="Redo" onclick="run('redo')"><i class="ti ti-arrow-forward-up"></i></button>
+      </div>
+      <div class="tb-searchwrap">
+        <div class="tb-search">
+          <i class="ti ti-search"></i>
+          <input id="global-search" placeholder="Search users, vehicles, inspections" />
+        </div>
+      </div>
+      <div class="tb-org">SafeNexus ERP — Acme Mining Corp</div>
+      <button class="tb-acct" title="Kobus van der Merwe" onclick="run('account')">KM</button>
+      <div class="winbtns">
+        <i class="ti ti-minus"></i><i class="ti ti-square"></i><i class="ti ti-x"></i>
+      </div>
+    </div>
+
+    <!-- ══════════════ RIBBON TABS ══════════════ -->
+    <div class="tabstrip" id="tabstrip">
+      <button class="file-btn" onclick="openBackstage()">File</button>
+      <!-- tabs injected -->
+      <button class="collapse-btn" title="Collapse the ribbon" onclick="toggleRibbon()">
+        <i class="ti ti-chevron-up" id="collapse-ico"></i>
+      </button>
+    </div>
+    <div class="ribbon" id="ribbon"></div>
+
+    <!-- ══════════════ WORKSPACE ══════════════ -->
+    <div class="workspace">
+      <nav class="navpane" id="navpane"></nav>
+      <div class="splitter" id="splitter" title="Drag to resize · double-click to reset"></div>
+
+      <div class="content" id="content">
+
+        <!-- ═══════ DASHBOARD ═══════ -->
+        <div id="sc-dashboard" class="screen active">
+          <div class="grid-4">
+            <div class="tile">
+              <div class="tile-top">
+                <div class="tile-ico" style="background:var(--sel)"><i class="ti ti-building" style="color:var(--brand)"></i></div>
+                <span class="bdg blue">All time</span>
+              </div>
+              <div class="tile-val">12</div>
+              <div class="tile-lbl">Registered companies</div>
+              <div class="tile-trend t-up"><i class="ti ti-trending-up"></i> 3 registered this month</div>
+            </div>
+            <div class="tile">
+              <div class="tile-top">
+                <div class="tile-ico" style="background:var(--green-bg)"><i class="ti ti-users" style="color:var(--green)"></i></div>
+                <span class="bdg green">Active</span>
+              </div>
+              <div class="tile-val">248</div>
+              <div class="tile-lbl">Users across the platform</div>
+              <div class="tile-trend t-up"><i class="ti ti-trending-up"></i> 18 added this week</div>
+            </div>
+            <div class="tile">
+              <div class="tile-top">
+                <div class="tile-ico" style="background:var(--gold-bg)"><i class="ti ti-truck" style="color:var(--gold)"></i></div>
+                <span class="bdg gold">Fleet</span>
+              </div>
+              <div class="tile-val">184</div>
+              <div class="tile-lbl">Vehicles on the platform</div>
+              <div class="tile-trend t-warn"><i class="ti ti-alert-circle"></i> 7 in maintenance</div>
+            </div>
+            <div class="tile">
+              <div class="tile-top">
+                <div class="tile-ico" style="background:var(--purple-bg)"><i class="ti ti-clipboard-check" style="color:var(--purple)"></i></div>
+                <span class="bdg purple">This month</span>
+              </div>
+              <div class="tile-val">1 247</div>
+              <div class="tile-lbl">Inspections captured</div>
+              <div class="tile-trend t-up"><i class="ti ti-trending-up"></i> 98.2% pass rate</div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="panel">
+              <div class="panel-hd">
+                <h2>Monthly inspections</h2><span class="note">Jan – Jun 2026</span>
+                <span class="right"><button class="link" onclick="goTab('inspections')">Open register</button></span>
+              </div>
+              <div class="panel-body">
+                <div class="barchart" id="bar-chart"></div>
+                <div class="barlabels" id="bar-labels"></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-hd">
+                <h2>Compliance rate by company</h2>
+                <span class="right"><button class="link" onclick="goTab('compliance')">Details</button></span>
+              </div>
+              <div class="panel-body">
+                <div class="infobar">
+                  <i class="ti ti-info-circle"></i>
+                  <span>Acme Mining Corp leads at 98.2% against an industry benchmark of 91%. Two companies sit below the 90% threshold.</span>
+                </div>
+                <div id="compliance-rows"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="panel">
+              <div class="panel-hd">
+                <h2>Recent audit activity</h2>
+                <span class="right"><button class="link" onclick="goTab('audit')">Full log</button></span>
+              </div>
+              <div class="panel-body flush" id="audit-preview"></div>
+            </div>
+            <div class="panel">
+              <div class="panel-hd">
+                <h2>Fleet status</h2>
+                <span class="right"><button class="link" onclick="goTab('fleet')">Manage fleet</button></span>
+              </div>
+              <div class="panel-body">
+                <div class="strip" style="max-width:none;margin-top:0;margin-bottom:10px">
+                  <div style="background:var(--green-bg)">
+                    <div class="v" style="color:var(--green)">134</div>
+                    <div class="l" style="color:var(--green)">Assigned</div>
+                  </div>
+                  <div style="background:var(--gold-bg)">
+                    <div class="v" style="color:var(--gold)">43</div>
+                    <div class="l" style="color:var(--gold)">Available</div>
+                  </div>
+                  <div style="background:var(--red-bg)">
+                    <div class="v" style="color:var(--red)">7</div>
+                    <div class="l" style="color:var(--red)">Maintenance</div>
+                  </div>
+                </div>
+              </div>
+              <div class="panel-body flush" id="fleet-mini"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-hd">
+              <h2>Pending inspections requiring sign-off</h2>
+              <span class="right"><span class="bdg gold">5 pending</span></span>
+            </div>
+            <div class="gridwrap">
+              <table class="grid">
+                <thead>
+                  <tr>
+                    <th>Ref</th><th>Vehicle</th><th>Operator</th><th>Company</th>
+                    <th>Submitted</th><th>Result</th><th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="pending-table"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════ COMPANIES ═══════ -->
+        <div id="sc-companies" class="screen">
+          <div class="cmdstrip">
+            <button class="btn sm active" onclick="pill(this)">All (12)</button>
+            <button class="btn sm" onclick="pill(this)">Active (10)</button>
+            <button class="btn sm" onclick="pill(this)">Trial (2)</button>
+            <button class="btn sm" onclick="pill(this)">Suspended (0)</button>
+            <div class="findbox"><i class="ti ti-search"></i><input placeholder="Filter this list" oninput="filterRows('companies-table',this.value)" /></div>
+            <span class="count">6 of 12</span>
+          </div>
+          <div class="panel">
+            <div class="gridwrap">
+              <table class="grid">
+                <thead>
+                  <tr>
+                    <th>Company</th><th>Industry</th><th class="num">Users</th><th class="num">Vehicles</th>
+                    <th>Compliance</th><th>Plan</th><th>Status</th><th>Registered</th><th></th>
+                  </tr>
+                </thead>
+                <tbody id="companies-table"></tbody>
+              </table>
+            </div>
+            <div class="grid-foot">
+              <span>Showing 1–6 of 12</span>
+              <button class="btn sm active">20</button><button class="btn sm">50</button><button class="btn sm">100</button>
+              <div class="pager">
+                <button class="pgbtn"><i class="ti ti-chevrons-left"></i></button>
+                <button class="pgbtn"><i class="ti ti-chevron-left"></i></button>
+                <button class="pgbtn"><i class="ti ti-chevron-right"></i></button>
+                <button class="pgbtn"><i class="ti ti-chevrons-right"></i></button>
+                <span style="padding:0 4px">Page 1 of 2</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════ USERS ═══════ -->
+        <div id="sc-users" class="screen">
+          <div class="cmdstrip">
+            <button class="btn sm active" onclick="pill(this)">All (248)</button>
+            <button class="btn sm" onclick="pill(this)">Administrator (12)</button>
+            <button class="btn sm" onclick="pill(this)">Safety officer (28)</button>
+            <button class="btn sm" onclick="pill(this)">Supervisor (64)</button>
+            <button class="btn sm" onclick="pill(this)">Operator (144)</button>
+            <div class="findbox"><i class="ti ti-search"></i><input placeholder="Filter this list" oninput="filterRows('users-table',this.value)" /></div>
+            <span class="count">8 of 248</span>
+          </div>
+          <div class="panel">
+            <div class="gridwrap">
+              <table class="grid">
+                <thead>
+                  <tr>
+                    <th>User</th><th>Role</th><th>Company</th><th>Reports to</th>
+                    <th>Vehicle</th><th>COF expiry</th><th class="num">Inspections</th><th>Status</th><th></th>
+                  </tr>
+                </thead>
+                <tbody id="users-table"></tbody>
+              </table>
+            </div>
+            <div class="grid-foot">
+              <span>Showing 1–8 of 248</span>
+              <button class="btn sm active">20</button><button class="btn sm">50</button><button class="btn sm">100</button>
+              <div class="pager">
+                <button class="pgbtn"><i class="ti ti-chevrons-left"></i></button>
+                <button class="pgbtn"><i class="ti ti-chevron-left"></i></button>
+                <button class="pgbtn"><i class="ti ti-chevron-right"></i></button>
+                <button class="pgbtn"><i class="ti ti-chevrons-right"></i></button>
+                <span style="padding:0 4px">Page 1 of 13</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════ FLEET ═══════ -->
+        <div id="sc-fleet" class="screen">
+          <div class="cmdstrip">
+            <button class="btn sm active" onclick="pill(this)">All (184)</button>
+            <button class="btn sm" onclick="pill(this)">Assigned (134)</button>
+            <button class="btn sm" onclick="pill(this)">Available (43)</button>
+            <button class="btn sm" onclick="pill(this)">Maintenance (7)</button>
+            <div class="findbox"><i class="ti ti-search"></i><input placeholder="Filter this list" oninput="filterRows('fleet-table',this.value)" /></div>
+            <span class="count">6 of 184</span>
+          </div>
+          <div class="panel">
+            <div class="gridwrap">
+              <table class="grid">
+                <thead>
+                  <tr>
+                    <th>Plate</th><th>Make and model</th><th class="num">Year</th><th>Company</th>
+                    <th>Assigned to</th><th>Supervisor</th><th>Last inspection</th><th class="num">Odometer</th>
+                    <th>Status</th><th></th>
+                  </tr>
+                </thead>
+                <tbody id="fleet-table"></tbody>
+              </table>
+            </div>
+            <div class="grid-foot">
+              <span>Showing 1–6 of 184</span>
+              <button class="btn sm active">20</button><button class="btn sm">50</button><button class="btn sm">100</button>
+              <div class="pager">
+                <button class="pgbtn"><i class="ti ti-chevrons-left"></i></button>
+                <button class="pgbtn"><i class="ti ti-chevron-left"></i></button>
+                <button class="pgbtn"><i class="ti ti-chevron-right"></i></button>
+                <button class="pgbtn"><i class="ti ti-chevrons-right"></i></button>
+                <span style="padding:0 4px">Page 1 of 10</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════ INSPECTIONS ═══════ -->
+        <div id="sc-inspections" class="screen">
+          <div class="cmdstrip">
+            <button class="btn sm active" onclick="pill(this)">All</button>
+            <button class="btn sm" onclick="pill(this)">Pending sign-off</button>
+            <button class="btn sm" onclick="pill(this)">Go-but</button>
+            <button class="btn sm" onclick="pill(this)">No-go</button>
+            <button class="btn sm" onclick="pill(this)">In order</button>
+            <div class="findbox"><i class="ti ti-search"></i><input placeholder="Filter this list" oninput="filterRows('inspections-table',this.value)" /></div>
+            <span class="count">8 of 1 247</span>
+          </div>
+          <div class="panel">
+            <div class="gridwrap">
+              <table class="grid">
+                <thead>
+                  <tr>
+                    <th>Ref</th><th>Date and time</th><th>Vehicle</th><th>Operator</th><th>Company</th>
+                    <th>Shift</th><th class="num" title="In order">R</th><th class="num" title="Go-but">W</th>
+                    <th class="num" title="No-go">!</th><th>Result</th><th>Sign-off</th><th></th>
+                  </tr>
+                </thead>
+                <tbody id="inspections-table"></tbody>
+              </table>
+            </div>
+            <div class="grid-foot">
+              <span>Showing 1–8 of 1 247</span>
+              <button class="btn sm active">20</button><button class="btn sm">50</button><button class="btn sm">100</button>
+              <div class="pager">
+                <button class="pgbtn"><i class="ti ti-chevrons-left"></i></button>
+                <button class="pgbtn"><i class="ti ti-chevron-left"></i></button>
+                <button class="pgbtn"><i class="ti ti-chevron-right"></i></button>
+                <button class="pgbtn"><i class="ti ti-chevrons-right"></i></button>
+                <span style="padding:0 4px">Page 1 of 63</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════ HIERARCHY ═══════ -->
+        <div id="sc-hierarchy" class="screen">
+          <div class="grid-2">
+            <div>
+              <div class="cmdstrip">
+                <button class="btn sm active" onclick="pill(this)">Acme Mining Corp</button>
+                <button class="btn sm" onclick="pill(this)">Grootegeluk Coal</button>
+                <button class="btn sm" onclick="pill(this)">Zimele Logistics</button>
+              </div>
+              <div class="panel">
+                <div class="panel-hd">
+                  <h2>Organisation hierarchy</h2><span class="note">19 people</span>
+                  <span class="right"><button class="link" onclick="run('export')">Export</button></span>
+                </div>
+                <div class="panel-body flush" id="hierarchy-tree"></div>
+              </div>
+            </div>
+            <div>
+              <div class="panel">
+                <div class="panel-hd"><h2>Role distribution</h2></div>
+                <div class="panel-body">
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    <div style="background:var(--purple-bg);border-radius:3px;padding:11px;text-align:center">
+                      <div style="font:600 20px var(--num);color:var(--purple)">1</div>
+                      <div style="font-size:11.5px;color:var(--purple)">Administrator</div>
+                    </div>
+                    <div style="background:var(--green-bg);border-radius:3px;padding:11px;text-align:center">
+                      <div style="font:600 20px var(--num);color:var(--green)">3</div>
+                      <div style="font-size:11.5px;color:var(--green)">Safety officers</div>
+                    </div>
+                    <div style="background:var(--sel);border-radius:3px;padding:11px;text-align:center">
+                      <div style="font:600 20px var(--num);color:var(--brand-dark)">6</div>
+                      <div style="font-size:11.5px;color:var(--brand-dark)">Supervisors</div>
+                    </div>
+                    <div style="background:var(--gold-bg);border-radius:3px;padding:11px;text-align:center">
+                      <div style="font:600 20px var(--num);color:var(--gold)">9</div>
+                      <div style="font-size:11.5px;color:var(--gold)">Operators</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="panel">
+                <div class="panel-hd"><h2>Unassigned items</h2><span class="right"><span class="bdg gold">2 open</span></span></div>
+                <div class="panel-body flush">
+                  <div class="lrow">
+                    <div class="av gold"><i class="ti ti-user"></i></div>
+                    <div class="ri">
+                      <div class="n">3 operators without a supervisor</div>
+                      <div class="s">Acme Mining Corp</div>
+                    </div>
+                    <button class="btn sm" onclick="run('assignSupervisor')">Assign</button>
+                  </div>
+                  <div class="lrow">
+                    <div class="av gold"><i class="ti ti-truck"></i></div>
+                    <div class="ri">
+                      <div class="n">8 vehicles unassigned</div>
+                      <div class="s">Platform-wide</div>
+                    </div>
+                    <button class="btn sm" onclick="run('assignVehicle')">Assign</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════ COMPLIANCE ═══════ -->
+        <div id="sc-compliance" class="screen">
+          <div class="grid-3">
+            <div class="tile">
+              <div class="tile-val" style="color:var(--green)">98.2%</div>
+              <div class="tile-lbl">Platform compliance rate</div>
+              <div class="tile-trend t-up"><i class="ti ti-trending-up"></i> Up 1.3% on last month</div>
+            </div>
+            <div class="tile">
+              <div class="tile-val" style="color:var(--gold)">2</div>
+              <div class="tile-lbl">Companies below threshold</div>
+              <div class="tile-trend t-warn"><i class="ti ti-alert-circle"></i> Below the 90% target</div>
+            </div>
+            <div class="tile">
+              <div class="tile-val" style="color:var(--red)">7</div>
+              <div class="tile-lbl">Open no-go defects</div>
+              <div class="tile-trend t-dn"><i class="ti ti-trending-down"></i> Vehicles grounded</div>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="panel">
+              <div class="panel-hd">
+                <h2>COF expiry alerts</h2>
+                <span class="right"><span class="bdg gold">14 expiring soon</span></span>
+              </div>
+              <div class="panel-body flush" id="cof-rows"></div>
+            </div>
+            <div class="panel">
+              <div class="panel-hd">
+                <h2>Go-but items aging</h2><span class="note">30-day rule</span>
+                <span class="right"><button class="link" onclick="run('export')">Export report</button></span>
+              </div>
+              <div class="panel-body flush" id="gobut-rows"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════ AUDIT ═══════ -->
+        <div id="sc-audit" class="screen">
+          <div class="cmdstrip">
+            <button class="btn sm active" onclick="pill(this)">All actions</button>
+            <button class="btn sm" onclick="pill(this)">Assignments</button>
+            <button class="btn sm" onclick="pill(this)">User actions</button>
+            <button class="btn sm" onclick="pill(this)">Inspections</button>
+            <button class="btn sm" onclick="pill(this)">Warnings</button>
+            <div class="findbox"><i class="ti ti-search"></i><input placeholder="Filter this list" oninput="filterRows('audit-table',this.value)" /></div>
+            <button class="btn sm" onclick="run('export')"><i class="ti ti-download"></i> Export</button>
+          </div>
+          <div class="panel">
+            <div class="gridwrap">
+              <table class="grid">
+                <thead>
+                  <tr><th style="width:34px"></th><th>Action</th><th>Context</th><th>When</th></tr>
+                </thead>
+                <tbody id="audit-table"></tbody>
+              </table>
+            </div>
+            <div class="grid-foot">
+              <span>Append-only · 7-year retention</span>
+              <span class="pager">Showing the last 8 entries</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════ COMPANY PROFILE ═══════ -->
+        <div id="sc-profile" class="screen">
+          <div class="dochead">
+            <div class="mark">
+              <svg width="34" height="34" viewBox="0 0 90 90">
+                <polygon points="8,80 36,10 52,10 36,46" fill="#fff" opacity=".9" />
+                <polygon points="82,80 52,46 52,10 95,80" fill="#93C5FD" opacity=".95" />
+                <polygon points="36,46 52,10 44,28" fill="#CFE4FA" />
+              </svg>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:21px;font-weight:600;letter-spacing:-.3px">Acme Mining Corp</div>
+              <div style="font-size:12.5px;color:var(--text3);margin-top:2px">Trading as Acme Corp · Registration 2018/123456/07</div>
+              <div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">
+                <span class="bdg blue">Mining</span>
+                <span class="bdg green">Active</span>
+                <span class="bdg purple">Pro plan</span>
+                <span class="bdg grey">51–200 employees</span>
+              </div>
+              <div class="strip">
+                <div><div class="v">18</div><div class="l">Users</div></div>
+                <div><div class="v">24</div><div class="l">Vehicles</div></div>
+                <div><div class="v">98.2%</div><div class="l">Compliance</div></div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-shrink:0">
+              <button class="btn" onclick="run('editCompany')"><i class="ti ti-pencil"></i> Edit</button>
+              <button class="btn primary" onclick="run('export')"><i class="ti ti-download"></i> Export</button>
+            </div>
+          </div>
+
+          <div style="background:#fff;border:1px solid var(--stroke);border-radius:0 0 4px 4px;margin-bottom:14px">
+            <div class="doctabs">
+              <button class="doctab on" onclick="docTab(0,this)">Overview</button>
+              <button class="doctab" onclick="docTab(1,this)">Team</button>
+              <button class="doctab" onclick="docTab(2,this)">Fleet</button>
+              <button class="doctab" onclick="docTab(3,this)">Inspections</button>
+              <button class="doctab" onclick="docTab(4,this)">Modules</button>
+              <button class="doctab" onclick="docTab(5,this)">Settings</button>
+            </div>
+
+            <div class="docpanel on" id="dp0">
+              <div style="padding:16px 18px;display:grid;grid-template-columns:repeat(3,1fr);gap:24px">
+                <div>
+                  <div class="sec-head">Company information</div>
+                  <div class="kv"><span class="k">Registration no.</span><span class="v">2018/123456/07</span></div>
+                  <div class="kv"><span class="k">VAT number</span><span class="v">4890123456</span></div>
+                  <div class="kv"><span class="k">Company type</span><span class="v">Private company (Pty) Ltd</span></div>
+                  <div class="kv"><span class="k">Operating region</span><span class="v">Limpopo · Gauteng</span></div>
+                  <div class="kv"><span class="k">Registered</span><span class="v">12 Mar 2024</span></div>
+                </div>
+                <div>
+                  <div class="sec-head">Contact details</div>
+                  <div class="kv"><span class="k">Physical address</span><span class="v">123 Mine Road, Lephalale, Limpopo, 0555</span></div>
+                  <div class="kv"><span class="k">Phone</span><span class="v">+27 14 763 0100</span></div>
+                  <div class="kv"><span class="k">Email</span><span class="v" style="color:var(--brand-dark)">info@acmecorp.co.za</span></div>
+                  <div class="kv"><span class="k">Website</span><span class="v" style="color:var(--brand-dark)">www.acmecorp.co.za</span></div>
+                </div>
+                <div>
+                  <div class="sec-head">Administrator</div>
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+                    <div class="av lg purple">KM</div>
+                    <div>
+                      <div style="font-size:13.5px;font-weight:600">Kobus van der Merwe</div>
+                      <div style="font-size:12px;color:var(--text3)">Fleet Manager</div>
+                      <div style="font-size:12px;color:var(--brand-dark)">admin@acmecorp.co.za</div>
+                    </div>
+                  </div>
+                  <div class="sec-head">Statistics</div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    <div style="background:var(--pane);border:1px solid var(--stroke);border-radius:3px;padding:9px;text-align:center">
+                      <div style="font:600 17px var(--num)">142</div>
+                      <div style="font-size:10.5px;color:var(--text3)">Inspections / month</div>
+                    </div>
+                    <div style="background:var(--green-bg);border-radius:3px;padding:9px;text-align:center">
+                      <div style="font:600 17px var(--num);color:var(--green)">0</div>
+                      <div style="font-size:10.5px;color:var(--green)">Open defects</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="docpanel" id="dp1">
+              <div class="cmdstrip" style="border-left:none;border-right:none;border-radius:0">
+                <span class="bdg purple">Administrator ×1</span>
+                <span class="bdg green">Safety officer ×3</span>
+                <span class="bdg blue">Supervisor ×6</span>
+                <span class="bdg gold">Operator ×9</span>
+                <span class="count"><button class="btn sm primary" onclick="openDlg('dlg-user')"><i class="ti ti-user-plus"></i> Add user</button></span>
+              </div>
+              <div class="gridwrap">
+                <table class="grid">
+                  <thead>
+                    <tr><th>User</th><th>Role</th><th>Reports to</th><th>Vehicle</th><th>Status</th><th>Last active</th><th></th></tr>
+                  </thead>
+                  <tbody id="cp-team-table"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="docpanel" id="dp2">
+              <div class="cmdstrip" style="border-left:none;border-right:none;border-radius:0">
+                <span style="font-size:12.5px;color:var(--text2)">24 vehicles registered to this company</span>
+                <span class="count"><button class="btn sm primary" onclick="openDlg('dlg-vehicle')"><i class="ti ti-plus"></i> Add vehicle</button></span>
+              </div>
+              <div class="gridwrap">
+                <table class="grid">
+                  <thead>
+                    <tr><th>Plate</th><th>Make and model</th><th class="num">Year</th><th>Assigned to</th><th>Supervisor</th><th>Last inspection</th><th>Status</th><th></th></tr>
+                  </thead>
+                  <tbody id="cp-fleet-table"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="docpanel" id="dp3">
+              <div class="gridwrap">
+                <table class="grid">
+                  <thead>
+                    <tr><th>Ref</th><th>Date</th><th>Vehicle</th><th>Operator</th><th>Result</th><th>Sign-off</th></tr>
+                  </thead>
+                  <tbody id="cp-insp-table"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="docpanel" id="dp4">
+              <div style="padding:16px 18px">
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:16px" id="cp-modules"></div>
+                <div style="background:var(--pane);border:1px solid var(--stroke);border-radius:4px;padding:12px 14px">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+                    <span style="font-size:13px;font-weight:600">Pro plan · R 2 499 per month</span>
+                    <span class="bdg green">Active</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Renews 18 Jul 2026 · 3 of 8 modules active</div>
+                  <button class="btn primary" onclick="run('upgrade')"><i class="ti ti-rocket"></i> Upgrade to Enterprise</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="docpanel" id="dp5">
+              <div style="padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:18px">
+                <div>
+                  <div class="sec-head">General settings</div>
+                  <div style="border:1px solid var(--stroke);border-radius:4px;overflow:hidden">
+                    <div class="lrow"><i class="ti ti-pencil" style="font-size:16px;color:var(--text2)"></i>
+                      <div class="ri"><div class="n">Edit company profile</div></div><i class="ti ti-chevron-right" style="color:var(--text3)"></i>
+                    </div>
+                    <div class="lrow"><i class="ti ti-bell" style="font-size:16px;color:var(--text2)"></i>
+                      <div class="ri"><div class="n">Notifications</div></div><span class="bdg green">On</span>
+                    </div>
+                    <div class="lrow"><i class="ti ti-lock" style="font-size:16px;color:var(--text2)"></i>
+                      <div class="ri"><div class="n">Security and access</div></div><i class="ti ti-chevron-right" style="color:var(--text3)"></i>
+                    </div>
+                    <div class="lrow"><i class="ti ti-file-certificate" style="font-size:16px;color:var(--text2)"></i>
+                      <div class="ri"><div class="n">Compliance documents</div></div><i class="ti ti-chevron-right" style="color:var(--text3)"></i>
+                    </div>
+                    <div class="lrow"><i class="ti ti-receipt" style="font-size:16px;color:var(--text2)"></i>
+                      <div class="ri"><div class="n">Billing and invoices</div></div><i class="ti ti-chevron-right" style="color:var(--text3)"></i>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div class="sec-head">Danger zone</div>
+                  <div style="background:var(--red-bg);border:1px solid #F3B9BF;border-radius:4px;padding:12px 14px">
+                    <div style="font-size:13px;font-weight:600;color:var(--red);margin-bottom:4px">Delete company account</div>
+                    <div style="font-size:12px;color:#7A1620;margin-bottom:12px;line-height:1.5">Permanently removes all data, users and fleet records for this company. This cannot be undone.</div>
+                    <button class="btn danger" onclick="run('deleteCompany')"><i class="ti ti-trash"></i> Delete account</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════ REPORTS ═══════ -->
+        <div id="sc-reports" class="screen">
+          <div class="infobar">
+            <i class="ti ti-info-circle"></i>
+            <span>Reports run against the selected company in the navigation pane and the current period. Output is PDF unless you export to CSV from the ribbon.</span>
+          </div>
+          <div class="grid-3" id="report-cards"></div>
+          <div class="panel">
+            <div class="panel-hd"><h2>Recently generated</h2><span class="note">last 7 days</span></div>
+            <div class="gridwrap">
+              <table class="grid">
+                <thead><tr><th>Report</th><th>Scope</th><th>Requested by</th><th>Generated</th><th>Format</th><th></th></tr></thead>
+                <tbody id="recent-reports"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════ ANALYTICS ═══════ -->
+        <div id="sc-analytics" class="screen">
+          <div class="grid-4">
+            <div class="tile">
+              <div class="tile-val">1 247</div>
+              <div class="tile-lbl">Total inspections</div>
+              <div class="tile-trend t-up"><i class="ti ti-trending-up"></i> This month</div>
+            </div>
+            <div class="tile">
+              <div class="tile-val" style="color:var(--green)">98.2%</div>
+              <div class="tile-lbl">Pass rate</div>
+              <div class="tile-trend t-up"><i class="ti ti-trending-up"></i> Up 1.3%</div>
+            </div>
+            <div class="tile">
+              <div class="tile-val" style="color:var(--gold)">87</div>
+              <div class="tile-lbl">Go-but items open</div>
+              <div class="tile-trend t-warn"><i class="ti ti-alert-circle"></i> 23 aging past 20 days</div>
+            </div>
+            <div class="tile">
+              <div class="tile-val" style="color:var(--red)">7</div>
+              <div class="tile-lbl">No-go defects</div>
+              <div class="tile-trend t-dn"><i class="ti ti-trending-down"></i> Vehicles grounded</div>
+            </div>
+          </div>
+          <div class="infobar">
+            <i class="ti ti-bulb"></i>
+            <span>Top performer is <strong>Acme Mining Corp</strong> at 98.2%. The most common go-but item across the platform is <strong>windows and wipers</strong> at 34%. Inspections peak on Monday mornings, the first shift of the week.</span>
+          </div>
+          <div class="grid-2">
+            <div class="panel">
+              <div class="panel-hd"><h2>Inspection results — June 2026</h2></div>
+              <div class="panel-body">
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+                  <div style="text-align:center;background:var(--green-bg);border-radius:3px;padding:10px">
+                    <div style="font:600 20px var(--num);color:var(--green)">1 054</div>
+                    <div style="font-size:11px;color:var(--green)">In order</div>
+                  </div>
+                  <div style="text-align:center;background:var(--gold-bg);border-radius:3px;padding:10px">
+                    <div style="font:600 20px var(--num);color:var(--gold)">168</div>
+                    <div style="font-size:11px;color:var(--gold)">Go-but</div>
+                  </div>
+                  <div style="text-align:center;background:var(--red-bg);border-radius:3px;padding:10px">
+                    <div style="font:600 20px var(--num);color:var(--red)">25</div>
+                    <div style="font-size:11px;color:var(--red)">No-go</div>
+                  </div>
+                  <div style="text-align:center;background:var(--pane);border:1px solid var(--stroke);border-radius:3px;padding:10px">
+                    <div style="font:600 20px var(--num);color:var(--text3)">—</div>
+                    <div style="font-size:11px;color:var(--text3)">Missed</div>
+                  </div>
+                </div>
+                <div id="analytics-bars"></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-hd"><h2>Go-but items by category</h2><span class="note">platform-wide</span></div>
+              <div class="panel-body" id="category-bars"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════ SETTINGS ═══════ -->
+        <div id="sc-settings" class="screen">
+          <div class="grid-2">
+            <div class="panel">
+              <div class="panel-hd"><h2>Platform settings</h2></div>
+              <div class="panel-body">
+                <div class="field"><div class="field-lbl">Platform name</div><input class="inp" value="SafeNexus ERP" /></div>
+                <div class="field"><div class="field-lbl">Support email</div><input class="inp" type="email" value="support@safenexus.co.za" /></div>
+                <div class="row-2">
+                  <div class="field"><div class="field-lbl">Default timezone</div>
+                    <select class="inp"><option>Africa/Johannesburg (SAST)</option><option>Africa/Windhoek (CAT)</option></select>
+                  </div>
+                  <div class="field"><div class="field-lbl">Date format</div>
+                    <select class="inp"><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option><option>YYYY-MM-DD</option></select>
+                  </div>
+                </div>
+                <button class="btn primary" onclick="run('saveSettings')"><i class="ti ti-check"></i> Save settings</button>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-hd"><h2>Security and access</h2></div>
+              <div class="panel-body">
+                <div class="row-2">
+                  <div class="field"><div class="field-lbl">Password policy</div>
+                    <select class="inp"><option>Strong (8+ characters, number, symbol)</option><option>Standard (6+ characters)</option></select>
+                  </div>
+                  <div class="field"><div class="field-lbl">Session timeout</div>
+                    <select class="inp"><option>8 hours</option><option>4 hours</option><option>1 hour</option></select>
+                  </div>
+                </div>
+                <div class="lrow" style="cursor:default;padding-left:0;padding-right:0">
+                  <div class="ri">
+                    <div class="n">Two-factor authentication</div>
+                    <div class="s">Require 2FA on all administrator accounts</div>
+                  </div>
+                  <button class="toggle on" onclick="tog(this)"><span></span></button>
+                </div>
+                <div class="lrow" style="cursor:default;padding-left:0;padding-right:0">
+                  <div class="ri">
+                    <div class="n">Login audit logging</div>
+                    <div class="s">Record every login attempt in the audit trail</div>
+                  </div>
+                  <button class="toggle on" onclick="tog(this)"><span></span></button>
+                </div>
+                <div class="lrow" style="cursor:default;padding-left:0;padding-right:0;border-bottom:none">
+                  <div class="ri">
+                    <div class="n">Auto-ground on no-go</div>
+                    <div class="s">Take a vehicle out of service the moment a no-go defect is captured</div>
+                  </div>
+                  <button class="toggle on" onclick="tog(this)"><span></span></button>
+                </div>
+                <button class="btn primary" style="margin-top:8px" onclick="run('saveSettings')"><i class="ti ti-check"></i> Save settings</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /content -->
+    </div><!-- /workspace -->
+
+    <!-- ══════════════ STATUS BAR ══════════════ -->
+    <div class="statusbar">
+      <span>12 companies</span>
+      <span>248 users</span>
+      <span>184 vehicles</span>
+      <span>5 inspections awaiting sign-off</span>
+      <span>7 no-go defects</span>
+      <span>14 COF certificates expiring</span>
+      <span class="msg" id="status-msg">Ready</span>
+      <button onclick="run('density')"><i class="ti ti-rows-3"></i> <span id="density-lbl">Comfortable</span></button>
+      <span class="conn">SAFENEXUS-SQL01 · connected</span>
+    </div>
+
+    <!-- ══════════════ BACKSTAGE ══════════════ -->
+    <div class="backstage" id="backstage">
+      <div class="bs-rail">
+        <button onclick="closeBackstage()"><i class="ti ti-chevron-left"></i> Back</button>
+        <div style="height:12px"></div>
+        <button onclick="closeBackstage();goTab('profile')"><i class="ti ti-building"></i> Company profile</button>
+        <button onclick="closeBackstage();openDlg('dlg-user')"><i class="ti ti-user-plus"></i> New user</button>
+        <button onclick="closeBackstage();openDlg('dlg-company')"><i class="ti ti-briefcase"></i> New company</button>
+        <button onclick="closeBackstage();openDlg('dlg-vehicle')"><i class="ti ti-truck"></i> New vehicle</button>
+        <button onclick="closeBackstage();run('print')"><i class="ti ti-printer"></i> Print</button>
+        <button onclick="closeBackstage();run('export')"><i class="ti ti-download"></i> Export</button>
+        <button onclick="closeBackstage();goTab('settings')"><i class="ti ti-settings"></i> Options</button>
+        <button onclick="closeBackstage();run('about')"><i class="ti ti-info-circle"></i> About SafeNexus</button>
+      </div>
+      <div class="bs-body">
+        <h1>Platform</h1>
+        <div class="bs-cols">
+          <div>
+            <h3>Current period</h3>
+            <div class="kv"><span class="k">Period</span><span class="v">June 2026</span></div>
+            <div class="kv"><span class="k">Companies</span><span class="v">12 registered, 10 active</span></div>
+            <div class="kv"><span class="k">Users</span><span class="v">248 across all tiers</span></div>
+            <div class="kv"><span class="k">Vehicles</span><span class="v">184, 7 in maintenance</span></div>
+            <div class="kv"><span class="k">Inspections</span><span class="v">1 247 this month</span></div>
+            <div class="kv"><span class="k">Awaiting sign-off</span><span class="v">5</span></div>
+          </div>
+          <div>
+            <h3>Compliance</h3>
+            <div class="kv"><span class="k">Audit trail</span><span class="v">Append-only, 7-year retention</span></div>
+            <div class="kv"><span class="k">Privacy</span><span class="v">POPIA — consent on file</span></div>
+            <div class="kv"><span class="k">Pass rate</span><span class="v">98.2% platform-wide</span></div>
+            <div class="kv"><span class="k">COF register</span><span class="v">14 certificates expiring in 90 days</span></div>
+            <div class="kv"><span class="k">Go-but rule</span><span class="v">30-day maximum age</span></div>
+            <div class="kv"><span class="k">Last backup</span><span class="v">18 Jun 2026, 02:00</span></div>
+          </div>
+          <div>
+            <h3>Subscription</h3>
+            <div class="kv"><span class="k">Plan</span><span class="v">Pro — R 2 499 per month</span></div>
+            <div class="kv"><span class="k">Modules active</span><span class="v">3 of 8</span></div>
+            <div class="kv"><span class="k">Renews</span><span class="v">18 Jul 2026</span></div>
+            <div class="kv"><span class="k">Billing contact</span><span class="v">admin@acmecorp.co.za</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /app -->
+
+  <!-- ══════════════ DIALOGS ══════════════ -->
+  <div class="overlay" id="dlg-user" onclick="outsideClose(event,'dlg-user')">
+    <div class="dlg">
+      <div class="dlg-hd">Add user <button onclick="closeDlg('dlg-user')"><i class="ti ti-x"></i></button></div>
+      <div class="dlg-body">
+        <div class="dlg-note">The user receives an invitation email with auto-generated credentials. Operators must be linked to a supervisor before they can submit inspections.</div>
+        <div class="row-2">
+          <div class="field"><div class="field-lbl">First name</div><input class="inp" placeholder="Johan" /></div>
+          <div class="field"><div class="field-lbl">Last name</div><input class="inp" placeholder="Swart" /></div>
+        </div>
+        <div class="field"><div class="field-lbl">Email address</div><input class="inp" type="email" placeholder="johan.swart@acmecorp.co.za" /></div>
+        <div class="row-2">
+          <div class="field"><div class="field-lbl">Role</div>
+            <select class="inp"><option>Operator</option><option>Supervisor</option><option>Safety officer</option><option>Administrator</option></select>
+          </div>
+          <div class="field"><div class="field-lbl">Company</div>
+            <select class="inp"><option>Acme Mining Corp</option><option>Grootegeluk Coal</option><option>Zimele Logistics</option></select>
+          </div>
+        </div>
+        <div class="row-2">
+          <div class="field"><div class="field-lbl">Reports to</div>
+            <select class="inp"><option>P. Dlamini (Supervisor)</option><option>T. Nkosi (Safety officer)</option></select>
+          </div>
+          <div class="field"><div class="field-lbl">Assign vehicle</div>
+            <select class="inp"><option>None</option><option>GP 789 DBN — Isuzu D-Max</option><option>WC 321 CT — Nissan Navara</option></select>
+          </div>
+        </div>
+        <div class="row-2">
+          <div class="field"><div class="field-lbl">COF expiry</div><input class="inp" type="date" /></div>
+          <div class="field"><div class="field-lbl">Mobile number</div><input class="inp" placeholder="+27 82 000 0000" /></div>
+        </div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn" onclick="closeDlg('dlg-user')">Cancel</button>
+        <button class="btn primary" onclick="closeDlg('dlg-user');flash('User created. Credentials emailed automatically.')"><i class="ti ti-user-plus"></i> Add user</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="dlg-company" onclick="outsideClose(event,'dlg-company')">
+    <div class="dlg">
+      <div class="dlg-hd">Register company <button onclick="closeDlg('dlg-company')"><i class="ti ti-x"></i></button></div>
+      <div class="dlg-body">
+        <div class="dlg-note">Registering a company creates its administrator account and starts a 30-day trial on the Starter plan.</div>
+        <div class="field"><div class="field-lbl">Company name</div><input class="inp" placeholder="Acme Mining Corp" /></div>
+        <div class="row-2">
+          <div class="field"><div class="field-lbl">Registration number</div><input class="inp" placeholder="2018/123456/07" /></div>
+          <div class="field"><div class="field-lbl">VAT number</div><input class="inp" placeholder="4890123456" /></div>
+        </div>
+        <div class="row-2">
+          <div class="field"><div class="field-lbl">Industry</div>
+            <select class="inp"><option>Mining</option><option>Logistics</option><option>Construction</option><option>Agriculture</option></select>
+          </div>
+          <div class="field"><div class="field-lbl">Plan</div>
+            <select class="inp"><option>Starter</option><option>Pro</option><option>Enterprise</option></select>
+          </div>
+        </div>
+        <div class="field"><div class="field-lbl">Administrator email</div><input class="inp" type="email" placeholder="admin@acmecorp.co.za" /></div>
+        <div class="field"><div class="field-lbl">Physical address</div><textarea class="inp" rows="2" placeholder="123 Mine Road, Lephalale, Limpopo"></textarea></div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn" onclick="closeDlg('dlg-company')">Cancel</button>
+        <button class="btn primary" onclick="closeDlg('dlg-company');flash('Company registered. Administrator credentials sent.')"><i class="ti ti-building-plus"></i> Register</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="dlg-vehicle" onclick="outsideClose(event,'dlg-vehicle')">
+    <div class="dlg">
+      <div class="dlg-hd">Add vehicle <button onclick="closeDlg('dlg-vehicle')"><i class="ti ti-x"></i></button></div>
+      <div class="dlg-body">
+        <div class="dlg-note">A vehicle must pass a pre-use inspection before it can be assigned to an operator.</div>
+        <div class="row-2">
+          <div class="field"><div class="field-lbl">Registration plate</div><input class="inp" placeholder="CA 123 GP" /></div>
+          <div class="field"><div class="field-lbl">Year</div><input class="inp" type="number" placeholder="2024" /></div>
+        </div>
+        <div class="row-2">
+          <div class="field"><div class="field-lbl">Make</div><input class="inp" placeholder="Toyota" /></div>
+          <div class="field"><div class="field-lbl">Model</div><input class="inp" placeholder="Hilux" /></div>
+        </div>
+        <div class="row-2">
+          <div class="field"><div class="field-lbl">Company</div>
+            <select class="inp"><option>Acme Mining Corp</option><option>Grootegeluk Coal</option><option>Zimele Logistics</option></select>
+          </div>
+          <div class="field"><div class="field-lbl">Current odometer</div><input class="inp" type="number" placeholder="0" /></div>
+        </div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn" onclick="closeDlg('dlg-vehicle')">Cancel</button>
+        <button class="btn primary" onclick="closeDlg('dlg-vehicle');flash('Vehicle added to the fleet.')"><i class="ti ti-truck"></i> Add vehicle</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toastwrap" id="toastwrap"></div>
+
+  <script>
+    /* ═══════════════ DATA ═══════════════ */
+    var COMPANIES = [
+      { name: 'Acme Mining Corp', init: 'AM', industry: 'Mining', users: 18, vehicles: 24, compliance: 98.2, plan: 'Pro', status: 'Active', date: '12 Mar 2024' },
+      { name: 'Grootegeluk Coal', init: 'GC', industry: 'Mining', users: 34, vehicles: 48, compliance: 96.7, plan: 'Enterprise', status: 'Active', date: '5 Jan 2024' },
+      { name: 'Zimele Logistics', init: 'ZL', industry: 'Logistics', users: 12, vehicles: 18, compliance: 88.4, plan: 'Starter', status: 'Active', date: '2 Jun 2024' },
+      { name: 'BHP Construction', init: 'BC', industry: 'Construction', users: 28, vehicles: 32, compliance: 92.1, plan: 'Pro', status: 'Active', date: '19 Feb 2024' },
+      { name: 'Khumalo Agri', init: 'KA', industry: 'Agriculture', users: 8, vehicles: 11, compliance: 84.3, plan: 'Starter', status: 'Trial', date: '10 Jun 2026' },
+      { name: 'Matome Transport', init: 'MT', industry: 'Logistics', users: 22, vehicles: 29, compliance: 94.8, plan: 'Pro', status: 'Active', date: '30 Nov 2023' }
+    ];
+    var USERS = [
+      { name: 'Johan Swart', init: 'JS', role: 'Operator', co: 'Acme Mining Corp', reports: 'P. Dlamini', vehicle: 'CA 123 GP', cof: '14 Dec 2026', insps: 47, status: 'Active', type: 'gold' },
+      { name: 'Priya Dlamini', init: 'PD', role: 'Supervisor', co: 'Acme Mining Corp', reports: 'T. Nkosi', vehicle: 'JHB 456 GP', cof: '30 Jun 2026', insps: 0, status: 'Active', type: 'blue' },
+      { name: 'Thabo Nkosi', init: 'TN', role: 'Safety officer', co: 'Acme Mining Corp', reports: 'K. van der Merwe', vehicle: 'GP 789 DBN', cof: '01 Mar 2027', insps: 0, status: 'Active', type: 'green' },
+      { name: 'Kobus van der Merwe', init: 'KM', role: 'Administrator', co: 'Acme Mining Corp', reports: '—', vehicle: '—', cof: 'N/A', insps: 0, status: 'Active', type: 'purple' },
+      { name: 'Lindiwe Mokoena', init: 'LM', role: 'Operator', co: 'Acme Mining Corp', reports: 'P. Dlamini', vehicle: 'WC 321 CT', cof: '22 Sep 2026', insps: 31, status: 'Active', type: 'gold' },
+      { name: 'B. Pietersen', init: 'BP', role: 'Operator', co: 'Grootegeluk Coal', reports: 'V. Molefe', vehicle: '—', cof: '14 Aug 2026', insps: 58, status: 'Active', type: 'gold' },
+      { name: 'V. Molefe', init: 'VM', role: 'Supervisor', co: 'Grootegeluk Coal', reports: 'S. Mahlangu', vehicle: 'DBN 001 NP', cof: 'N/A', insps: 0, status: 'Active', type: 'blue' },
+      { name: 'M. Dube', init: 'MD', role: 'Operator', co: 'Zimele Logistics', reports: 'C. Langa', vehicle: 'GP 112 ZL', cof: '05 Nov 2026', insps: 22, status: 'Active', type: 'gold' }
+    ];
+    var FLEET = [
+      { plate: 'CA 123 GP', make: 'Toyota Hilux', year: 2022, co: 'Acme Mining Corp', driver: 'J. Swart', sup: 'P. Dlamini', lastInsp: 'Today 06:15', km: '69 698', status: 'Assigned' },
+      { plate: 'JHB 456 GP', make: 'Ford Ranger', year: 2023, co: 'Acme Mining Corp', driver: 'L. Mokoena', sup: 'P. Dlamini', lastInsp: 'Today 07:00', km: '41 230', status: 'Assigned' },
+      { plate: 'GP 789 DBN', make: 'Isuzu D-Max', year: 2021, co: 'Acme Mining Corp', driver: '—', sup: '—', lastInsp: '17 Jun', km: '88 102', status: 'Available' },
+      { plate: 'WC 321 CT', make: 'Nissan Navara', year: 2022, co: 'Acme Mining Corp', driver: '—', sup: '—', lastInsp: '17 Jun (No-go)', km: '54 772', status: 'Maintenance' },
+      { plate: 'DBN 001 NP', make: 'Toyota Land Cruiser', year: 2020, co: 'Grootegeluk Coal', driver: 'B. Pietersen', sup: 'V. Molefe', lastInsp: 'Today 05:50', km: '124 300', status: 'Assigned' },
+      { plate: 'GP 112 ZL', make: 'Toyota Hilux', year: 2023, co: 'Zimele Logistics', driver: 'M. Dube', sup: 'C. Langa', lastInsp: '17 Jun', km: '18 900', status: 'Assigned' }
+    ];
+    var INSPECTIONS = [
+      { ref: '2120352', date: 'Today 06:15', vehicle: 'CA 123 GP', op: 'J. Swart', co: 'Acme Mining Corp', shift: 'Day A', ok: 20, go: 3, ng: 0, result: 'go-but', signed: true },
+      { ref: '2120351', date: 'Today 05:50', vehicle: 'DBN 001 NP', op: 'B. Pietersen', co: 'Grootegeluk Coal', shift: 'Day B', ok: 23, go: 0, ng: 0, result: 'in-order', signed: true },
+      { ref: '2120350', date: 'Today 07:00', vehicle: 'JHB 456 GP', op: 'L. Mokoena', co: 'Acme Mining Corp', shift: 'Day A', ok: 22, go: 1, ng: 0, result: 'go-but', signed: false },
+      { ref: '2120349', date: 'Yesterday 13:55', vehicle: 'CA 123 GP', op: 'J. Swart', co: 'Acme Mining Corp', shift: 'Aft A', ok: 23, go: 0, ng: 0, result: 'in-order', signed: true },
+      { ref: '2120348', date: 'Yesterday 06:08', vehicle: 'CA 123 GP', op: 'J. Swart', co: 'Acme Mining Corp', shift: 'Day A', ok: 23, go: 0, ng: 0, result: 'in-order', signed: true },
+      { ref: '2120347', date: 'Yesterday 05:50', vehicle: 'DBN 001 NP', op: 'B. Pietersen', co: 'Grootegeluk Coal', shift: 'Day B', ok: 21, go: 2, ng: 0, result: 'go-but', signed: false },
+      { ref: '2120345', date: 'Yesterday 21:30', vehicle: 'WC 321 CT', op: 'L. Mokoena', co: 'Acme Mining Corp', shift: 'Night B', ok: 20, go: 0, ng: 1, result: 'no-go', signed: false },
+      { ref: '2120340', date: '16 Jun 06:22', vehicle: 'CA 123 GP', op: 'J. Swart', co: 'Acme Mining Corp', shift: 'Day A', ok: 21, go: 2, ng: 0, result: 'go-but', signed: true }
+    ];
+    var AUDIT = [
+      { type: 'assign', text: '<strong>T. Nkosi</strong> (Safety officer) assigned <strong>CA 123 GP</strong> to operator <strong>J. Swart</strong> under supervisor P. Dlamini', meta: 'Acme Mining Corp · Performed by Thabo Nkosi', time: '09:14' },
+      { type: 'user', text: '<strong>Admin</strong> added <strong>L. Mokoena</strong> as operator — invitation sent with auto-generated credentials', meta: 'Acme Mining Corp · Performed by K. van der Merwe', time: '08:55' },
+      { type: 'insp', text: '<strong>J. Swart</strong> submitted inspection <strong>#2120352</strong> for CA 123 GP — Go-but (W×3)', meta: 'Acme Mining Corp · Pre-use inspection', time: '06:15' },
+      { type: 'unassign', text: '<strong>T. Nkosi</strong> (Safety officer) unassigned <strong>WC 321 CT</strong> from operator B. Pietersen — reason: scheduled maintenance', meta: 'Acme Mining Corp · Performed by Thabo Nkosi', time: 'Yesterday 16:40' },
+      { type: 'warn', text: '<strong>System</strong> grounded vehicle <strong>WC 321 CT</strong> — no-go defect detected on inspection #2120345', meta: 'Acme Mining Corp · Automatic action', time: 'Yesterday 21:31' },
+      { type: 'assign', text: '<strong>T. Nkosi</strong> assigned <strong>JHB 456 GP</strong> to operator <strong>L. Mokoena</strong> under supervisor P. Dlamini', meta: 'Acme Mining Corp · Performed by Thabo Nkosi', time: 'Yesterday 14:22' },
+      { type: 'user', text: '<strong>Admin</strong> assigned supervisor <strong>P. Dlamini</strong> under safety officer <strong>T. Nkosi</strong>', meta: 'Acme Mining Corp · Hierarchy change', time: '2 days ago' },
+      { type: 'insp', text: '<strong>B. Pietersen</strong> submitted inspection <strong>#2120347</strong> for DBN 001 NP — Go-but (W×2)', meta: 'Grootegeluk Coal · Pre-use inspection', time: 'Yesterday 05:51' }
+    ];
+    var NAV_COMPANIES = [
+      { key: 'ALL', name: 'All companies', n: 12 },
+      { key: 'AM', name: 'Acme Mining Corp', n: 18 },
+      { key: 'GC', name: 'Grootegeluk Coal', n: 34 },
+      { key: 'ZL', name: 'Zimele Logistics', n: 12 },
+      { key: 'BC', name: 'BHP Construction', n: 28 },
+      { key: 'KA', name: 'Khumalo Agri', n: 8 }
+    ];
+    var JUMPS = [
+      ['Awaiting sign-off', 'ti-clipboard-check', 'goto:inspections'],
+      ['Grounded vehicles', 'ti-alert-triangle', 'goto:fleet'],
+      ['COF expiring', 'ti-certificate', 'goto:compliance'],
+      ['Unassigned operators', 'ti-user-off', 'goto:hierarchy'],
+      ['Audit trail', 'ti-history', 'goto:audit']
+    ];
+
+    /* ═══════════════ RIBBON DEFINITION ═══════════════ */
+    var TABS = [
+      { key: 'dashboard', label: 'Dashboard' }, { key: 'companies', label: 'Companies' },
+      { key: 'users', label: 'Users' }, { key: 'fleet', label: 'Fleet' },
+      { key: 'inspections', label: 'Inspections' }, { key: 'hierarchy', label: 'Hierarchy' },
+      { key: 'compliance', label: 'Compliance' }, { key: 'audit', label: 'Audit log' },
+      { key: 'profile', label: 'Company profile' }, { key: 'reports', label: 'Reports' },
+      { key: 'analytics', label: 'Analytics' }, { key: 'settings', label: 'Settings' },
+      { key: 'view', label: 'View' }
+    ];
+
+    var RIBBON = {
+      dashboard: [
+        { label: 'Period', lg: [['ti-refresh', 'Refresh\ndata', 'refresh'], ['ti-calendar-plus', 'Change\nperiod', 'period']], sm: [['ti-building', 'Company roll-up', 'goto:companies'], ['ti-gauge', 'Targets', 'targets'], ['ti-bell', 'Alert rules', 'alerts']] },
+        { label: 'Go to', lg: [['ti-users', 'Users', 'goto:users'], ['ti-truck', 'Fleet', 'goto:fleet']], sm: [['ti-clipboard-check', 'Inspections', 'goto:inspections'], ['ti-shield-check', 'Compliance', 'goto:compliance'], ['ti-history', 'Audit log', 'goto:audit']] },
+        { label: 'Share', lg: [['ti-printer', 'Print\nboard', 'print']], sm: [['ti-download', 'Export CSV', 'export'], ['ti-mail', 'Email board', 'email'], ['ti-share', 'Send to company', 'email']] }
+      ],
+      companies: [
+        { label: 'Register', lg: [['ti-building-plus', 'Register\ncompany', 'dlg:dlg-company'], ['ti-pencil', 'Edit\ncompany', 'editCompany']], sm: [['ti-id-badge', 'Open profile', 'goto:profile'], ['ti-players', 'Manage team', 'goto:users'], ['ti-circle-x', 'Suspend company', 'suspend']] },
+        { label: 'Subscription', lg: [['ti-award', 'Change\nplan', 'upgrade']], sm: [['ti-apps', 'Modules', 'goto:profile'], ['ti-receipt', 'Billing history', 'billing'], ['ti-credit-card', 'Payment method', 'billing']] },
+        { label: 'Output', lg: [['ti-printer', 'Print\nregister', 'print']], sm: [['ti-download', 'Export CSV', 'export'], ['ti-filter-off', 'Clear filters', 'clearFilters']] }
+      ],
+      users: [
+        { label: 'People', lg: [['ti-user-plus', 'New\nuser', 'dlg:dlg-user'], ['ti-pencil', 'Edit\nuser', 'editUser']], sm: [['ti-lock', 'Reset password', 'resetPassword'], ['ti-shield-check', 'Enforce 2FA', 'enforceMfa'], ['ti-user-off', 'Disable user', 'disableUser']] },
+        { label: 'Assignment', lg: [['ti-car', 'Assign\nvehicle', 'assignVehicle'], ['ti-sitemap', 'Change\nsupervisor', 'assignSupervisor']], sm: [['ti-car-off', 'Unassign vehicle', 'unassignVehicle'], ['ti-users-group', 'Bulk assign', 'bulkAssign'], ['ti-hierarchy', 'Open hierarchy', 'goto:hierarchy']] },
+        { label: 'Certificates', lg: [['ti-certificate', 'COF\nregister', 'goto:compliance']], sm: [['ti-calendar-event', 'Expiry reminders', 'alerts'], ['ti-upload', 'Upload certificate', 'upload']] },
+        { label: 'Output', lg: [['ti-printer', 'Print\nlist', 'print']], sm: [['ti-download', 'Export CSV', 'export'], ['ti-mail', 'Email selected', 'email']] }
+      ],
+      fleet: [
+        { label: 'Vehicles', lg: [['ti-truck', 'New\nvehicle', 'dlg:dlg-vehicle'], ['ti-car', 'Assign to\noperator', 'assignVehicle']], sm: [['ti-pencil', 'Edit vehicle', 'editVehicle'], ['ti-gas-station', 'Log fuel', 'logFuel'], ['ti-gauge', 'Update odometer', 'logOdo']] },
+        { label: 'Maintenance', lg: [['ti-tool', 'Book\nservice', 'bookService'], ['ti-alert-triangle', 'Ground\nvehicle', 'ground']], sm: [['ti-list-check', 'Service due list', 'serviceDue'], ['ti-file-certificate', 'Licence renewals', 'licences'], ['ti-rotate', 'Return to service', 'returnService']] },
+        { label: 'Inspection', lg: [['ti-clipboard-check', 'Pre-use\ncheck', 'goto:inspections']], sm: [['ti-eye', 'Inspection history', 'goto:inspections'], ['ti-alert-circle', 'Raise defect', 'raiseDefect'], ['ti-printer', 'Print sheet', 'print']] },
+        { label: 'Analyse', lg: [['ti-chart-bar', 'Fleet\nreport', 'goto:reports']], sm: [['ti-download', 'Export CSV', 'export'], ['ti-printer', 'Print', 'print']] }
+      ],
+      inspections: [
+        { label: 'Review', lg: [['ti-checkbox', 'Sign\noff', 'signOff'], ['ti-eye', 'Open\ninspection', 'openInspection']], sm: [['ti-message', 'Add note', 'addNote'], ['ti-arrow-up', 'Escalate', 'escalate'], ['ti-x', 'Reject capture', 'reject']] },
+        { label: 'Defects', lg: [['ti-alert-triangle', 'No-go\ndefects', 'goto:compliance'], ['ti-clock', 'Go-but\naging', 'goto:compliance']], sm: [['ti-tool', 'Book repair', 'bookService'], ['ti-check', 'Close defect', 'closeDefect'], ['ti-car-off', 'Ground vehicle', 'ground']] },
+        { label: 'Schedule', lg: [['ti-calendar-event', 'Shift\nplan', 'shiftPlan']], sm: [['ti-bell', 'Missed inspection alerts', 'alerts'], ['ti-repeat', 'Recurring checks', 'recurring']] },
+        { label: 'Output', lg: [['ti-printer', 'Print\nregister', 'print']], sm: [['ti-download', 'Export CSV', 'export'], ['ti-mail', 'Email report', 'email']] }
+      ],
+      hierarchy: [
+        { label: 'Structure', lg: [['ti-sitemap', 'Assign\nsupervisor', 'assignSupervisor'], ['ti-user-plus', 'New\nuser', 'dlg:dlg-user']], sm: [['ti-arrows-move', 'Move under', 'moveUnder'], ['ti-user-off', 'Detach user', 'detach'], ['ti-refresh', 'Rebuild tree', 'refresh']] },
+        { label: 'Gaps', lg: [['ti-alert-circle', 'Unassigned\nitems', 'unassigned']], sm: [['ti-car', 'Assign vehicle', 'assignVehicle'], ['ti-users', 'Bulk assign', 'bulkAssign']] },
+        { label: 'Output', lg: [['ti-printer', 'Print\nchart', 'print']], sm: [['ti-download', 'Export CSV', 'export']] }
+      ],
+      compliance: [
+        { label: 'Certificates', lg: [['ti-certificate', 'COF\nregister', 'cofRegister'], ['ti-upload', 'Upload\ncertificate', 'upload']], sm: [['ti-bell', 'Expiry reminders', 'alerts'], ['ti-mail', 'Notify operator', 'email'], ['ti-calendar-plus', 'Book renewal', 'bookRenewal']] },
+        { label: 'Defects', lg: [['ti-alert-triangle', 'No-go\nregister', 'noGoRegister'], ['ti-clock', 'Go-but\naging', 'goButAging']], sm: [['ti-tool', 'Book repair', 'bookService'], ['ti-check', 'Close defect', 'closeDefect'], ['ti-rotate', 'Return to service', 'returnService']] },
+        { label: 'Assurance', lg: [['ti-shield-check', 'Compliance\nreport', 'goto:reports']], sm: [['ti-history', 'Audit trail', 'goto:audit'], ['ti-download', 'Export CSV', 'export'], ['ti-printer', 'Print', 'print']] }
+      ],
+      audit: [
+        { label: 'Trail', lg: [['ti-search', 'Search\ntrail', 'searchAudit'], ['ti-filter', 'Filter\nactions', 'filterAudit']], sm: [['ti-calendar', 'Date range', 'dateRange'], ['ti-user', 'By user', 'byUser'], ['ti-filter-off', 'Clear filters', 'clearFilters']] },
+        { label: 'Governance', lg: [['ti-file-certificate', 'Retention\npolicy', 'retention']], sm: [['ti-lock', 'Verify integrity', 'verify'], ['ti-download', 'Export audit', 'export'], ['ti-printer', 'Print', 'print']] }
+      ],
+      profile: [
+        { label: 'Company', lg: [['ti-pencil', 'Edit\nprofile', 'editCompany'], ['ti-id-badge', 'Contact\ndetails', 'editCompany']], sm: [['ti-user-plus', 'Add user', 'dlg:dlg-user'], ['ti-truck', 'Add vehicle', 'dlg:dlg-vehicle'], ['ti-upload', 'Upload documents', 'upload']] },
+        { label: 'Subscription', lg: [['ti-award', 'Change\nplan', 'upgrade'], ['ti-apps', 'Manage\nmodules', 'modules']], sm: [['ti-receipt', 'Billing and invoices', 'billing'], ['ti-credit-card', 'Payment method', 'billing'], ['ti-file-invoice', 'Download invoice', 'export']] },
+        { label: 'Output', lg: [['ti-printer', 'Print\nprofile', 'print']], sm: [['ti-download', 'Export CSV', 'export'], ['ti-mail', 'Email profile', 'email']] }
+      ],
+      reports: [
+        { label: 'Operations', lg: [['ti-clipboard-check', 'Inspection\nreport', 'report:Inspection report'], ['ti-truck', 'Fleet status\nreport', 'report:Fleet status report']], sm: [['ti-users', 'User activity', 'report:User activity report'], ['ti-sitemap', 'Hierarchy report', 'report:Hierarchy report']] },
+        { label: 'Safety', lg: [['ti-shield-check', 'Compliance\nreport', 'report:Compliance report'], ['ti-alert-triangle', 'Defect\nhistory', 'report:Defect history']], sm: [['ti-certificate', 'COF expiry', 'report:COF expiry report'], ['ti-clock', 'Go-but aging', 'report:Go-but aging report']] },
+        { label: 'Output', lg: [['ti-printer', 'Print\nreport', 'print']], sm: [['ti-download', 'Export CSV', 'export'], ['ti-mail', 'Email report', 'email'], ['ti-calendar-repeat', 'Schedule report', 'schedule']] }
+      ],
+      analytics: [
+        { label: 'Views', lg: [['ti-chart-bar', 'Results\nbreakdown', 'refresh'], ['ti-chart-dots-3', 'Trend\nanalysis', 'refresh']], sm: [['ti-percentage', 'Pass rate', 'refresh'], ['ti-clock', 'Aging profile', 'refresh'], ['ti-building', 'By company', 'refresh']] },
+        { label: 'Period', lg: [['ti-calendar-plus', 'Change\nperiod', 'period']], sm: [['ti-refresh', 'Refresh data', 'refresh'], ['ti-filter-off', 'Clear filters', 'clearFilters']] },
+        { label: 'Output', lg: [['ti-printer', 'Print\ncharts', 'print']], sm: [['ti-download', 'Export CSV', 'export'], ['ti-mail', 'Email analysis', 'email']] }
+      ],
+      settings: [
+        { label: 'Platform', lg: [['ti-settings', 'General\noptions', 'refresh'], ['ti-palette', 'Branding', 'branding']], sm: [['ti-world', 'Localisation', 'refresh'], ['ti-mail', 'Email templates', 'templates'], ['ti-plug', 'Integrations', 'integrations']] },
+        { label: 'Security', lg: [['ti-shield-lock', 'Access\npolicy', 'refresh'], ['ti-key', 'Roles and\npermissions', 'roles']], sm: [['ti-lock', 'Password policy', 'refresh'], ['ti-device-mobile', 'Two-factor', 'enforceMfa'], ['ti-history', 'Login audit', 'goto:audit']] },
+        { label: 'Data', lg: [['ti-database', 'Backups', 'backups']], sm: [['ti-download', 'Export data', 'export'], ['ti-upload', 'Import data', 'import'], ['ti-trash', 'Retention policy', 'retention']] }
+      ],
+      view: [
+        { label: 'Layout', lg: [['ti-layout-sidebar', 'Navigation\npane', 'toggleNav'], ['ti-rows-3', 'Row\ndensity', 'density']], sm: [['ti-columns-3', 'Choose columns', 'columns'], ['ti-chevrons-up', 'Collapse ribbon', 'collapse'], ['ti-maximize', 'Full screen', 'fullscreen']] },
+        { label: 'Data', lg: [['ti-refresh', 'Refresh', 'refresh']], sm: [['ti-filter-off', 'Clear filters', 'clearFilters'], ['ti-download', 'Export CSV', 'export'], ['ti-printer', 'Print', 'print']] },
+        { label: 'Window', lg: [['ti-settings', 'Options', 'goto:settings']], sm: [['ti-bell', 'Notifications', 'alerts'], ['ti-info-circle', 'About SafeNexus', 'about']] }
+      ]
+    };
+
+    var CTX = {
+      companies: ['Company tools', 'Acme Mining Corp'],
+      users: ['User tools', 'J. Swart'],
+      fleet: ['Vehicle tools', 'CA 123 GP'],
+      inspections: ['Inspection tools', '#2120352'],
+      profile: ['Company tools', 'Acme Mining Corp'],
+      compliance: ['Safety tools', 'COF register']
+    };
+
+    /* ═══════════════ SHELL STATE ═══════════════ */
+    var state = { tab: 'dashboard', company: 'ALL', collapsed: false, density: 'Comfortable' };
+
+    function buildTabs() {
+      var strip = document.getElementById('tabstrip');
+      var collapse = strip.querySelector('.collapse-btn');
+      strip.querySelectorAll('.rtab,.ctx-tab').forEach(function (n) { n.remove(); });
+      TABS.forEach(function (t) {
+        var b = document.createElement('button');
+        b.className = 'rtab' + (state.tab === t.key ? ' on' : '');
+        b.textContent = t.label;
+        b.onclick = function () { goTab(t.key); };
+        strip.insertBefore(b, collapse);
+      });
+      var ctx = CTX[state.tab];
+      if (ctx) {
+        var d = document.createElement('div');
+        d.className = 'ctx-tab';
+        d.innerHTML = '<div class="ctx-top">' + ctx[0] + '</div><div class="ctx-main">' + ctx[1] + '</div>';
+        strip.insertBefore(d, collapse);
+      }
+    }
+
+    function buildRibbon() {
+      var groups = RIBBON[state.tab] || RIBBON.dashboard;
+      document.getElementById('ribbon').innerHTML = groups.map(function (g) {
+        var lg = (g.lg || []).map(function (b) {
+          return '<button class="rbtn lg" onclick="run(\'' + b[2] + '\')"><i class="ti ' + b[0] + '"></i><span>' +
+            b[1].split('\n').map(function (l) { return '<div>' + l + '</div>'; }).join('') + '</span></button>';
+        }).join('');
+        var sm = (g.sm || []).length
+          ? '<div class="rgroup-small">' + g.sm.map(function (b) {
+              return '<button class="rbtn sm" onclick="run(\'' + b[2] + '\')"><i class="ti ' + b[0] + '"></i><span>' + b[1] + '</span></button>';
+            }).join('') + '</div>'
+          : '';
+        return '<div class="rgroup"><div class="rgroup-row">' + lg + sm + '</div><div class="rgroup-label">' + g.label + '</div></div>';
+      }).join('');
+    }
+
+    function buildNav() {
+      var jump = JUMPS.map(function (j) {
+        return '<button class="nav-item" onclick="run(\'' + j[2] + '\')"><i class="ti ' + j[1] + '"></i><span class="lbl">' + j[0] + '</span></button>';
+      }).join('');
+      document.getElementById('navpane').innerHTML =
+        '<div class="nav-head">Companies</div>' +
+        NAV_COMPANIES.map(function (c) {
+          return '<button class="nav-item' + (state.company === c.key ? ' on' : '') + '" onclick="pickCompany(\'' + c.key + '\')">' +
+            '<i class="ti ti-building"></i><span class="lbl">' + c.name + '</span><span class="cnt">' + c.n + '</span></button>';
+        }).join('') +
+        '<div class="nav-head spaced">Jump to</div>' + jump;
+    }
+
+    function pickCompany(k) {
+      state.company = k;
+      buildNav();
+      var c = NAV_COMPANIES.filter(function (x) { return x.key === k; })[0];
+      flash('Scope set to ' + c.name + '.');
+    }
+
+    function goTab(key) {
+      state.tab = key;
+      document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('active'); });
+      var sc = document.getElementById('sc-' + key);
+      if (sc) sc.classList.add('active'); else document.getElementById('sc-dashboard').classList.add('active');
+      state.collapsed = false;
+      document.getElementById('app').classList.remove('collapsed');
+      document.getElementById('collapse-ico').className = 'ti ti-chevron-up';
+      buildTabs();
+      buildRibbon();
+      document.getElementById('content').scrollTop = 0;
+      buildAll();
+    }
+
+    function toggleRibbon() {
+      state.collapsed = !state.collapsed;
+      document.getElementById('app').classList.toggle('collapsed', state.collapsed);
+      document.getElementById('collapse-ico').className = 'ti ' + (state.collapsed ? 'ti-chevron-down' : 'ti-chevron-up');
+    }
+
+    function openBackstage() { document.getElementById('backstage').classList.add('open'); }
+    function closeBackstage() { document.getElementById('backstage').classList.remove('open'); }
+    function openDlg(id) { document.getElementById(id).classList.add('open'); }
+    function closeDlg(id) { document.getElementById(id).classList.remove('open'); }
+    function outsideClose(e, id) { if (e.target.id === id) closeDlg(id); }
+
+    function flash(msg) {
+      var s = document.getElementById('status-msg');
+      s.textContent = msg;
+      s.classList.add('live');
+      clearTimeout(flash._t);
+      flash._t = setTimeout(function () { s.textContent = 'Ready'; s.classList.remove('live'); }, 4000);
+      var w = document.getElementById('toastwrap');
+      var t = document.createElement('div');
+      t.className = 'toast';
+      t.innerHTML = '<i class="ti ti-circle-check"></i><span>' + msg + '</span>';
+      w.appendChild(t);
+      setTimeout(function () { t.remove(); }, 3500);
+    }
+
+    var MESSAGES = {
+      refresh: 'Data refreshed from SAFENEXUS-SQL01.',
+      save: 'Workspace saved.',
+      undo: 'Last action undone.',
+      redo: 'Action reapplied.',
+      print: 'Sent to the print queue.',
+      export: 'Export written to CSV.',
+      email: 'Draft opened in the mail client.',
+      period: 'Period changed to June 2026.',
+      targets: 'Compliance target held at 90%.',
+      alerts: 'Alert rules opened.',
+      signOff: 'Sign-off recorded against the selected inspection.',
+      openInspection: 'Inspection #2120352 opened.',
+      addNote: 'Note added to the inspection.',
+      escalate: 'Escalated to the safety officer.',
+      reject: 'Capture rejected and returned to the operator.',
+      assignVehicle: 'Vehicle assignment dialog opened.',
+      unassignVehicle: 'Vehicle unassigned and returned to the pool.',
+      assignSupervisor: 'Supervisor assignment recorded.',
+      bulkAssign: 'Bulk assignment queued for 8 operators.',
+      moveUnder: 'User moved in the hierarchy.',
+      detach: 'User detached from the hierarchy.',
+      unassigned: '3 operators and 8 vehicles are unassigned.',
+      editUser: 'Editing the selected user.',
+      editVehicle: 'Editing the selected vehicle.',
+      editCompany: 'Editing the company profile.',
+      resetPassword: 'Password reset link emailed.',
+      enforceMfa: 'Two-factor authentication enforced for administrators.',
+      disableUser: 'User disabled and sessions revoked.',
+      suspend: 'Company suspended pending review.',
+      deleteCompany: 'Deletion requires a second administrator to approve.',
+      upgrade: 'Enterprise upgrade quote generated.',
+      modules: 'Module manager opened.',
+      billing: 'Billing and invoices opened.',
+      bookService: 'Service booked with the workshop.',
+      serviceDue: '4 vehicles are due for a service.',
+      licences: '2 licence renewals fall due this month.',
+      returnService: 'Vehicle returned to service after inspection.',
+      ground: 'Vehicle grounded and removed from the roster.',
+      raiseDefect: 'Defect raised against the vehicle.',
+      closeDefect: 'Defect closed and signed off.',
+      logFuel: 'Fuel entry captured.',
+      logOdo: 'Odometer reading updated.',
+      shiftPlan: 'Shift plan opened.',
+      recurring: 'Recurring pre-use checks configured.',
+      cofRegister: 'COF register opened — 14 expiring within 90 days.',
+      noGoRegister: '7 open no-go defects across the platform.',
+      goButAging: '23 go-but items are older than 20 days.',
+      upload: 'Document uploaded and queued for verification.',
+      bookRenewal: 'COF renewal booked.',
+      searchAudit: 'Audit search opened.',
+      filterAudit: 'Audit filter applied.',
+      dateRange: 'Date range set to the last 7 days.',
+      byUser: 'Filtered by user.',
+      verify: 'Audit chain verified — no gaps found.',
+      retention: 'Retention held at 7 years, append-only.',
+      clearFilters: 'Filters cleared.',
+      columns: 'Column chooser opened.',
+      density: '',
+      collapse: '',
+      toggleNav: '',
+      fullscreen: 'Full screen toggled.',
+      saveSettings: 'Settings saved.',
+      branding: 'Branding options opened.',
+      templates: 'Email templates opened.',
+      integrations: 'Integration catalogue opened.',
+      roles: 'Roles and permissions opened.',
+      backups: 'Last backup completed 18 Jun 2026 at 02:00.',
+      import: 'Import wizard opened.',
+      account: 'Signed in as Kobus van der Merwe (Administrator).',
+      about: 'SafeNexus ERP 2026.6 · build 4812 · SAFENEXUS-SQL01.',
+      schedule: 'Report scheduled for the first of each month.'
+    };
+
+    function run(cmd) {
+      if (cmd.indexOf('goto:') === 0) { goTab(cmd.slice(5)); return; }
+      if (cmd.indexOf('dlg:') === 0) { openDlg(cmd.slice(4)); return; }
+      if (cmd.indexOf('report:') === 0) { flash('Generating ' + cmd.slice(7).toLowerCase() + '…'); return; }
+      if (cmd === 'density') {
+        state.density = state.density === 'Comfortable' ? 'Compact' : 'Comfortable';
+        document.getElementById('density-lbl').textContent = state.density;
+        document.querySelectorAll('table.grid td').forEach(function (td) {
+          td.style.height = state.density === 'Compact' ? '28px' : '34px';
+          td.style.padding = state.density === 'Compact' ? '3px 9px' : '6px 9px';
+        });
+        flash('Row density set to ' + state.density.toLowerCase() + '.');
+        return;
+      }
+      if (cmd === 'collapse') { toggleRibbon(); return; }
+      if (cmd === 'toggleNav') {
+        var n = document.getElementById('navpane'), sp = document.getElementById('splitter');
+        var hidden = n.style.display === 'none';
+        n.style.display = hidden ? '' : 'none';
+        sp.style.display = hidden ? '' : 'none';
+        flash('Navigation pane ' + (hidden ? 'shown' : 'hidden') + '.');
+        return;
+      }
+      flash(MESSAGES[cmd] || 'Done.');
+    }
+
+    function pill(el) {
+      el.parentElement.querySelectorAll('.btn.sm').forEach(function (b) { b.classList.remove('active'); });
+      el.classList.add('active');
+    }
+
+    function docTab(n, el) {
+      el.parentElement.querySelectorAll('.doctab').forEach(function (t) { t.classList.remove('on'); });
+      el.classList.add('on');
+      document.querySelectorAll('#sc-profile .docpanel').forEach(function (p, i) { p.classList.toggle('on', i === n); });
+      buildAll();
+    }
+
+    function tog(el) { el.classList.toggle('on'); }
+
+    function filterRows(id, q) {
+      var body = document.getElementById(id);
+      if (!body) return;
+      q = q.toLowerCase();
+      var shown = 0;
+      body.querySelectorAll('tr').forEach(function (tr) {
+        var hit = tr.textContent.toLowerCase().indexOf(q) > -1;
+        tr.style.display = hit ? '' : 'none';
+        if (hit) shown++;
+      });
+      var strip = body.closest('.panel').previousElementSibling;
+      if (strip && strip.classList.contains('cmdstrip')) {
+        var c = strip.querySelector('.count');
+        if (c) c.textContent = shown + ' of ' + body.querySelectorAll('tr').length;
+      }
+    }
+
+    function selectRow(tr) {
+      var body = tr.parentElement;
+      body.querySelectorAll('tr').forEach(function (r) { r.classList.remove('sel'); });
+      tr.classList.add('sel');
+    }
+
+    /* ═══════════════ RENDERERS ═══════════════ */
+    function resultBdg(r) {
+      if (r === 'go-but') return '<span class="bdg gold">Go-but</span>';
+      if (r === 'no-go') return '<span class="bdg red">No-go</span>';
+      if (r === 'in-order') return '<span class="bdg green">In order</span>';
+      return '<span class="bdg grey">Pending</span>';
+    }
+    function statusBdg(s) {
+      if (s === 'Active') return '<span class="bdg green">Active</span>';
+      if (s === 'Trial') return '<span class="bdg gold">Trial</span>';
+      if (s === 'Suspended') return '<span class="bdg red">Suspended</span>';
+      return '<span class="bdg grey">' + s + '</span>';
+    }
+    function vehicleBdg(s) {
+      if (s === 'Assigned') return '<span class="bdg green">Assigned</span>';
+      if (s === 'Available') return '<span class="bdg gold">Available</span>';
+      if (s === 'Maintenance') return '<span class="bdg red">Maintenance</span>';
+      return '<span class="bdg grey">' + s + '</span>';
+    }
+    function roleBdg(r) {
+      if (r === 'Administrator') return '<span class="bdg purple">' + r + '</span>';
+      if (r === 'Safety officer') return '<span class="bdg green">' + r + '</span>';
+      if (r === 'Supervisor') return '<span class="bdg blue">' + r + '</span>';
+      return '<span class="bdg gold">' + r + '</span>';
+    }
+    function planBdg(p) {
+      if (p === 'Enterprise') return '<span class="bdg purple">' + p + '</span>';
+      if (p === 'Pro') return '<span class="bdg blue">' + p + '</span>';
+      return '<span class="bdg grey">' + p + '</span>';
+    }
+    function meter(v) {
+      var tone = v >= 95 ? 'green' : v >= 90 ? 'gold' : 'red';
+      return '<div style="display:flex;align-items:center;gap:8px">' +
+        '<div class="meter" style="width:74px"><div class="' + tone + '" style="width:' + v + '%"></div></div>' +
+        '<span style="font-family:var(--num);font-size:12px">' + v + '%</span></div>';
+    }
+    function person(init, type, name, sub) {
+      return '<div style="display:flex;align-items:center;gap:9px"><div class="av ' + type + '">' + init + '</div><div style="min-width:0">' +
+        '<div style="font-size:12.5px;font-weight:600">' + name + '</div>' +
+        (sub ? '<div style="font-size:11px;color:var(--text3)">' + sub + '</div>' : '') + '</div></div>';
+    }
+    var AUDIT_ICON = { assign: ['ti-car', 'green'], unassign: ['ti-car-off', 'gold'], user: ['ti-user-plus', 'purple'], insp: ['ti-clipboard-check', 'blue'], warn: ['ti-alert-triangle', 'red'] };
+
+    function set(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; }
+
+    function buildAll() {
+      /* monthly bar chart */
+      var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], vals = [820, 910, 870, 1050, 980, 1247];
+      var max = Math.max.apply(null, vals);
+      set('bar-chart', vals.map(function (v) {
+        return '<div class="bar" style="height:' + (v / max * 100) + '%" title="' + v + ' inspections"></div>';
+      }).join(''));
+      set('bar-labels', months.map(function (m) { return '<span>' + m + '</span>'; }).join(''));
+
+      /* compliance rows */
+      var names = ['Acme Mining Corp', 'Grootegeluk Coal', 'Zimele Logistics', 'BHP Construction', 'Khumalo Agri'];
+      var rates = [98.2, 96.7, 88.4, 92.1, 84.3];
+      set('compliance-rows', names.map(function (n, i) {
+        var tone = rates[i] >= 95 ? 'green' : rates[i] >= 90 ? 'gold' : 'red';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0">' +
+          '<div style="font-size:12.5px;width:150px;flex-shrink:0">' + n + '</div>' +
+          '<div class="meter" style="flex:1"><div class="' + tone + '" style="width:' + rates[i] + '%"></div></div>' +
+          '<div style="font:600 12px var(--num);width:42px;text-align:right">' + rates[i] + '%</div></div>';
+      }).join(''));
+
+      /* analytics bars */
+      var acos = ['Acme Mining', 'Grootegeluk', 'Zimele Log.', 'BHP Const.', 'Khumalo Agri', 'Matome Trans.'];
+      var arates = [98.2, 96.7, 88.4, 92.1, 84.3, 94.8];
+      set('analytics-bars', acos.map(function (c, i) {
+        var tone = arates[i] >= 95 ? 'green' : arates[i] >= 90 ? 'gold' : 'red';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:4px 0">' +
+          '<div style="width:104px;font-size:12px;color:var(--text2);text-align:right;flex-shrink:0">' + c + '</div>' +
+          '<div class="meter" style="flex:1"><div class="' + tone + '" style="width:' + arates[i] + '%"></div></div>' +
+          '<div style="font:600 12px var(--num);width:42px">' + arates[i] + '%</div></div>';
+      }).join(''));
+
+      /* go-but categories */
+      var cats = [['Windows and wipers', 34], ['Reflective tape', 21], ['Lights and indicators', 17], ['Tyres and tread', 13], ['Air conditioner', 9], ['Other', 6]];
+      set('category-bars', cats.map(function (c) {
+        return '<div style="display:flex;align-items:center;gap:10px;padding:5px 0">' +
+          '<div style="width:150px;font-size:12.5px;flex-shrink:0">' + c[0] + '</div>' +
+          '<div class="meter" style="flex:1"><div style="width:' + (c[1] / 34 * 100) + '%"></div></div>' +
+          '<div style="font:600 12px var(--num);width:38px;text-align:right">' + c[1] + '%</div></div>';
+      }).join(''));
+
+      /* audit */
+      function auditRow(a) {
+        var ic = AUDIT_ICON[a.type] || AUDIT_ICON.insp;
+        return '<tr onclick="selectRow(this)"><td><div class="av ' + ic[1] + '" style="width:24px;height:24px"><i class="ti ' + ic[0] + '" style="font-size:14px"></i></div></td>' +
+          '<td style="line-height:1.5">' + a.text + '</td>' +
+          '<td style="font-size:11.5px;color:var(--text3)">' + a.meta + '</td>' +
+          '<td style="font-size:11.5px;color:var(--text3);white-space:nowrap">' + a.time + '</td></tr>';
+      }
+      set('audit-table', AUDIT.map(auditRow).join(''));
+      set('audit-preview', AUDIT.slice(0, 5).map(function (a) {
+        var ic = AUDIT_ICON[a.type] || AUDIT_ICON.insp;
+        return '<div class="lrow"><div class="av ' + ic[1] + '"><i class="ti ' + ic[0] + '"></i></div>' +
+          '<div class="ri"><div style="font-size:12.5px;line-height:1.5">' + a.text + '</div>' +
+          '<div class="s">' + a.meta + '</div></div>' +
+          '<div class="rr" style="font-size:11.5px;color:var(--text3)">' + a.time + '</div></div>';
+      }).join(''));
+
+      /* fleet mini */
+      set('fleet-mini', FLEET.slice(0, 4).map(function (v) {
+        return '<div class="lrow"><div class="ri"><div class="n" style="font-family:var(--num)">' + v.plate + '</div>' +
+          '<div class="s">' + v.make + ' · ' + v.driver + '</div></div>' +
+          '<div class="rr">' + vehicleBdg(v.status) + '</div></div>';
+      }).join(''));
+
+      /* pending sign-off */
+      set('pending-table', INSPECTIONS.filter(function (i) { return !i.signed || i.result === 'no-go'; }).slice(0, 5).map(function (i) {
+        return '<tr onclick="selectRow(this)"><td class="mono">#' + i.ref + '</td><td class="mono">' + i.vehicle + '</td>' +
+          '<td>' + i.op + '</td><td style="color:var(--text2)">' + i.co + '</td>' +
+          '<td style="color:var(--text2)">' + i.date + '</td><td>' + resultBdg(i.result) + '</td>' +
+          '<td><button class="btn sm" onclick="event.stopPropagation();flash(\'Sign-off recorded for #' + i.ref + '.\')">Sign off</button></td></tr>';
+      }).join(''));
+
+      /* companies */
+      set('companies-table', COMPANIES.map(function (c) {
+        return '<tr onclick="selectRow(this)"><td>' + person(c.init, 'blue', c.name) + '</td>' +
+          '<td><span class="bdg grey">' + c.industry + '</span></td>' +
+          '<td class="num">' + c.users + '</td><td class="num">' + c.vehicles + '</td>' +
+          '<td>' + meter(c.compliance) + '</td><td>' + planBdg(c.plan) + '</td><td>' + statusBdg(c.status) + '</td>' +
+          '<td style="color:var(--text3)">' + c.date + '</td>' +
+          '<td><button class="btn sm" onclick="event.stopPropagation();goTab(\'profile\')">Open</button></td></tr>';
+      }).join(''));
+
+      /* users */
+      set('users-table', USERS.map(function (u) {
+        return '<tr onclick="selectRow(this)"><td>' + person(u.init, u.type, u.name, u.co) + '</td>' +
+          '<td>' + roleBdg(u.role) + '</td><td style="color:var(--text2)">' + u.co + '</td>' +
+          '<td style="color:var(--text2)">' + u.reports + '</td><td class="mono">' + u.vehicle + '</td>' +
+          '<td style="color:var(--text2)">' + u.cof + '</td><td class="num">' + u.insps + '</td>' +
+          '<td>' + statusBdg(u.status) + '</td>' +
+          '<td><button class="btn sm" onclick="event.stopPropagation();run(\'editUser\')">Edit</button></td></tr>';
+      }).join(''));
+
+      /* fleet */
+      set('fleet-table', FLEET.map(function (v) {
+        return '<tr onclick="selectRow(this)"><td class="mono">' + v.plate + '</td><td>' + v.make + '</td>' +
+          '<td class="num">' + v.year + '</td><td style="color:var(--text2)">' + v.co + '</td>' +
+          '<td>' + v.driver + '</td><td style="color:var(--text2)">' + v.sup + '</td>' +
+          '<td style="color:var(--text2)">' + v.lastInsp + '</td><td class="num">' + v.km + '</td>' +
+          '<td>' + vehicleBdg(v.status) + '</td>' +
+          '<td><button class="btn sm" onclick="event.stopPropagation();run(\'editVehicle\')">Manage</button></td></tr>';
+      }).join(''));
+
+      /* inspections */
+      set('inspections-table', INSPECTIONS.map(function (i) {
+        return '<tr onclick="selectRow(this)"><td class="mono">#' + i.ref + '</td>' +
+          '<td style="color:var(--text2)">' + i.date + '</td><td class="mono">' + i.vehicle + '</td>' +
+          '<td>' + i.op + '</td><td style="color:var(--text2)">' + i.co + '</td><td>' + i.shift + '</td>' +
+          '<td class="num" style="color:var(--green);font-weight:600">' + i.ok + '</td>' +
+          '<td class="num" style="color:var(--gold);font-weight:600">' + i.go + '</td>' +
+          '<td class="num" style="color:var(--red);font-weight:600">' + i.ng + '</td>' +
+          '<td>' + resultBdg(i.result) + '</td>' +
+          '<td>' + (i.signed ? '<span class="bdg green">Signed</span>' : '<span class="bdg gold">Pending</span>') + '</td>' +
+          '<td><button class="btn sm" onclick="event.stopPropagation();run(\'openInspection\')">Open</button></td></tr>';
+      }).join(''));
+
+      /* hierarchy */
+      var tree = [
+        { name: 'Kobus van der Merwe', role: 'Administrator', sub: 'Fleet Manager', init: 'KM', type: 'purple', indent: 0 },
+        { name: 'Thabo Nkosi', role: 'Safety officer', sub: 'Safety officer', init: 'TN', type: 'green', indent: 1 },
+        { name: 'Priya Dlamini', role: 'Supervisor', sub: 'Supervisor · JHB 456 GP', init: 'PD', type: 'blue', indent: 2 },
+        { name: 'Johan Swart', role: 'Operator', sub: 'Operator · CA 123 GP', init: 'JS', type: 'gold', indent: 3 },
+        { name: 'Lindiwe Mokoena', role: 'Operator', sub: 'Operator · WC 321 CT', init: 'LM', type: 'gold', indent: 3 },
+        { name: 'A. Williams', role: 'Supervisor', sub: 'Supervisor', init: 'AW', type: 'blue', indent: 2 },
+        { name: 'M. Sithole', role: 'Operator', sub: 'Operator · GP 789 DBN', init: 'MS', type: 'gold', indent: 3 }
+      ];
+      set('hierarchy-tree', tree.map(function (t) {
+        var rail = '<div class="rail" style="width:' + (t.indent * 18) + 'px;' +
+          (t.indent ? 'border-left:1px solid var(--stroke-strong);margin-left:8px' : '') + '"></div>';
+        return '<div class="hier">' + rail + '<div class="av ' + t.type + '">' + t.init + '</div>' +
+          '<div class="ri" style="flex:1"><div style="font-size:12.5px;font-weight:600">' + t.name + '</div>' +
+          '<div style="font-size:11.5px;color:var(--text3)">' + t.sub + '</div></div>' + roleBdg(t.role) + '</div>';
+      }).join(''));
+
+      /* COF expiry */
+      set('cof-rows', [
+        { name: 'P. Dlamini', co: 'Acme Mining Corp', exp: '30 Jun 2026', days: 6 },
+        { name: 'J. Govender', co: 'BHP Construction', exp: '30 Jul 2026', days: 36 },
+        { name: 'B. Pietersen', co: 'Grootegeluk Coal', exp: '14 Aug 2026', days: 51 },
+        { name: 'L. Mokoena', co: 'Acme Mining Corp', exp: '22 Sep 2026', days: 90 }
+      ].map(function (r) {
+        var tone = r.days < 30 ? 'red' : 'gold';
+        var init = r.name.split(' ').map(function (n) { return n[0]; }).join('');
+        return '<div class="lrow"><div class="av ' + tone + '">' + init + '</div>' +
+          '<div class="ri"><div class="n">' + r.name + '</div><div class="s">' + r.co + '</div></div>' +
+          '<div class="rr"><div style="font:600 12px var(--num);color:var(--' + tone + ')">' + r.exp + '</div>' +
+          '<div style="font-size:11px;color:var(--text3)">' + r.days + ' days</div></div></div>';
+      }).join(''));
+
+      /* go-but aging */
+      set('gobut-rows', [
+        { item: 'Air conditioner', vehicle: 'DBN 001 NP', days: 28, op: 'B. Pietersen' },
+        { item: 'Windows and wipers', vehicle: 'CA 123 GP', days: 22, op: 'J. Swart' },
+        { item: 'Reflective tape', vehicle: 'JHB 456 GP', days: 18, op: 'L. Mokoena' },
+        { item: 'Window washer', vehicle: 'CA 123 GP', days: 15, op: 'J. Swart' }
+      ].map(function (r) {
+        var tone = r.days > 25 ? 'red' : 'gold';
+        return '<div class="lrow"><div class="av ' + tone + '"><i class="ti ti-alert-circle"></i></div>' +
+          '<div class="ri"><div class="n">' + r.item + '</div><div class="s">' + r.vehicle + ' · ' + r.op + '</div></div>' +
+          '<div class="rr"><div style="font:600 12px var(--num);color:var(--' + tone + ')">' + r.days + ' days</div>' +
+          '<div style="font-size:11px;color:var(--text3)">30-day limit</div></div></div>';
+      }).join(''));
+
+      /* company profile — team, fleet, inspections */
+      set('cp-team-table', USERS.filter(function (u) { return u.co === 'Acme Mining Corp'; }).map(function (u) {
+        return '<tr onclick="selectRow(this)"><td>' + person(u.init, u.type, u.name) + '</td>' +
+          '<td>' + roleBdg(u.role) + '</td><td style="color:var(--text2)">' + u.reports + '</td>' +
+          '<td class="mono">' + u.vehicle + '</td><td>' + statusBdg(u.status) + '</td>' +
+          '<td style="color:var(--text3)">Today</td>' +
+          '<td><button class="btn sm" onclick="event.stopPropagation();run(\'editUser\')">Edit</button></td></tr>';
+      }).join(''));
+
+      set('cp-fleet-table', FLEET.filter(function (v) { return v.co === 'Acme Mining Corp'; }).map(function (v) {
+        return '<tr onclick="selectRow(this)"><td class="mono">' + v.plate + '</td><td>' + v.make + '</td>' +
+          '<td class="num">' + v.year + '</td><td>' + v.driver + '</td>' +
+          '<td style="color:var(--text2)">' + v.sup + '</td><td style="color:var(--text2)">' + v.lastInsp + '</td>' +
+          '<td>' + vehicleBdg(v.status) + '</td>' +
+          '<td><button class="btn sm" onclick="event.stopPropagation();run(\'assignVehicle\')">Assign</button></td></tr>';
+      }).join(''));
+
+      set('cp-insp-table', INSPECTIONS.filter(function (i) { return i.co === 'Acme Mining Corp'; }).map(function (i) {
+        return '<tr onclick="selectRow(this)"><td class="mono">#' + i.ref + '</td>' +
+          '<td style="color:var(--text2)">' + i.date + '</td><td class="mono">' + i.vehicle + '</td>' +
+          '<td>' + i.op + '</td><td>' + resultBdg(i.result) + '</td>' +
+          '<td>' + (i.signed ? '<span class="bdg green">Signed</span>' : '<span class="bdg gold">Pending</span>') + '</td></tr>';
+      }).join(''));
+
+      /* modules */
+      var mods = [
+        { icon: 'ti-truck', name: 'Fleet management', desc: 'Vehicle assignment and tracking', on: true },
+        { icon: 'ti-clipboard-check', name: 'Pre-use inspections', desc: 'Digital inspection forms', on: true },
+        { icon: 'ti-shield-check', name: 'Safety compliance', desc: 'COF tracking and compliance', on: true },
+        { icon: 'ti-users', name: 'HR management', desc: 'Employee records', on: false },
+        { icon: 'ti-tool', name: 'Maintenance', desc: 'Service scheduling', on: false },
+        { icon: 'ti-chart-bar', name: 'Analytics', desc: 'Reports and dashboards', on: false },
+        { icon: 'ti-map-pin', name: 'GPS tracking', desc: 'Real-time vehicle location', on: false },
+        { icon: 'ti-file-invoice', name: 'Fuel management', desc: 'Fuel consumption tracking', on: false }
+      ];
+      set('cp-modules', mods.map(function (m) {
+        return '<div class="modcard' + (m.on ? ' on' : '') + '" onclick="run(\'modules\')">' +
+          '<div class="mi" style="background:' + (m.on ? 'var(--sel)' : 'var(--stroke-soft)') + '">' +
+          '<i class="ti ' + m.icon + '" style="color:' + (m.on ? 'var(--brand)' : 'var(--text3)') + '"></i></div>' +
+          '<div class="mn">' + m.name + '</div><div class="md">' + m.desc + '</div>' +
+          '<div style="margin-top:8px">' + (m.on ? '<span class="bdg green">Active</span>' : '<span class="bdg grey">Inactive</span>') + '</div></div>';
+      }).join(''));
+
+      /* reports */
+      var reports = [
+        ['ti-clipboard-check', 'sel', 'brand', 'Inspection report', 'Full inspection history with a pass and fail breakdown'],
+        ['ti-shield-check', 'green-bg', 'green', 'Compliance report', 'Company-wide compliance rate per vehicle and operator'],
+        ['ti-truck', 'gold-bg', 'gold', 'Fleet status report', 'Vehicle assignment, odometer and maintenance state'],
+        ['ti-users', 'purple-bg', 'purple', 'User activity report', 'Login history and inspection counts per operator'],
+        ['ti-alert-triangle', 'red-bg', 'red', 'Defect history', 'Every no-go defect, grounding and resolution'],
+        ['ti-certificate', 'teal-bg', 'teal', 'COF expiry report', 'Certificate of fitness expiry per operator']
+      ];
+      set('report-cards', reports.map(function (r) {
+        return '<div class="panel" style="margin-bottom:0;cursor:pointer" onclick="run(\'report:' + r[3] + '\')">' +
+          '<div class="panel-body">' +
+          '<div class="tile-ico" style="background:var(--' + r[1] + ');margin-bottom:9px"><i class="ti ' + r[0] + '" style="color:var(--' + r[2] + ')"></i></div>' +
+          '<div style="font-size:13px;font-weight:600">' + r[3] + '</div>' +
+          '<div style="font-size:12px;color:var(--text3);margin-top:3px;line-height:1.45">' + r[4] + '</div></div>' +
+          '<div style="padding:8px 12px;border-top:1px solid var(--stroke-soft);background:var(--pane);font-size:12px;color:var(--brand-dark)">Generate PDF →</div></div>';
+      }).join(''));
+
+      set('recent-reports', [
+        ['Inspection report', 'Acme Mining Corp · June 2026', 'K. van der Merwe', 'Today 08:02', 'PDF'],
+        ['COF expiry report', 'All companies · 90-day window', 'T. Nkosi', 'Today 07:41', 'PDF'],
+        ['Fleet status report', 'Grootegeluk Coal · June 2026', 'V. Molefe', 'Yesterday 16:20', 'CSV'],
+        ['Defect history', 'All companies · Q2 2026', 'K. van der Merwe', '16 Jun 11:05', 'PDF']
+      ].map(function (r) {
+        return '<tr onclick="selectRow(this)"><td style="font-weight:600">' + r[0] + '</td>' +
+          '<td style="color:var(--text2)">' + r[1] + '</td><td>' + r[2] + '</td>' +
+          '<td style="color:var(--text3)">' + r[3] + '</td><td><span class="bdg grey">' + r[4] + '</span></td>' +
+          '<td><button class="btn sm" onclick="event.stopPropagation();run(\'export\')">Download</button></td></tr>';
+      }).join(''));
+
+      if (state.density === 'Compact') {
+        document.querySelectorAll('table.grid td').forEach(function (td) { td.style.height = '28px'; td.style.padding = '3px 9px'; });
+      }
+    }
+
+    /* ═══════════════ NAV PANE SPLITTER ═══════════════ */
+    (function () {
+      var sp = document.getElementById('splitter'), pane = document.getElementById('navpane');
+      sp.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        var x0 = e.clientX, base = pane.offsetWidth;
+        function move(ev) { pane.style.width = Math.max(150, Math.min(420, base + ev.clientX - x0)) + 'px'; }
+        function up() {
+          window.removeEventListener('mousemove', move);
+          window.removeEventListener('mouseup', up);
+          document.body.style.userSelect = ''; document.body.style.cursor = '';
+        }
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', up);
+        document.body.style.userSelect = 'none'; document.body.style.cursor = 'col-resize';
+      });
+      sp.addEventListener('dblclick', function () { pane.style.width = '208px'; });
+    })();
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        closeBackstage();
+        document.querySelectorAll('.overlay.open').forEach(function (o) { o.classList.remove('open'); });
+      }
+    });
+
+    /* ═══════════════ INIT ═══════════════ */
+    buildTabs();
+    buildRibbon();
+    buildNav();
+    buildAll();
+  </script>
+</body>
+
+</html>
