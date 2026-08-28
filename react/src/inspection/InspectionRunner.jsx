@@ -14,7 +14,7 @@ const COLOUR = { Go: 'var(--green)', 'Go But': '#BC7B09', 'No Go': 'var(--red)',
    signed concession (and counts as a No Go until it is signed), and
    the sheet cannot be submitted with items left unanswered.
    ══════════════════════════════════════════════════════════════ */
-export default function InspectionRunner({ tpl, vehicles, me, onClose, onSubmit, flash, gapFor }) {
+export default function InspectionRunner({ tpl, vehicles, me, onClose, onSubmit, flash, gapFor, rules }) {
   const eligible = vehicles.filter((v) => tpl.appliesTo.includes(v.type));
   const list = eligible.length ? eligible : vehicles;
   const [plate, setPlate] = useState(list[0]?.plate || '');
@@ -25,7 +25,7 @@ export default function InspectionRunner({ tpl, vehicles, me, onClose, onSubmit,
   const [conds, setConds] = useState(v?.permit ? [v.permit] : []);
   const [results, setResults] = useState({});
   const [remarks, setRemarks] = useState('');
-  const [supSigned, setSupSigned] = useState(false);
+  const [supSigned, setSupSigned] = useState(!rules.requireConcession);
   const [err, setErr] = useState('');
 
   const conditions = useMemo(
@@ -72,10 +72,15 @@ export default function InspectionRunner({ tpl, vehicles, me, onClose, onSubmit,
   };
 
   const verdict = noGo.length
-    ? { text: 'The vehicle will be grounded and a defect raised.', tone: 'var(--red)' }
+    ? {
+      text: rules.autoGroundOnNoGo
+        ? 'The vehicle will be grounded and a defect raised.'
+        : 'A defect will be raised. Auto-grounding is off, so ground it by hand.',
+      tone: 'var(--red)',
+    }
     : goBut.length
       ? supSigned
-        ? { text: `The vehicle may operate on a signed concession, ${tpl.goButMaxDays} days to repair.`, tone: '#BC7B09' }
+        ? { text: `The vehicle may operate on a signed concession, ${rules.goButMaxDays} days to repair.`, tone: '#BC7B09' }
         : { text: 'A supervisor must sign the concession, or this counts as a No Go.', tone: '#BC7B09' }
       : { text: 'Fit for service.', tone: 'var(--green)' };
 
@@ -171,12 +176,12 @@ export default function InspectionRunner({ tpl, vehicles, me, onClose, onSubmit,
             <div className="field-lbl">Operator’s remarks</div>
             <textarea className="inp" rows={3} value={remarks} onChange={(e) => setRemarks(e.target.value)}
               placeholder="Anything the supervisor should know before the next shift." />
-            {goBut.length > 0 && (
+            {goBut.length > 0 && rules.requireConcession && (
               <label className="concession">
                 <input type="checkbox" checked={supSigned} onChange={(e) => setSupSigned(e.target.checked)} style={{ marginTop: 2 }} />
                 <span>
                   Supervisor signs the Go-But concession. {goBut.length} item{goBut.length === 1 ? '' : 's'} will be
-                  given {tpl.goButMaxDays} days to be rectified: {goBut.map((g) => g.label).join(', ')}.
+                  given {rules.goButMaxDays} days to be rectified: {goBut.map((g) => g.label).join(', ')}.
                 </span>
               </label>
             )}

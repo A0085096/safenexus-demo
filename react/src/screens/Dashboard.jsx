@@ -7,7 +7,7 @@ import {
   MONTHLY, ISO_DATA, ISO_MONTHS, AGING, PERF, KPIS, BASE, FLEET_BASE,
 } from '../data.js';
 import { useStore } from '../store.jsx';
-import { SERIES, OUTCOME, nf } from '../theme.js';
+import { SERIES, OUTCOME, nf, targetTone, targetLabel } from '../theme.js';
 import {
   Panel, ChartCard, Seg, Legend, Btn, Badge, Avatar, ListRow, SecHead, RichText,
   resultBadge, planBadge,
@@ -26,7 +26,7 @@ const AUDIT_ICON = {
   insp: [ClipboardCheck, 'blue'], warn: [AlertTriangle, 'red'],
 };
 
-const passTone = (v) => (v >= 95 ? SERIES[1] : v >= 90 ? SERIES[2] : SERIES[4]);
+
 
 /* ── KPI tile ─────────────────────────────────────────────────── */
 function Kpi({ k }) {
@@ -56,7 +56,7 @@ const PERF_COLS = [
   { k: 'status', l: 'Status' },
 ];
 
-function PerformanceReport({ run }) {
+function PerformanceReport({ run, target }) {
   const [sort, setSort] = useState({ k: 'pass', d: -1 });
   const rows = [...PERF].sort((a, b) => {
     const k = sort.k === 'trend' ? 'pass' : sort.k === 'status' ? 'pass' : sort.k;
@@ -70,12 +70,12 @@ function PerformanceReport({ run }) {
     <div className="chart-card">
       <div className="chart-hd">
         <h2>Company performance</h2>
-        <span className="note">June 2026</span>
+        <span className="note">June 2026 · target {target}%</span>
         <div className="right">
           <Legend items={[
-            { c: SERIES[1], l: 'at or above 95%' },
-            { c: SERIES[2], l: '90–95%' },
-            { c: SERIES[4], l: 'below 90%' },
+            { c: SERIES[1], l: `meets the ${target}% target` },
+            { c: SERIES[2], l: `within 5 pp of it` },
+            { c: SERIES[4], l: `more than 5 pp below` },
           ]} />
           <Btn small icon={FileText} onClick={() => run('report:Compliance report')}>Report</Btn>
         </div>
@@ -95,7 +95,7 @@ function PerformanceReport({ run }) {
           </thead>
           <tbody>
             {rows.map((d) => {
-              const tone = passTone(d.pass);
+              const tone = targetTone(d.pass, target);
               const drift = +(d.trend[5] - d.trend[0]).toFixed(1);
               return (
                 <tr key={d.co}>
@@ -108,7 +108,7 @@ function PerformanceReport({ run }) {
                     <div className="cellbar">
                       <div className="track">
                         <div className="fill" style={{ width: d.pass + '%', background: tone }} />
-                        <div className="thresh" style={{ left: '90%' }} />
+                        <div className="thresh" style={{ left: target + '%' }} />
                       </div>
                       <span className="pct" style={{ color: tone }}>{d.pass}%</span>
                     </div>
@@ -123,9 +123,10 @@ function PerformanceReport({ run }) {
                     </div>
                   </td>
                   <td>
-                    {d.pass >= 95 ? <Badge tone="green">On track</Badge>
-                      : d.pass >= 90 ? <Badge tone="gold">Watch</Badge>
-                        : <Badge tone="red">Below target</Badge>}
+                    {(() => {
+                      const l = targetLabel(d.pass, target);
+                      return <Badge tone={l === 'On track' ? 'green' : l === 'Watch' ? 'gold' : 'red'}>{l}</Badge>;
+                    })()}
                   </td>
                 </tr>
               );
@@ -151,7 +152,7 @@ function PerformanceReport({ run }) {
 
 /* ── screen ───────────────────────────────────────────────────── */
 export default function Dashboard({ run, goTab }) {
-  const { vehicles, inspections, defects, audit, users, companies, select } = useStore();
+  const { vehicles, inspections, defects, audit, users, companies, select, settings } = useStore();
   const [period, setPeriod] = useState(6);
   const [isoView, setIsoView] = useState('iso');
   const months = MONTHLY.slice(MONTHLY.length - period);
@@ -284,7 +285,7 @@ export default function Dashboard({ run, goTab }) {
         <div className="chart-card">
           <div className="chart-hd">
             <h2>Go-but defect aging</h2>
-            <span className="note">{agingTotal} open items · 30-day repair rule</span>
+            <span className="note">{agingTotal} open items · {settings.goButMaxDays}-day repair rule</span>
             <div className="right"><button className="link" onClick={() => goTab('compliance')}>Work the list</button></div>
           </div>
           <div className="chart-body chart"><AgingChart data={AGING} total={87} /></div>
@@ -297,8 +298,8 @@ export default function Dashboard({ run, goTab }) {
                 onClick={() => run('openDefect:' + a.id)}
                 right={
                   <>
-                    <div style={{ font: '600 12px var(--num)', color: a.age > 30 ? 'var(--red)' : 'var(--gold)' }}>{a.age} days</div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.age > 30 ? 'past the rule' : a.severity === 'No Go' ? 'grounds the vehicle' : 'due soon'}</div>
+                    <div style={{ font: '600 12px var(--num)', color: a.age > settings.goButMaxDays ? 'var(--red)' : 'var(--gold)' }}>{a.age} days</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.age > settings.goButMaxDays ? 'past the rule' : a.severity === 'No Go' ? 'grounds the vehicle' : 'due soon'}</div>
                   </>
                 } />
             ))}
@@ -306,7 +307,7 @@ export default function Dashboard({ run, goTab }) {
         </div>
       </div>
 
-      <PerformanceReport run={run} />
+      <PerformanceReport run={run} target={settings.complianceTarget} />
 
       <Panel title="Pending inspections requiring sign-off" note="oldest first" flush
         right={<><Badge tone="gold">5 pending</Badge>{' '}

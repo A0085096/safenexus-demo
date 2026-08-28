@@ -8,15 +8,46 @@ import { TEMPLATES } from './inspection/templates.js';
    cannot drift from the data — the same rule the real product needs.
    ══════════════════════════════════════════════════════════════ */
 
+const LABELS = {
+  goButMaxDays: 'the go-but repair window', requireConcession: 'the supervisor concession rule',
+  autoGroundOnNoGo: 'auto-grounding on a no-go', complianceTarget: 'the compliance target',
+  passRateTarget: 'the pass-rate target', cofWarnDays: 'the COF warning window',
+  serviceWarnKm: 'the service warning distance', passwordPolicy: 'the password policy',
+  sessionTimeout: 'the session timeout', mfa: 'two-factor authentication',
+  loginAudit: 'login audit logging', ipAllowlist: 'the IP allowlist',
+  retentionYears: 'the retention period', platformName: 'the platform name',
+  supportEmail: 'the support address', timezone: 'the timezone', dateFormat: 'the date format',
+  notifyNoGo: 'no-go alerts', notifySignOff: 'sign-off reminders',
+  notifyCof: 'COF expiry alerts', notifyTraining: 'training alerts',
+  backupTime: 'the backup window',
+};
+
 const AppCtx = createContext(null);
 export const useStore = () => useContext(AppCtx);
 
 const now = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+const today = () => new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 const ref = (p) => p + '-' + Math.floor(100000 + Math.random() * 899999);
 
-const audit = (state, type, text, meta) => ({
+/* Every entry carries who, what, where and how it arrived, because an
+   audit line that cannot answer those is not evidence. */
+let seq = 4000;
+const audit = (state, type, text, meta, extra = {}) => ({
   ...state,
-  audit: [{ type, text, meta, time: now() }, ...state.audit],
+  audit: [{
+    id: 'AUD-' + (++seq),
+    type,
+    text,
+    meta,
+    actor: extra.actor || state.actor || 'System',
+    entity: extra.entity || '—',
+    severity: extra.severity || (type === 'warn' ? 'Warning' : 'Information'),
+    ip: '196.213.44.17',
+    session: 'sess-8841c2',
+    channel: extra.channel || 'Web',
+    date: today(),
+    time: now(),
+  }, ...state.audit],
 });
 
 const patchVehicle = (state, plate, patch) => ({
@@ -39,10 +70,57 @@ const initial = {
   templates: TEMPLATES,
   courses: COURSES,
   enrolments: ENROLMENTS,
-  audit: AUDIT,
+  audit: AUDIT.map((a, i) => ({
+    ...a,
+    id: 'AUD-' + (3990 + i),
+    severity: a.type === 'warn' ? 'Warning' : 'Information',
+    ip: a.channel === 'Mobile app' ? '105.4.9.221' : '196.213.44.17',
+    session: a.actor === 'System' ? '—' : 'sess-8841c2',
+  })),
+  reportRuns: [
+    { id: 'RUN-4471', report: 'Compliance report', scope: 'All companies', period: 'June 2026', by: 'Kobus van der Merwe', at: 'Today 08:02', rows: 6, format: 'PDF', status: 'Complete' },
+    { id: 'RUN-4468', report: 'COF expiry report', scope: 'All companies', period: '90-day window', by: 'Thabo Nkosi', at: 'Today 07:41', rows: 14, format: 'PDF', status: 'Complete' },
+    { id: 'RUN-4463', report: 'Fleet status report', scope: 'Grootegeluk Coal', period: 'June 2026', by: 'Vusi Molefe', at: 'Yesterday 16:20', rows: 48, format: 'CSV', status: 'Complete' },
+  ],
+  schedules: [
+    { id: 'SCH-11', report: 'Compliance report', scope: 'All companies', cadence: 'Monthly, first working day', to: 'exco@acmecorp.co.za', format: 'PDF', on: true, next: '01 Jul 2026' },
+    { id: 'SCH-12', report: 'COF expiry report', scope: 'All companies', cadence: 'Weekly, Monday 06:00', to: 'safety@acmecorp.co.za', format: 'CSV', on: true, next: '22 Jun 2026' },
+    { id: 'SCH-13', report: 'Defect history', scope: 'Acme Mining Corp', cadence: 'Quarterly', to: 'board@acmecorp.co.za', format: 'PDF', on: false, next: '—' },
+  ],
+  settings: {
+    /* these are read by the modules, not just displayed */
+    goButMaxDays: 30,
+    requireConcession: true,
+    autoGroundOnNoGo: true,
+    complianceTarget: 90,
+    passRateTarget: 95,
+    cofWarnDays: 90,
+    serviceWarnKm: 2000,
+    /* platform */
+    platformName: 'SafeNexus ERP',
+    supportEmail: 'support@safenexus.co.za',
+    timezone: 'Africa/Johannesburg (SAST)',
+    dateFormat: 'DD/MM/YYYY',
+    /* security */
+    passwordPolicy: 'Strong (12+ characters, number, symbol)',
+    sessionTimeout: '8 hours',
+    mfa: true,
+    loginAudit: true,
+    ipAllowlist: false,
+    /* notifications */
+    notifyNoGo: true,
+    notifySignOff: true,
+    notifyCof: true,
+    notifyTraining: false,
+    /* data */
+    retentionYears: 7,
+    backupTime: '02:00',
+  },
+  actor: 'Kobus van der Merwe',
 };
 
 function reducer(state, a) {
+  state = { ...state, actor: a.by || state.actor };
   switch (a.type) {
     /* ── people ─────────────────────────────────────────────── */
     case 'ADD_USER': {
@@ -146,11 +224,12 @@ function reducer(state, a) {
       s = patchVehicle(s, a.inspection.vehicle, {
         lastInsp: 'Just now' + (a.inspection.result === 'no-go' ? ' (No-go)' : ''),
         km: a.inspection.meter || undefined,
-        ...(a.inspection.result === 'no-go' ? { status: 'Maintenance' } : {}),
+        ...(a.ground ? { status: 'Maintenance' } : {}),
       });
       s = audit(s, 'insp', `**${a.inspection.op}** submitted inspection **#${a.inspection.ref}** for ${a.inspection.vehicle} — ${a.inspection.result === 'no-go' ? 'No-go' : a.inspection.result === 'go-but' ? `Go-but (W×${a.inspection.go})` : 'In order'}`, `${a.inspection.co} · Pre-use inspection`);
-      if (a.inspection.result === 'no-go') {
-        s = audit(s, 'warn', `**System** grounded vehicle **${a.inspection.vehicle}** — no-go defect detected on inspection #${a.inspection.ref}`, `${a.inspection.co} · Automatic action`);
+      if (a.ground) {
+        s = audit(s, 'warn', `**System** grounded vehicle **${a.inspection.vehicle}** — no-go defect detected on inspection #${a.inspection.ref}`,
+          `${a.inspection.co} · Automatic action`, { actor: 'System', entity: a.inspection.vehicle, severity: 'Critical' });
       }
       return s;
     }
@@ -184,6 +263,25 @@ function reducer(state, a) {
       const s = { ...state, companies: [a.company, ...state.companies] };
       return audit(s, 'user', `**${a.by}** registered **${a.company.name}** on the ${a.company.plan} plan`, 'Company created');
     }
+    case 'SET_SETTINGS': {
+      const changed = Object.keys(a.patch).filter((k) => state.settings[k] !== a.patch[k]);
+      const s = { ...state, settings: { ...state.settings, ...a.patch } };
+      if (!changed.length) return s;
+      return audit(s, 'user',
+        `**${a.by}** changed ${a.section} — ${changed.map((k) => `${LABELS[k] || k} to “${a.patch[k]}”`).join(', ')}`,
+        'Configuration change', { entity: a.section, severity: 'Warning', actor: a.by });
+    }
+    case 'RECORD_RUN': {
+      const s = { ...state, reportRuns: [a.run, ...state.reportRuns].slice(0, 30) };
+      return audit(s, 'insp', `**${a.by}** generated **${a.run.report}** — ${a.run.rows} rows, ${a.run.scope}`,
+        'Report generated', { entity: a.run.id, actor: a.by });
+    }
+    case 'TOGGLE_SCHEDULE': {
+      const sch = state.schedules.find((x) => x.id === a.id);
+      const s = { ...state, schedules: state.schedules.map((x) => (x.id === a.id ? { ...x, on: !x.on } : x)) };
+      return audit(s, 'user', `**${a.by}** ${sch?.on ? 'paused' : 'resumed'} the schedule for **${sch?.report}**`,
+        'Report schedule', { entity: a.id, actor: a.by });
+    }
     case 'AUDIT':
       return audit(state, a.kind || 'user', a.text, a.meta);
     default:
@@ -211,6 +309,7 @@ export function StoreProvider({ children, me, flash }) {
     vehicle: state.vehicles.find((v) => v.plate === selection.vehicle) || null,
     inspection: state.inspections.find((i) => i.ref === selection.inspection) || null,
     openDefects: state.defects.filter((d) => d.status === 'Open'),
+    set: (patch, section) => dispatch({ type: 'SET_SETTINGS', patch, section, by: me.name }),
     newRef: () => String(2120353 + state.inspections.length),
     newId: ref,
   }), [state, selection, select, inspView, me, flash]);

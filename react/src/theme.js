@@ -43,3 +43,10 @@ export function shade(hex, amt) {
   const r = clamp((n >> 16) + amt), g = clamp(((n >> 8) & 255) + amt), b = clamp((n & 255) + amt);
   return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
+
+/* Meeting the target is good; within five points below it is a watch;
+   further below is a miss. Defined once so every view agrees. */
+export const targetTone = (value, target) =>
+  (value >= target ? SERIES[1] : value >= target - 5 ? SERIES[2] : SERIES[4]);
+export const targetLabel = (value, target) =>
+  (value >= target ? 'On track' : value >= target - 5 ? 'Watch' : 'Below target');

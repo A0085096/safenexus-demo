@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import './styles.css';
 
 import TitleBar from './shell/TitleBar.jsx';
@@ -16,8 +16,11 @@ import { templateFor } from './inspection/templates.js';
 import { StoreProvider, useStore } from './store.jsx';
 
 import Dashboard from './screens/Dashboard.jsx';
-import { Companies, Users, Fleet, Inspections, Audit } from './screens/Registers.jsx';
-import { Hierarchy, Compliance, CompanyProfile, Analytics, Settings } from './screens/Misc.jsx';
+import { Companies, Users, Fleet, Inspections } from './screens/Registers.jsx';
+import AuditLog from './screens/AuditLog.jsx';
+import { Hierarchy, Compliance, CompanyProfile } from './screens/Misc.jsx';
+import Analytics from './screens/Analytics.jsx';
+import Settings from './screens/Settings.jsx';
 import Reports from './screens/Reports.jsx';
 import Learning from './screens/Learning.jsx';
 
@@ -86,8 +89,11 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
   const submitInspection = (r) => {
     const ref = store.newRef();
     const ok = r.items.length - r.noGo.length - r.goBut.length;
-    const grounded = r.noGo.length > 0 || (r.goBut.length > 0 && !r.supSigned);
-    const result = grounded ? 'no-go' : r.goBut.length ? 'go-but' : 'in-order';
+    const rules = store.settings;
+    const unsignedConcession = rules.requireConcession && r.goBut.length > 0 && !r.supSigned;
+    const failed = r.noGo.length > 0 || unsignedConcession;
+    const grounded = failed && rules.autoGroundOnNoGo;
+    const result = failed ? 'no-go' : r.goBut.length ? 'go-but' : 'in-order';
     const v = vehicles.find((x) => x.plate === r.plate);
 
     const raised = [
@@ -109,6 +115,7 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         conds: r.conds, supSigned: r.supSigned, templateId: r.tpl.id,
       },
       defects: raised,
+      ground: grounded,
     });
 
     setRunner(null);
@@ -116,10 +123,14 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
     goTab('inspections');
     flash(
       result === 'no-go'
-        ? `Inspection #${ref} submitted — ${r.plate} grounded, ${raised.filter((d) => d.severity === 'No Go').length || r.goBut.length} defect(s) raised.`
+        ? `${r.plate} ${grounded ? 'grounded' : 'failed the check'}, ${raised.length} defect(s) raised.`
         : result === 'go-but'
-          ? `Inspection #${ref} submitted — go-but concession signed, ${r.goBut.length} item(s) on the repair clock.`
-          : `Inspection #${ref} submitted — ${r.plate} is fit for service.`,
+          ? `Go-but concession recorded, ${r.goBut.length} item(s) on a ${rules.goButMaxDays}-day clock.`
+          : `${r.plate} is fit for service.`,
+      {
+        tone: result === 'no-go' ? 'err' : result === 'go-but' ? 'warn' : 'ok',
+        title: `Inspection #${ref} submitted`,
+      },
     );
   };
 
@@ -544,7 +555,7 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
     hierarchy: <Hierarchy {...props} />,
     compliance: <Compliance {...props} />,
     learning: <Learning {...props} />,
-    audit: <Audit {...props} />,
+    audit: <AuditLog {...props} />,
     profile: <CompanyProfile {...props} />,
     reports: <Reports {...props} />,
     analytics: <Analytics {...props} />,
@@ -606,7 +617,7 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
 
       {runner && (
         <InspectionRunner tpl={runner.tpl} vehicles={vehicles} me={me} flash={flash}
-          gapFor={competencyGap}
+          gapFor={competencyGap} rules={store.settings}
           onClose={() => setRunner(null)} onSubmit={submitInspection} />
       )}
 
@@ -625,12 +636,15 @@ export default function App() {
 
   /* flash(text) or flash(text, { tone, title, action }) — the tone drives the
      toast's colour and icon, and an action gives the user a way back. */
+  const msgTimer = useRef(null);
   const flash = useCallback((text, opts = {}) => {
     const { tone = 'ok', title, action } = typeof opts === 'string' ? { tone: opts } : opts;
     setMsg(text);
     const id = Date.now() + Math.random();
     setToasts((t) => [...t.slice(-3), { id, text, tone, title, action }]);
-    setTimeout(() => setMsg('Ready'), 4600);
+    /* one timer, always the latest: an older one must not clear a newer message */
+    clearTimeout(msgTimer.current);
+    msgTimer.current = setTimeout(() => setMsg('Ready'), 4600);
   }, []);
   const closeToast = useCallback((id) => setToasts((t) => t.filter((x) => x.id !== id)), []);
 

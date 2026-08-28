@@ -52,8 +52,22 @@ data:
 - **Learning** — courses, per-person records and the gap list: a required
   course that is missing or expired is a gap, and the inspection runner
   warns when the operator's competency has lapsed.
-- **Reports** — each report builds from the live store and renders as a
-  document with a summary strip and a table, exportable as real CSV.
+- **Settings that mean something** — the inspection rules page is read by
+  the runner, the defect clock, the status bar and every threshold on the
+  platform. Change the go-but window to 14 days and the runner, the aging
+  bins, the defect filters and the status bar all follow. Edits are
+  staged, saved as a set, and written to the audit trail.
+- **Reports** — scope and period parameters, seven report definitions
+  built from the live store, a column chooser, CSV and JSON export, a
+  print stylesheet, a run history that records who generated what, and
+  schedules that can be paused and resumed.
+- **Analytics** — every figure compared with the previous period, pass
+  rate against the configured target, a re-cuttable "where it fails"
+  view (company, shift, weekday, item), and insight rows that drill
+  through to the register that fixes them.
+- **Audit trail** — filter by kind, actor and severity, search the text,
+  open any entry for the actor, record, channel, address and session
+  behind it, export CSV or JSON, and run an integrity check.
 - **Companies** — registering writes through to the register.
 
 ## Layout

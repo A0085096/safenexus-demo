@@ -7,7 +7,7 @@ import {
 import {
   HIERARCHY, COF, AGING_TOP, CATEGORIES, MODULES, REPORTS, RECENT_REPORTS, USERS, FLEET, INSPECTIONS, PERF,
 } from '../data.js';
-import { SERIES, SEQ, nf } from '../theme.js';
+import { SERIES, SEQ, nf, targetTone } from '../theme.js';
 import {
   Panel, ChartCard, Btn, Badge, Avatar, ListRow, SecHead, KV, Legend,
   roleBadge, vehicleBadge, resultBadge, statusBadge,
@@ -15,7 +15,7 @@ import {
 import Sparkline from '../charts/Sparkline.jsx';
 import { useStore } from '../store.jsx';
 
-const passTone = (v) => (v >= 95 ? SERIES[1] : v >= 90 ? SERIES[2] : SERIES[4]);
+const passTone = (v, target = 90) => targetTone(v, target);
 const ICONS = {
   truck: Truck, clipboard: ClipboardCheck, shield: ShieldCheck, users: UsersIcon, tool: Wrench,
   chart: BarChart3, pin: MapPin, invoice: FileText, alert: AlertTriangle, cert: BadgeCheck,
@@ -80,7 +80,7 @@ export function Hierarchy({ run }) {
 
 /* ── compliance ───────────────────────────────────────────────── */
 export function Compliance({ run, goTab }) {
-  const { defects, vehicles, select } = useStore();
+  const { defects, vehicles, select, settings } = useStore();
   const open = defects.filter((d) => d.status === 'Open');
   const noGo = open.filter((d) => d.severity === 'No Go');
   const grounded = vehicles.filter((v) => v.status === 'Maintenance').length;
@@ -111,7 +111,7 @@ export function Compliance({ run, goTab }) {
               } />
           ))}
         </Panel>
-        <Panel title="Open defects" note={`${open.length} open · 30-day rule`} flush
+        <Panel title="Open defects" note={`${open.length} open · ${settings.goButMaxDays}-day rule`} flush
           right={<button className="link" onClick={() => goTab('inspections')}>Defect register</button>}>
           {[...open].sort((a, b) => b.age - a.age).map((a) => (
             <ListRow key={a.id} avatar={<Avatar tone={a.severity === 'No Go' ? 'red' : a.age > 30 ? 'red' : 'gold'} icon={CircleAlert} />}
@@ -119,7 +119,7 @@ export function Compliance({ run, goTab }) {
               onClick={() => run('openDefect:' + a.id)}
               right={
                 <>
-                  <div style={{ font: '600 12px var(--num)', color: a.age > 30 ? 'var(--red)' : 'var(--gold)' }}>
+                  <div style={{ font: '600 12px var(--num)', color: a.age > settings.goButMaxDays ? 'var(--red)' : 'var(--gold)' }}>
                     {a.severity === 'No Go' ? 'No Go' : `${a.age} days`}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.severity === 'No Go' ? 'grounded' : '30-day limit'}</div>
@@ -359,100 +359,3 @@ export function CompanyProfile({ run, openDialog }) {
   );
 }
 
-/* ── analytics ────────────────────────────────────────────────── */
-export function Analytics() {
-  const maxCat = Math.max(...CATEGORIES.map((c) => c.v));
-  return (
-    <>
-      <div className="kpis">
-        {[['1 247', 'Total inspections', 'This month', 'up'],
-          ['98.2%', 'Pass rate', 'Not grounded · up 0.1 pp', 'up'],
-          ['87', 'Go-but items open', '23 aging past 20 days', 'warn'],
-          ['7', 'No-go defects', 'Vehicles grounded', 'dn']].map(([v, l, note, dir]) => (
-            <div className="kpi" key={l}>
-              <div className="kpi-lbl">{l}</div>
-              <div className="kpi-row"><span className="kpi-val">{v}</span></div>
-              <div className="kpi-foot"><span className={'delta ' + dir}>{note}</span></div>
-            </div>
-          ))}
-      </div>
-      <div className="infobar">
-        <span>Top performer is <strong>Acme Mining Corp</strong> at 98.2%. The most common go-but item across
-          the platform is <strong>windows and wipers</strong> at 34%. Inspections peak on Monday mornings,
-          the first shift of the week.</span>
-      </div>
-      <div className="grid-2">
-        <ChartCard title="Pass rate by company" note="marker at the 90% target">
-          {PERF.map((d) => (
-            <div key={d.co} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
-              <div style={{ width: 132, fontSize: 12.5, flexShrink: 0 }}>{d.co}</div>
-              <div className="track" style={{ flex: 1 }}>
-                <div className="fill" style={{ width: d.pass + '%', background: passTone(d.pass) }} />
-                <div className="thresh" style={{ left: '90%' }} />
-              </div>
-              <div style={{ font: '600 12px var(--num)', width: 46, textAlign: 'right', color: passTone(d.pass) }}>{d.pass}%</div>
-              <Sparkline values={d.trend} color={passTone(d.pass)} w={54} h={20} />
-            </div>
-          ))}
-        </ChartCard>
-        <ChartCard title="Go-but items by category" note="platform-wide">
-          {CATEGORIES.map((c, i) => (
-            <div key={c.k} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
-              <div style={{ width: 150, fontSize: 12.5, flexShrink: 0 }}>{c.k}</div>
-              <div className="meter" style={{ flex: 1 }}>
-                <div style={{ width: (c.v / maxCat * 100) + '%', background: SEQ[Math.min(4, 4 - i)] || SEQ[1] }} />
-              </div>
-              <div style={{ font: '600 12px var(--num)', width: 38, textAlign: 'right' }}>{c.v}%</div>
-            </div>
-          ))}
-        </ChartCard>
-      </div>
-    </>
-  );
-}
-
-/* ── settings ─────────────────────────────────────────────────── */
-function Toggle({ on, onChange }) {
-  return <button className={'toggle' + (on ? ' on' : '')} onClick={() => onChange(!on)}><span /></button>;
-}
-
-export function Settings({ run }) {
-  const [flags, setFlags] = useState({ mfa: true, audit: true, ground: true });
-  const set = (k) => (v) => setFlags((f) => ({ ...f, [k]: v }));
-  return (
-    <div className="grid-2">
-      <Panel title="Platform settings">
-        <div className="field"><div className="field-lbl">Platform name</div><input className="inp" defaultValue="SafeNexus ERP" /></div>
-        <div className="field"><div className="field-lbl">Support email</div><input className="inp" type="email" defaultValue="support@safenexus.co.za" /></div>
-        <div className="row-2">
-          <div className="field"><div className="field-lbl">Default timezone</div>
-            <select className="inp"><option>Africa/Johannesburg (SAST)</option><option>Africa/Windhoek (CAT)</option></select>
-          </div>
-          <div className="field"><div className="field-lbl">Date format</div>
-            <select className="inp"><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option><option>YYYY-MM-DD</option></select>
-          </div>
-        </div>
-        <Btn primary icon={Check} onClick={() => run('saveSettings')}>Save settings</Btn>
-      </Panel>
-      <Panel title="Security and access">
-        <div className="row-2">
-          <div className="field"><div className="field-lbl">Password policy</div>
-            <select className="inp"><option>Strong (8+ characters, number, symbol)</option><option>Standard (6+ characters)</option></select>
-          </div>
-          <div className="field"><div className="field-lbl">Session timeout</div>
-            <select className="inp"><option>8 hours</option><option>4 hours</option><option>1 hour</option></select>
-          </div>
-        </div>
-        {[['mfa', 'Two-factor authentication', 'Require 2FA on all administrator accounts'],
-          ['audit', 'Login audit logging', 'Record every login attempt in the audit trail'],
-          ['ground', 'Auto-ground on no-go', 'Take a vehicle out of service the moment a no-go defect is captured']].map(([k, t, s]) => (
-            <div className="lrow" key={k} style={{ cursor: 'default', paddingLeft: 0, paddingRight: 0 }}>
-              <div className="ri"><div className="n">{t}</div><div className="s">{s}</div></div>
-              <Toggle on={flags[k]} onChange={set(k)} />
-            </div>
-          ))}
-        <Btn primary icon={Check} onClick={() => run('saveSettings')}>Save settings</Btn>
-      </Panel>
-    </div>
-  );
-}

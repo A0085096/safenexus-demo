@@ -3,14 +3,14 @@ import {
   UserPlus, Plus, Download, ClipboardCheck, Car, CarFront, AlertTriangle, CheckCircle2,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
-import { SERIES, nf } from '../theme.js';
+import { nf, targetTone } from '../theme.js';
 import { BASE } from '../data.js';
 import {
   DataGrid, Btn, Badge, Avatar, RichText, Seg,
   statusBadge, roleBadge, planBadge, vehicleBadge, resultBadge,
 } from '../components/ui.jsx';
 
-const passTone = (v) => (v >= 95 ? SERIES[1] : v >= 90 ? SERIES[2] : SERIES[4]);
+
 
 const Person = ({ init, tone, name, sub }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -24,7 +24,8 @@ const Person = ({ init, tone, name, sub }) => (
 
 /* ── companies ────────────────────────────────────────────────── */
 export function Companies({ run, openDialog, goTab }) {
-  const { companies, selection, select } = useStore();
+  const { companies, selection, select, settings } = useStore();
+  const passTone = (v) => targetTone(v, settings.complianceTarget);
   const cols = [
     { key: 'co', label: 'Company', value: (r) => r.name, render: (r) => <Person init={r.init} tone="blue" name={r.name} /> },
     { key: 'ind', label: 'Industry', value: (r) => r.industry, render: (r) => <Badge tone="grey">{r.industry}</Badge> },
@@ -112,7 +113,7 @@ export function Fleet({ run, openDialog }) {
 
 /* ── inspections and defects ──────────────────────────────────── */
 export function Inspections({ run }) {
-  const { inspections, defects, selection, select, inspView: view, setInspView: setView } = useStore();
+  const { inspections, defects, selection, select, inspView: view, setInspView: setView, settings } = useStore();
   const [filter, setFilter] = useState('all');
   const [defFilter, setDefFilter] = useState('open');
 
@@ -142,7 +143,7 @@ export function Inspections({ run }) {
     { key: 'raised', label: 'Raised', value: (r) => r.raised, render: (r) => <span style={{ color: 'var(--text2)' }}>{r.raised}</span> },
     {
       key: 'age', label: 'Age', num: true, value: (r) => r.age,
-      render: (r) => <span style={{ color: r.age > 30 ? 'var(--red)' : r.age > 20 ? 'var(--gold)' : 'var(--text2)', fontWeight: 600 }}>{r.age} d</span>,
+      render: (r) => <span style={{ color: r.age > settings.goButMaxDays ? 'var(--red)' : r.age > settings.goButMaxDays * 0.7 ? 'var(--gold)' : 'var(--text2)', fontWeight: 600 }}>{r.age} d</span>,
     },
     { key: 'st', label: 'Status', value: (r) => r.status, render: (r) => <Badge tone={r.status === 'Closed' ? 'green' : 'grey'}>{r.status}</Badge> },
     {
@@ -163,15 +164,15 @@ export function Inspections({ run }) {
     const defRows = defects.filter((d) => (
       defFilter === 'open' ? d.status === 'Open'
         : defFilter === 'nogo' ? d.severity === 'No Go'
-          : defFilter === 'overdue' ? d.status === 'Open' && d.age > 30 : true));
+          : defFilter === 'overdue' ? d.status === 'Open' && d.age > settings.goButMaxDays : true));
     return (
       <DataGrid cols={defCols} rows={defRows} keyOf={(r) => r.id} totalLabel={defects.length}
         selected={selection.defect} onSelect={(k) => select('defect', k)}
-        rowClass={(r) => (r.age > 30 && r.status === 'Open' ? 'overdue' : '')}
+        rowClass={(r) => (r.age > settings.goButMaxDays && r.status === 'Open' ? 'overdue' : '')}
         toolbar={
           <>
             {switcher}
-            {[['open', 'Open'], ['nogo', 'No-go'], ['overdue', 'Past 30 days'], ['all', 'All']].map(([v, l]) => (
+            {[['open', 'Open'], ['nogo', 'No-go'], ['overdue', `Past ${settings.goButMaxDays} days`], ['all', 'All']].map(([v, l]) => (
               <Btn key={v} small active={defFilter === v} onClick={() => setDefFilter(v)}>{l}</Btn>
             ))}
           </>
@@ -200,26 +201,3 @@ export function Inspections({ run }) {
   );
 }
 
-/* ── audit log ────────────────────────────────────────────────── */
-export function Audit({ run }) {
-  const { audit } = useStore();
-  const AUDIT_ICON = {
-    assign: [Car, 'green'], unassign: [CarFront, 'gold'], user: [UserPlus, 'purple'],
-    insp: [ClipboardCheck, 'blue'], warn: [AlertTriangle, 'red'],
-  };
-  const cols = [
-    {
-      key: 'ico', label: '', render: (r) => {
-        const [Icon, tone] = AUDIT_ICON[r.type] || AUDIT_ICON.insp;
-        return <Avatar tone={tone} icon={Icon} />;
-      },
-    },
-    { key: 'act', label: 'Action', wrap: true, value: (r) => r.text, render: (r) => <span style={{ lineHeight: 1.5 }}><RichText text={r.text} /></span> },
-    { key: 'ctx', label: 'Context', value: (r) => r.meta, render: (r) => <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>{r.meta}</span> },
-    { key: 'when', label: 'When', value: (r) => r.time, render: (r) => <span style={{ fontSize: 11.5, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{r.time}</span> },
-  ];
-  return (
-    <DataGrid cols={cols} rows={audit} keyOf={(r, i) => r.text + r.time} emptyText="No audit entries match this filter."
-      toolbar={<Btn small icon={Download} onClick={() => run('export')}>Export</Btn>} />
-  );
-}
