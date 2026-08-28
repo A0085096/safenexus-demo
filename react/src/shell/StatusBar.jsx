@@ -1,6 +1,7 @@
 import React from 'react';
 import { Rows3 } from 'lucide-react';
 import { useStore } from '../store.jsx';
+import { BASE } from '../data.js';
 
 /* Counts come from the store, so the bar moves with the work. */
 export default function StatusBar({ msg, density, toggleDensity }) {
@@ -12,9 +13,9 @@ export default function StatusBar({ msg, density, toggleDensity }) {
 
   return (
     <div className="statusbar">
-      <span>{companies.length + 6} companies</span>
-      <span>{240 + users.length} users</span>
-      <span>{178 + vehicles.length} vehicles</span>
+      <span>{BASE.companies + companies.length} companies</span>
+      <span>{BASE.users + users.length} users</span>
+      <span>{BASE.vehicles + vehicles.length} vehicles</span>
       <span>{pending} awaiting sign-off</span>
       <span>{noGo} no-go defect{noGo === 1 ? '' : 's'}</span>
       <span>{grounded} grounded</span>

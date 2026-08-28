@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
 import { SERIES, nf } from '../theme.js';
+import { BASE } from '../data.js';
 import {
   DataGrid, Btn, Badge, Avatar, RichText, Seg,
   statusBadge, roleBadge, planBadge, vehicleBadge, resultBadge,
@@ -44,7 +45,7 @@ export function Companies({ run, openDialog, goTab }) {
     { key: 'act', label: '', render: () => <Btn small onClick={() => goTab('profile')}>Open</Btn> },
   ];
   return (
-    <DataGrid cols={cols} rows={companies} keyOf={(r) => r.name} totalLabel={companies.length + 6}
+    <DataGrid cols={cols} rows={companies} keyOf={(r) => r.name} totalLabel={BASE.companies + companies.length}
       selected={selection.company} onSelect={(k) => select('company', k)}
       toolbar={<Btn small primary icon={Plus} onClick={() => openDialog('company')}>Register company</Btn>} />
   );
@@ -65,7 +66,7 @@ export function Users({ run, openDialog }) {
     { key: 'act', label: '', render: (r) => <Btn small onClick={() => { select('user', r.name); run('editUser'); }}>Edit</Btn> },
   ];
   return (
-    <DataGrid cols={cols} rows={users} keyOf={(r) => r.name} totalLabel={240 + users.length}
+    <DataGrid cols={cols} rows={users} keyOf={(r) => r.name} totalLabel={BASE.users + users.length}
       selected={selection.user} onSelect={(k) => select('user', k)}
       toolbar={<Btn small primary icon={UserPlus} onClick={() => openDialog('user')}>New user</Btn>} />
   );
@@ -97,7 +98,7 @@ export function Fleet({ run, openDialog }) {
     { key: 'st', label: 'Status', value: (r) => r.status, render: (r) => vehicleBadge(r.status) },
   ];
   return (
-    <DataGrid cols={cols} rows={vehicles} keyOf={(r) => r.plate} totalLabel={178 + vehicles.length}
+    <DataGrid cols={cols} rows={vehicles} keyOf={(r) => r.plate} totalLabel={BASE.vehicles + vehicles.length}
       selected={selection.vehicle} onSelect={(k) => select('vehicle', k)}
       toolbar={
         <>
@@ -112,6 +113,8 @@ export function Fleet({ run, openDialog }) {
 /* ── inspections and defects ──────────────────────────────────── */
 export function Inspections({ run }) {
   const { inspections, defects, selection, select, inspView: view, setInspView: setView } = useStore();
+  const [filter, setFilter] = useState('all');
+  const [defFilter, setDefFilter] = useState('open');
 
   const inspCols = [
     { key: 'ref', label: 'Ref', mono: true, value: (r) => r.ref, render: (r) => '#' + r.ref },
@@ -157,19 +160,40 @@ export function Inspections({ run }) {
   );
 
   if (view === 'defects') {
+    const defRows = defects.filter((d) => (
+      defFilter === 'open' ? d.status === 'Open'
+        : defFilter === 'nogo' ? d.severity === 'No Go'
+          : defFilter === 'overdue' ? d.status === 'Open' && d.age > 30 : true));
     return (
-      <DataGrid cols={defCols} rows={defects} keyOf={(r) => r.id}
+      <DataGrid cols={defCols} rows={defRows} keyOf={(r) => r.id} totalLabel={defects.length}
         selected={selection.defect} onSelect={(k) => select('defect', k)}
         rowClass={(r) => (r.age > 30 && r.status === 'Open' ? 'overdue' : '')}
-        toolbar={switcher} emptyText="No defects match this filter." />
+        toolbar={
+          <>
+            {switcher}
+            {[['open', 'Open'], ['nogo', 'No-go'], ['overdue', 'Past 30 days'], ['all', 'All']].map(([v, l]) => (
+              <Btn key={v} small active={defFilter === v} onClick={() => setDefFilter(v)}>{l}</Btn>
+            ))}
+          </>
+        }
+        emptyText="No defects match this filter." />
     );
   }
+  const sheetRows = inspections.filter((i) => (
+    filter === 'pending' ? !i.signed
+      : filter === 'nogo' ? i.result === 'no-go'
+        : filter === 'gobut' ? i.result === 'go-but'
+          : filter === 'order' ? i.result === 'in-order' : true));
+
   return (
-    <DataGrid cols={inspCols} rows={inspections} keyOf={(r) => r.ref} totalLabel={1239 + inspections.length}
+    <DataGrid cols={inspCols} rows={sheetRows} keyOf={(r) => r.ref} totalLabel={BASE.inspections + inspections.length}
       selected={selection.inspection} onSelect={(k) => select('inspection', k)}
       toolbar={
         <>
           {switcher}
+          {[['all', 'All'], ['pending', 'Awaiting sign-off'], ['nogo', 'No-go'], ['gobut', 'Go-but'], ['order', 'In order']].map(([v, l]) => (
+            <Btn key={v} small active={filter === v} onClick={() => setFilter(v)}>{l}</Btn>
+          ))}
           <Btn small primary icon={ClipboardCheck} onClick={() => run('startInspection')}>New inspection</Btn>
         </>
       } />
@@ -190,7 +214,7 @@ export function Audit({ run }) {
         return <Avatar tone={tone} icon={Icon} />;
       },
     },
-    { key: 'act', label: 'Action', value: (r) => r.text, render: (r) => <span style={{ lineHeight: 1.5 }}><RichText text={r.text} /></span> },
+    { key: 'act', label: 'Action', wrap: true, value: (r) => r.text, render: (r) => <span style={{ lineHeight: 1.5 }}><RichText text={r.text} /></span> },
     { key: 'ctx', label: 'Context', value: (r) => r.meta, render: (r) => <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>{r.meta}</span> },
     { key: 'when', label: 'When', value: (r) => r.time, render: (r) => <span style={{ fontSize: 11.5, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{r.time}</span> },
   ];

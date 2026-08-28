@@ -1,5 +1,10 @@
 import { SERIES, SEQ, OUTCOME } from './theme.js';
 
+/* The demo carries a sample of a bigger platform; these are the records
+   the sample stands in for, so every count derives from one baseline. */
+export const BASE = { companies: 6, users: 240, vehicles: 178, inspections: 1239 };
+export const FLEET_BASE = { Assigned: 128, Available: 44, Maintenance: 6 };
+
 export const COMPANIES = [
   { name: 'Acme Mining Corp', init: 'AM', industry: 'Mining', users: 18, vehicles: 24, compliance: 98.2, plan: 'Pro', status: 'Active', date: '12 Mar 2024' },
   { name: 'Grootegeluk Coal', init: 'GC', industry: 'Mining', users: 34, vehicles: 48, compliance: 96.7, plan: 'Enterprise', status: 'Active', date: '5 Jan 2024' },
@@ -10,34 +15,82 @@ export const COMPANIES = [
 ];
 
 export const USERS = [
-  { name: 'Johan Swart', init: 'JS', role: 'Operator', co: 'Acme Mining Corp', reports: 'P. Dlamini', vehicle: 'CA 123 GP', cof: '14 Dec 2026', insps: 47, status: 'Active', tone: 'gold' },
-  { name: 'Priya Dlamini', init: 'PD', role: 'Supervisor', co: 'Acme Mining Corp', reports: 'T. Nkosi', vehicle: 'JHB 456 GP', cof: '30 Jun 2026', insps: 0, status: 'Active', tone: 'blue' },
-  { name: 'Thabo Nkosi', init: 'TN', role: 'Safety officer', co: 'Acme Mining Corp', reports: 'K. van der Merwe', vehicle: 'GP 789 DBN', cof: '01 Mar 2027', insps: 0, status: 'Active', tone: 'green' },
-  { name: 'Kobus van der Merwe', init: 'KM', role: 'Administrator', co: 'Acme Mining Corp', reports: '—', vehicle: '—', cof: 'N/A', insps: 0, status: 'Active', tone: 'purple' },
-  { name: 'Lindiwe Mokoena', init: 'LM', role: 'Operator', co: 'Acme Mining Corp', reports: 'P. Dlamini', vehicle: 'WC 321 CT', cof: '22 Sep 2026', insps: 31, status: 'Active', tone: 'gold' },
-  { name: 'B. Pietersen', init: 'BP', role: 'Operator', co: 'Grootegeluk Coal', reports: 'V. Molefe', vehicle: '—', cof: '14 Aug 2026', insps: 58, status: 'Active', tone: 'gold' },
-  { name: 'V. Molefe', init: 'VM', role: 'Supervisor', co: 'Grootegeluk Coal', reports: 'S. Mahlangu', vehicle: 'DBN 001 NP', cof: 'N/A', insps: 0, status: 'Active', tone: 'blue' },
-  { name: 'M. Dube', init: 'MD', role: 'Operator', co: 'Zimele Logistics', reports: 'C. Langa', vehicle: 'GP 112 ZL', cof: '05 Nov 2026', insps: 22, status: 'Active', tone: 'gold' },
+  { name: 'Johan Swart', init: 'JS', role: 'Operator', co: 'Acme Mining Corp', reports: 'Priya Dlamini', vehicle: 'CA 123 GP', cof: '14 Dec 2026', insps: 47, status: 'Active', tone: 'gold',
+    empNo: 'AM-1042', email: 'johan.swart@acmecorp.co.za', phone: '+27 82 441 0093', site: 'Lephalale open pit',
+    started: '03 Feb 2022', licence: 'Code EC · 14 Dec 2026', lastActive: 'Today 06:15', passRate: 97.9, defects: 6 },
+  { name: 'Priya Dlamini', init: 'PD', role: 'Supervisor', co: 'Acme Mining Corp', reports: 'Thabo Nkosi', vehicle: 'JHB 456 GP', cof: '30 Jun 2026', insps: 0, status: 'Active', tone: 'blue',
+    empNo: 'AM-0881', email: 'priya.dlamini@acmecorp.co.za', phone: '+27 73 118 2204', site: 'Lephalale open pit',
+    started: '17 Aug 2020', licence: 'Code EB · 30 Jun 2026', lastActive: 'Today 07:42', passRate: null, defects: 0 },
+  { name: 'Thabo Nkosi', init: 'TN', role: 'Safety officer', co: 'Acme Mining Corp', reports: 'Kobus van der Merwe', vehicle: 'GP 789 DBN', cof: '01 Mar 2027', insps: 0, status: 'Active', tone: 'green',
+    empNo: 'AM-0344', email: 'thabo.nkosi@acmecorp.co.za', phone: '+27 84 220 7741', site: 'Group — all sites',
+    started: '02 Mar 2019', licence: 'Code EB · 01 Mar 2027', lastActive: 'Today 09:14', passRate: null, defects: 0 },
+  { name: 'Kobus van der Merwe', init: 'KM', role: 'Administrator', co: 'Acme Mining Corp', reports: '—', vehicle: '—', cof: 'N/A', insps: 0, status: 'Active', tone: 'purple',
+    empNo: 'AM-0002', email: 'admin@acmecorp.co.za', phone: '+27 14 763 0100', site: 'Head office, Lephalale',
+    started: '15 Feb 2016', licence: 'Code EB · 09 Sep 2028', lastActive: 'Now', passRate: null, defects: 0 },
+  { name: 'Lindiwe Mokoena', init: 'LM', role: 'Operator', co: 'Acme Mining Corp', reports: 'Priya Dlamini', vehicle: 'WC 321 CT', cof: '22 Sep 2026', insps: 31, status: 'Active', tone: 'gold',
+    empNo: 'AM-1177', email: 'lindiwe.mokoena@acmecorp.co.za', phone: '+27 79 604 3312', site: 'Lephalale open pit',
+    started: '11 Jan 2024', licence: 'Code C1 · 22 Sep 2026', lastActive: 'Today 07:00', passRate: 96.8, defects: 4 },
+  { name: 'Bennie Pietersen', init: 'BP', role: 'Operator', co: 'Grootegeluk Coal', reports: 'Vusi Molefe', vehicle: '—', cof: '14 Aug 2026', insps: 58, status: 'Active', tone: 'gold',
+    empNo: 'GC-2210', email: 'b.pietersen@grootegeluk.co.za', phone: '+27 82 990 1155', site: 'Grootegeluk north',
+    started: '05 May 2021', licence: 'Code EC · 14 Aug 2026', lastActive: 'Today 05:50', passRate: 98.3, defects: 3 },
+  { name: 'Vusi Molefe', init: 'VM', role: 'Supervisor', co: 'Grootegeluk Coal', reports: 'Sipho Mahlangu', vehicle: 'DBN 001 NP', cof: 'N/A', insps: 0, status: 'Active', tone: 'blue',
+    empNo: 'GC-1004', email: 'v.molefe@grootegeluk.co.za', phone: '+27 71 442 8890', site: 'Grootegeluk north',
+    started: '23 Jun 2018', licence: 'Code EC · 30 Apr 2027', lastActive: 'Yesterday 16:40', passRate: null, defects: 0 },
+  { name: 'Mandla Dube', init: 'MD', role: 'Operator', co: 'Zimele Logistics', reports: 'Cebo Langa', vehicle: 'GP 112 ZL', cof: '05 Nov 2026', insps: 22, status: 'Active', tone: 'gold',
+    empNo: 'ZL-0431', email: 'm.dube@zimele.co.za', phone: '+27 60 337 4419', site: 'Zimele depot, Polokwane',
+    started: '19 Sep 2023', licence: 'Code C1 · 05 Nov 2026', lastActive: 'Yesterday 17:20', passRate: 94.1, defects: 5 },
+];
+
+/* ── learning: courses and the records against each person ─────── */
+export const COURSES = [
+  { id: 'C-01', name: 'Pre-use inspection competency', cat: 'Safety critical', hours: 4, validity: 24, roles: ['Operator', 'Supervisor'], required: true },
+  { id: 'C-02', name: 'Surface mobile machinery induction', cat: 'Induction', hours: 8, validity: 12, roles: ['Operator', 'Supervisor', 'Safety officer'], required: true },
+  { id: 'C-03', name: 'Defect reporting and go-but concessions', cat: 'Safety critical', hours: 3, validity: 24, roles: ['Supervisor', 'Safety officer'], required: true },
+  { id: 'C-04', name: 'Red permit area awareness', cat: 'Site specific', hours: 2, validity: 12, roles: ['Operator'], required: true },
+  { id: 'C-05', name: 'Defensive driving — heavy vehicle', cat: 'Driving', hours: 16, validity: 36, roles: ['Operator'], required: false },
+  { id: 'C-06', name: 'Fatigue management', cat: 'Wellbeing', hours: 2, validity: 12, roles: ['Operator', 'Supervisor'], required: false },
+  { id: 'C-07', name: 'Incident investigation', cat: 'Safety critical', hours: 12, validity: 36, roles: ['Safety officer', 'Administrator'], required: false },
+  { id: 'C-08', name: 'SafeNexus administrator training', cat: 'Platform', hours: 3, validity: 0, roles: ['Administrator'], required: false },
+];
+
+export const ENROLMENTS = [
+  { user: 'Johan Swart', course: 'C-01', status: 'Valid', done: '12 Mar 2025', expires: '12 Mar 2027', score: 92 },
+  { user: 'Johan Swart', course: 'C-02', status: 'Expiring', done: '02 Aug 2025', expires: '02 Aug 2026', score: 88 },
+  { user: 'Johan Swart', course: 'C-04', status: 'Valid', done: '19 Jan 2026', expires: '19 Jan 2027', score: 95 },
+  { user: 'Johan Swart', course: 'C-05', status: 'In progress', done: null, expires: null, score: null, progress: 62 },
+  { user: 'Lindiwe Mokoena', course: 'C-01', status: 'Valid', done: '04 Feb 2026', expires: '04 Feb 2028', score: 90 },
+  { user: 'Lindiwe Mokoena', course: 'C-02', status: 'Valid', done: '11 Jan 2026', expires: '11 Jan 2027', score: 84 },
+  { user: 'Lindiwe Mokoena', course: 'C-04', status: 'Expired', done: '06 Jun 2024', expires: '06 Jun 2025', score: 79 },
+  { user: 'Bennie Pietersen', course: 'C-01', status: 'Valid', done: '22 Sep 2025', expires: '22 Sep 2027', score: 96 },
+  { user: 'Bennie Pietersen', course: 'C-02', status: 'Valid', done: '15 Mar 2026', expires: '15 Mar 2027', score: 91 },
+  { user: 'Bennie Pietersen', course: 'C-06', status: 'In progress', done: null, expires: null, score: null, progress: 25 },
+  { user: 'Mandla Dube', course: 'C-01', status: 'Expiring', done: '30 Jul 2024', expires: '30 Jul 2026', score: 81 },
+  { user: 'Mandla Dube', course: 'C-02', status: 'Valid', done: '19 Sep 2025', expires: '19 Sep 2026', score: 87 },
+  { user: 'Priya Dlamini', course: 'C-01', status: 'Valid', done: '08 Nov 2025', expires: '08 Nov 2027', score: 94 },
+  { user: 'Priya Dlamini', course: 'C-03', status: 'Valid', done: '14 Apr 2026', expires: '14 Apr 2028', score: 89 },
+  { user: 'Thabo Nkosi', course: 'C-03', status: 'Valid', done: '02 Feb 2026', expires: '02 Feb 2028', score: 97 },
+  { user: 'Thabo Nkosi', course: 'C-07', status: 'Valid', done: '18 Jun 2025', expires: '18 Jun 2028', score: 93 },
+  { user: 'Kobus van der Merwe', course: 'C-08', status: 'Valid', done: '20 May 2026', expires: null, score: 100 },
 ];
 
 export const FLEET = [
-  { plate: 'CA 123 GP', fleetNo: 'AM-014', type: 'LDV bakkie', make: 'Toyota Hilux', year: 2022, co: 'Acme Mining Corp', driver: 'J. Swart', sup: 'P. Dlamini', lastInsp: 'Today 06:15', km: 69698, status: 'Assigned', cof: '30 Nov 2026', serviceDue: 75000, permit: 'Red permit area' },
-  { plate: 'JHB 456 GP', fleetNo: 'AM-021', type: 'LDV bakkie', make: 'Ford Ranger', year: 2023, co: 'Acme Mining Corp', driver: 'L. Mokoena', sup: 'P. Dlamini', lastInsp: 'Today 07:00', km: 41230, status: 'Assigned', cof: '14 Feb 2027', serviceDue: 45000, permit: '' },
+  { plate: 'CA 123 GP', fleetNo: 'AM-014', type: 'LDV bakkie', make: 'Toyota Hilux', year: 2022, co: 'Acme Mining Corp', driver: 'Johan Swart', sup: 'Priya Dlamini', lastInsp: 'Today 06:15', km: 69698, status: 'Assigned', cof: '30 Nov 2026', serviceDue: 75000, permit: 'Red permit area' },
+  { plate: 'JHB 456 GP', fleetNo: 'AM-021', type: 'LDV bakkie', make: 'Ford Ranger', year: 2023, co: 'Acme Mining Corp', driver: 'Lindiwe Mokoena', sup: 'Priya Dlamini', lastInsp: 'Today 07:00', km: 41230, status: 'Assigned', cof: '14 Feb 2027', serviceDue: 45000, permit: '' },
   { plate: 'GP 789 DBN', fleetNo: 'AM-008', type: 'LDV bakkie', make: 'Isuzu D-Max', year: 2021, co: 'Acme Mining Corp', driver: '—', sup: '—', lastInsp: '17 Jun', km: 88102, status: 'Available', cof: '02 Sep 2026', serviceDue: 90000, permit: '' },
   { plate: 'WC 321 CT', fleetNo: 'AM-003', type: 'Crew bus', make: 'Nissan Navara', year: 2022, co: 'Acme Mining Corp', driver: '—', sup: '—', lastInsp: '17 Jun (No-go)', km: 54772, status: 'Maintenance', cof: '19 Jan 2027', serviceDue: 60000, permit: '' },
-  { plate: 'DBN 001 NP', fleetNo: 'GC-002', type: 'Haul truck', make: 'Toyota Land Cruiser', year: 2020, co: 'Grootegeluk Coal', driver: 'B. Pietersen', sup: 'V. Molefe', lastInsp: 'Today 05:50', km: 124300, status: 'Assigned', cof: '08 Aug 2026', serviceDue: 126000, permit: 'Red permit area' },
-  { plate: 'GP 112 ZL', fleetNo: 'ZL-011', type: 'LDV bakkie', make: 'Toyota Hilux', year: 2023, co: 'Zimele Logistics', driver: 'M. Dube', sup: 'C. Langa', lastInsp: '17 Jun', km: 18900, status: 'Assigned', cof: '21 Mar 2027', serviceDue: 25000, permit: '' },
+  { plate: 'DBN 001 NP', fleetNo: 'GC-002', type: 'Haul truck', make: 'Toyota Land Cruiser', year: 2020, co: 'Grootegeluk Coal', driver: 'Bennie Pietersen', sup: 'Vusi Molefe', lastInsp: 'Today 05:50', km: 124300, status: 'Assigned', cof: '08 Aug 2026', serviceDue: 126000, permit: 'Red permit area' },
+  { plate: 'GP 112 ZL', fleetNo: 'ZL-011', type: 'LDV bakkie', make: 'Toyota Hilux', year: 2023, co: 'Zimele Logistics', driver: 'Mandla Dube', sup: 'Cebo Langa', lastInsp: '17 Jun', km: 18900, status: 'Assigned', cof: '21 Mar 2027', serviceDue: 25000, permit: '' },
 ];
 
 export const INSPECTIONS = [
-  { ref: '2120352', date: 'Today 06:15', vehicle: 'CA 123 GP', op: 'J. Swart', co: 'Acme Mining Corp', shift: 'Day A', ok: 20, go: 3, ng: 0, result: 'go-but', signed: true },
-  { ref: '2120351', date: 'Today 05:50', vehicle: 'DBN 001 NP', op: 'B. Pietersen', co: 'Grootegeluk Coal', shift: 'Day B', ok: 23, go: 0, ng: 0, result: 'in-order', signed: true },
-  { ref: '2120350', date: 'Today 07:00', vehicle: 'JHB 456 GP', op: 'L. Mokoena', co: 'Acme Mining Corp', shift: 'Day A', ok: 22, go: 1, ng: 0, result: 'go-but', signed: false },
-  { ref: '2120349', date: 'Yesterday 13:55', vehicle: 'CA 123 GP', op: 'J. Swart', co: 'Acme Mining Corp', shift: 'Aft A', ok: 23, go: 0, ng: 0, result: 'in-order', signed: true },
-  { ref: '2120348', date: 'Yesterday 06:08', vehicle: 'CA 123 GP', op: 'J. Swart', co: 'Acme Mining Corp', shift: 'Day A', ok: 23, go: 0, ng: 0, result: 'in-order', signed: true },
-  { ref: '2120347', date: 'Yesterday 05:50', vehicle: 'DBN 001 NP', op: 'B. Pietersen', co: 'Grootegeluk Coal', shift: 'Day B', ok: 21, go: 2, ng: 0, result: 'go-but', signed: false },
-  { ref: '2120345', date: 'Yesterday 21:30', vehicle: 'WC 321 CT', op: 'L. Mokoena', co: 'Acme Mining Corp', shift: 'Night B', ok: 20, go: 0, ng: 1, result: 'no-go', signed: false },
-  { ref: '2120340', date: '16 Jun 06:22', vehicle: 'CA 123 GP', op: 'J. Swart', co: 'Acme Mining Corp', shift: 'Day A', ok: 21, go: 2, ng: 0, result: 'go-but', signed: true },
+  { ref: '2120352', date: 'Today 06:15', vehicle: 'CA 123 GP', op: 'Johan Swart', co: 'Acme Mining Corp', shift: 'Day A', ok: 20, go: 3, ng: 0, result: 'go-but', signed: true },
+  { ref: '2120351', date: 'Today 05:50', vehicle: 'DBN 001 NP', op: 'Bennie Pietersen', co: 'Grootegeluk Coal', shift: 'Day B', ok: 23, go: 0, ng: 0, result: 'in-order', signed: true },
+  { ref: '2120350', date: 'Today 07:00', vehicle: 'JHB 456 GP', op: 'Lindiwe Mokoena', co: 'Acme Mining Corp', shift: 'Day A', ok: 22, go: 1, ng: 0, result: 'go-but', signed: false },
+  { ref: '2120349', date: 'Yesterday 13:55', vehicle: 'CA 123 GP', op: 'Johan Swart', co: 'Acme Mining Corp', shift: 'Aft A', ok: 23, go: 0, ng: 0, result: 'in-order', signed: true },
+  { ref: '2120348', date: 'Yesterday 06:08', vehicle: 'CA 123 GP', op: 'Johan Swart', co: 'Acme Mining Corp', shift: 'Day A', ok: 23, go: 0, ng: 0, result: 'in-order', signed: true },
+  { ref: '2120347', date: 'Yesterday 05:50', vehicle: 'DBN 001 NP', op: 'Bennie Pietersen', co: 'Grootegeluk Coal', shift: 'Day B', ok: 21, go: 2, ng: 0, result: 'go-but', signed: false },
+  { ref: '2120345', date: 'Yesterday 21:30', vehicle: 'WC 321 CT', op: 'Lindiwe Mokoena', co: 'Acme Mining Corp', shift: 'Night B', ok: 20, go: 0, ng: 1, result: 'no-go', signed: false },
+  { ref: '2120340', date: '16 Jun 06:22', vehicle: 'CA 123 GP', op: 'Johan Swart', co: 'Acme Mining Corp', shift: 'Day A', ok: 21, go: 2, ng: 0, result: 'go-but', signed: true },
 ];
 
 export const AUDIT = [
@@ -143,15 +196,15 @@ export const HIERARCHY = [
   { name: 'Priya Dlamini', role: 'Supervisor', sub: 'Supervisor · JHB 456 GP', init: 'PD', tone: 'blue', indent: 2 },
   { name: 'Johan Swart', role: 'Operator', sub: 'Operator · CA 123 GP', init: 'JS', tone: 'gold', indent: 3 },
   { name: 'Lindiwe Mokoena', role: 'Operator', sub: 'Operator · WC 321 CT', init: 'LM', tone: 'gold', indent: 3 },
-  { name: 'A. Williams', role: 'Supervisor', sub: 'Supervisor', init: 'AW', tone: 'blue', indent: 2 },
-  { name: 'M. Sithole', role: 'Operator', sub: 'Operator · GP 789 DBN', init: 'MS', tone: 'gold', indent: 3 },
+  { name: 'Anton Williams', role: 'Supervisor', sub: 'Supervisor', init: 'AW', tone: 'blue', indent: 2 },
+  { name: 'Musa Sithole', role: 'Operator', sub: 'Operator · GP 789 DBN', init: 'MS', tone: 'gold', indent: 3 },
 ];
 
 export const COF = [
-  { name: 'P. Dlamini', co: 'Acme Mining Corp', exp: '30 Jun 2026', days: 6 },
-  { name: 'J. Govender', co: 'BHP Construction', exp: '30 Jul 2026', days: 36 },
-  { name: 'B. Pietersen', co: 'Grootegeluk Coal', exp: '14 Aug 2026', days: 51 },
-  { name: 'L. Mokoena', co: 'Acme Mining Corp', exp: '22 Sep 2026', days: 90 },
+  { name: 'Priya Dlamini', co: 'Acme Mining Corp', exp: '30 Jun 2026', days: 6 },
+  { name: 'Jay Govender', co: 'BHP Construction', exp: '30 Jul 2026', days: 36 },
+  { name: 'Bennie Pietersen', co: 'Grootegeluk Coal', exp: '14 Aug 2026', days: 51 },
+  { name: 'Lindiwe Mokoena', co: 'Acme Mining Corp', exp: '22 Sep 2026', days: 90 },
 ];
 
 export const MODULES = [
@@ -181,8 +234,8 @@ export const REPORTS = [
 ];
 
 export const RECENT_REPORTS = [
-  { name: 'Inspection report', scope: 'Acme Mining Corp · June 2026', by: 'K. van der Merwe', at: 'Today 08:02', fmt: 'PDF' },
-  { name: 'COF expiry report', scope: 'All companies · 90-day window', by: 'T. Nkosi', at: 'Today 07:41', fmt: 'PDF' },
-  { name: 'Fleet status report', scope: 'Grootegeluk Coal · June 2026', by: 'V. Molefe', at: 'Yesterday 16:20', fmt: 'CSV' },
-  { name: 'Defect history', scope: 'All companies · Q2 2026', by: 'K. van der Merwe', at: '16 Jun 11:05', fmt: 'PDF' },
+  { name: 'Inspection report', scope: 'Acme Mining Corp · June 2026', by: 'Kobus van der Merwe', at: 'Today 08:02', fmt: 'PDF' },
+  { name: 'COF expiry report', scope: 'All companies · 90-day window', by: 'Thabo Nkosi', at: 'Today 07:41', fmt: 'PDF' },
+  { name: 'Fleet status report', scope: 'Grootegeluk Coal · June 2026', by: 'Vusi Molefe', at: 'Yesterday 16:20', fmt: 'CSV' },
+  { name: 'Defect history', scope: 'All companies · Q2 2026', by: 'Kobus van der Merwe', at: '16 Jun 11:05', fmt: 'PDF' },
 ];

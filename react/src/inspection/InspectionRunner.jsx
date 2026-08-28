@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { X, CheckCheck, Eraser } from 'lucide-react';
+import { X, CheckCheck, Eraser, AlertTriangle } from 'lucide-react';
 import { Btn, Badge } from '../components/ui.jsx';
 import { RESULT_ORDER, allItems } from './templates.js';
 import './runner.css';
@@ -14,7 +14,7 @@ const COLOUR = { Go: 'var(--green)', 'Go But': '#BC7B09', 'No Go': 'var(--red)',
    signed concession (and counts as a No Go until it is signed), and
    the sheet cannot be submitted with items left unanswered.
    ══════════════════════════════════════════════════════════════ */
-export default function InspectionRunner({ tpl, vehicles, me, onClose, onSubmit, flash }) {
+export default function InspectionRunner({ tpl, vehicles, me, onClose, onSubmit, flash, gapFor }) {
   const eligible = vehicles.filter((v) => tpl.appliesTo.includes(v.type));
   const list = eligible.length ? eligible : vehicles;
   const [plate, setPlate] = useState(list[0]?.plate || '');
@@ -118,6 +118,16 @@ export default function InspectionRunner({ tpl, vehicles, me, onClose, onSubmit,
             </label>
           ))}
         </div>
+
+        {gapFor?.(operator) && (
+          <div className="runner-warn">
+            <AlertTriangle size={15} />
+            <span>
+              <strong>{operator}</strong> {gapFor(operator)}. The sheet can still be captured, but the
+              supervisor must sign it and the training should be booked.
+            </span>
+          </div>
+        )}
 
         {tpl.declaration && (
           <div className="runner-decl"><strong>Declaration. </strong>{tpl.declaration}</div>

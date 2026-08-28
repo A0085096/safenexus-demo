@@ -359,59 +359,6 @@ export function CompanyProfile({ run, openDialog }) {
   );
 }
 
-/* ── reports ──────────────────────────────────────────────────── */
-export function Reports({ run }) {
-  return (
-    <>
-      <div className="infobar">
-        <span>Reports run against the company selected in the navigation pane and the current period.
-          Output is PDF unless you export to CSV from the ribbon.</span>
-      </div>
-      <div className="grid-3">
-        {REPORTS.map((r) => {
-          const Icon = ICONS[r.icon];
-          const bg = r.tone === 'blue' ? 'var(--sel)' : `var(--${r.tone}-bg)`;
-          const fg = r.tone === 'blue' ? 'var(--brand)' : `var(--${r.tone})`;
-          return (
-            <div className="chart-card" style={{ marginBottom: 0, cursor: 'pointer' }} key={r.name}
-              onClick={() => run('report:' + r.name)}>
-              <div className="chart-body">
-                <div className="tile-ico" style={{ background: bg, marginBottom: 9 }}>
-                  <Icon size={15} strokeWidth={1.8} color={fg} />
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{r.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3, lineHeight: 1.45 }}>{r.desc}</div>
-              </div>
-              <div style={{ padding: '8px 12px', borderTop: '1px solid var(--stroke-soft)', background: 'var(--pane)', fontSize: 12, color: 'var(--brand-dark)' }}>
-                Generate PDF →
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <Panel title="Recently generated" note="last 7 days" flush>
-        <div className="gridwrap">
-          <table className="grid">
-            <thead><tr><th>Report</th><th>Scope</th><th>Requested by</th><th>Generated</th><th>Format</th><th /></tr></thead>
-            <tbody>
-              {RECENT_REPORTS.map((r) => (
-                <tr key={r.name + r.at}>
-                  <td style={{ fontWeight: 600 }}>{r.name}</td>
-                  <td style={{ color: 'var(--text2)' }}>{r.scope}</td>
-                  <td>{r.by}</td>
-                  <td style={{ color: 'var(--text3)' }}>{r.at}</td>
-                  <td><Badge tone="grey">{r.fmt}</Badge></td>
-                  <td><Btn small icon={Download} onClick={() => run('export')}>Download</Btn></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
-    </>
-  );
-}
-
 /* ── analytics ────────────────────────────────────────────────── */
 export function Analytics() {
   const maxCat = Math.max(...CATEGORIES.map((c) => c.v));

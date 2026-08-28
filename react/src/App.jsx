@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CircleCheck } from 'lucide-react';
 import './styles.css';
 
 import TitleBar from './shell/TitleBar.jsx';
@@ -9,7 +8,8 @@ import StatusBar from './shell/StatusBar.jsx';
 import Backstage from './shell/Backstage.jsx';
 import { MESSAGES } from './shell/ribbon.js';
 import { Dialog } from './components/ui.jsx';
-import { VehiclePane, InspectionPane, DefectPane } from './components/panes.jsx';
+import { VehiclePane, InspectionPane, DefectPane, UserPane } from './components/panes.jsx';
+import Toasts from './components/Toasts.jsx';
 import AuthShell, { LockScreen } from './auth/AuthShell.jsx';
 import InspectionRunner from './inspection/InspectionRunner.jsx';
 import { templateFor } from './inspection/templates.js';
@@ -17,7 +17,9 @@ import { StoreProvider, useStore } from './store.jsx';
 
 import Dashboard from './screens/Dashboard.jsx';
 import { Companies, Users, Fleet, Inspections, Audit } from './screens/Registers.jsx';
-import { Hierarchy, Compliance, CompanyProfile, Reports, Analytics, Settings } from './screens/Misc.jsx';
+import { Hierarchy, Compliance, CompanyProfile, Analytics, Settings } from './screens/Misc.jsx';
+import Reports from './screens/Reports.jsx';
+import Learning from './screens/Learning.jsx';
 
 const ME = {
   name: 'Kobus van der Merwe', initials: 'KM', role: 'Administrator',
@@ -25,9 +27,9 @@ const ME = {
 };
 
 /* screens that carry a reading pane */
-const PANE_TABS = { fleet: 1, inspections: 1 };
+const PANE_TABS = { fleet: 1, inspections: 1, users: 1 };
 
-function Workspace() {
+function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
   const store = useStore();
   const {
     dispatch, me, vehicles, users, defects, inspections, templates, selection, select, inspView,
@@ -42,33 +44,38 @@ function Workspace() {
   const [paneOff, setPaneOff] = useState(false);
   const [density, setDensity] = useState('Comfortable');
   const [search, setSearch] = useState('');
-  const [msg, setMsg] = useState('Ready');
-  const [toasts, setToasts] = useState([]);
   const [dialog, setDialog] = useState(null);
   const [backstage, setBackstage] = useState(false);
   const [runner, setRunner] = useState(null);
   const [signedOut, setSignedOut] = useState(false);
-
-  const flash = useCallback((text) => {
-    setMsg(text);
-    const id = Date.now() + Math.random();
-    setToasts((t) => [...t, { id, text }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500);
-    setTimeout(() => setMsg('Ready'), 4200);
-  }, []);
 
   const goTab = useCallback((key) => { setTab(key); setCollapsed(false); }, []);
 
   const vehicle = store.vehicle;
   const inspection = store.inspection;
   const defect = defects.find((d) => d.id === selection.defect) || null;
+  const user = users.find((u) => u.name === selection.user) || null;
 
   /* a command that acts on a selection says so when there is none */
   const need = (thing, what) => {
     if (thing) return true;
-    flash(`Select ${what} first.`);
+    flash(`Select ${what} first.`, { tone: 'warn', title: 'Nothing selected' });
     return false;
   };
+
+  /* the competency behind the signature: a lapsed pre-use course is
+     worth saying out loud before the sheet is captured */
+  const competencyGap = useCallback((name) => {
+    const u = users.find((x) => x.name === name);
+    if (!u) return null;
+    const required = store.courses.filter((c) => c.required && c.roles.includes(u.role));
+    const lapsed = required.filter((c) => {
+      const e = store.enrolments.find((x) => x.user === u.name && x.course === c.id);
+      return !e || e.status === 'Expired';
+    });
+    if (!lapsed.length) return null;
+    return `has no valid ${lapsed.map((c) => c.name.toLowerCase()).join(' or ')}`;
+  }, [users, store.courses, store.enrolments]);
 
   const openRunner = useCallback(() => {
     const v = vehicle || vehicles.find((x) => x.status !== 'Maintenance') || vehicles[0];
@@ -203,14 +210,67 @@ function Workspace() {
         return flash(`Editing ${vehicle.plate}. Use the reading pane actions to change its state.`);
 
       /* people */
+      case 'openUser':
+        if (!need(user, 'a user')) return goTab('users');
+        return goTab('users');
       case 'editUser':
-        if (!need(selection.user, 'a user')) return goTab('users');
-        return flash(`Editing ${selection.user}.`);
-      case 'disableUser': {
-        if (!need(selection.user, 'a user')) return goTab('users');
-        dispatch({ type: 'DISABLE_USER', name: selection.user, by: me.name });
-        return flash(`${selection.user} disabled and sessions revoked.`);
+        if (!need(user, 'a user')) return goTab('users');
+        return setDialog('editUser');
+      case 'suspendUser':
+        if (!need(user, 'a user')) return goTab('users');
+        if (user.status === 'Suspended') return flash(`${user.name} is already suspended.`, { tone: 'warn' });
+        return setDialog('suspend');
+      case 'reactivateUser': {
+        if (!need(user, 'a user')) return goTab('users');
+        if (user.status === 'Active') return flash(`${user.name} is already active.`, { tone: 'warn' });
+        dispatch({ type: 'SET_USER_STATUS', name: user.name, status: 'Active', by: me.name });
+        return flash(`${user.name} can sign in again.`, { title: 'Reactivated' });
       }
+      case 'deleteUser':
+        if (!need(user, 'a user')) return goTab('users');
+        return setDialog('deleteUser');
+      case 'assignUserVehicle':
+        if (!need(user, 'a user')) return goTab('users');
+        if (user.vehicle && user.vehicle !== '—') return flash(`${user.name} already has ${user.vehicle}.`, { tone: 'warn' });
+        if (!vehicles.some((v) => v.driver === '—')) return flash('No unassigned vehicle is available.', { tone: 'warn' });
+        return setDialog('assignUser');
+      case 'unassignUserVehicle':
+        if (!need(user, 'a user')) return goTab('users');
+        if (!user.vehicle || user.vehicle === '—') return flash(`${user.name} has no vehicle assigned.`, { tone: 'warn' });
+        return setDialog('unassignUser');
+      case 'openUserVehicle': {
+        if (!need(user, 'a user')) return goTab('users');
+        if (!user.vehicle || user.vehicle === '—') return flash(`${user.name} has no vehicle assigned.`, { tone: 'warn' });
+        select('vehicle', user.vehicle);
+        return goTab('fleet');
+      }
+      case 'resetPassword': {
+        if (!need(user, 'a user')) return goTab('users');
+        dispatch({ type: 'AUDIT', kind: 'user', text: `**${me.name}** sent a password reset to **${user.name}**`, meta: 'Access control' });
+        return flash(`Reset link emailed to ${user.email}. It expires in 30 minutes.`, { title: 'Password reset sent' });
+      }
+
+      /* learning */
+      case 'enrol':
+        if (!need(user || selection.user, 'a user')) return goTab('users');
+        return setDialog('enrol');
+      case 'enrolFor': {
+        const [name, course] = arg.split('|');
+        dispatch({ type: 'ENROL', name, course, by: me.name });
+        return flash(`${name} enrolled.`, { title: 'Training assigned', tone: 'info' });
+      }
+      case 'enrolCourse': {
+        select('course', arg);
+        return setDialog('enrolCourse');
+      }
+      case 'completeCourse': {
+        const [name, course] = arg.split('|');
+        dispatch({ type: 'COMPLETE_COURSE', name, course, score: 88, by: me.name });
+        return flash(`${name} recorded as competent.`, { title: 'Course completed' });
+      }
+      case 'trainingGaps':
+      case 'expiringTraining':
+        return goTab('learning');
 
       /* session */
       case 'signOut': return setSignedOut(true);
@@ -372,6 +432,96 @@ function Workspace() {
         flash(`Service booked for ${vehicle.plate} at ${v.workshop}.`);
       },
     },
+    editUser: user && {
+      title: `Edit ${user.name}`, submit: 'Save changes',
+      note: 'Changes are written to the audit trail with your name against them.',
+      fields: [
+        [{ k: 'role', l: 'Role', options: [user.role, ...['Operator', 'Supervisor', 'Safety officer', 'Administrator'].filter((r) => r !== user.role)] },
+         { k: 'reports', l: 'Reports to', options: [user.reports, ...supervisors.filter((x) => x !== user.reports), '—'] }],
+        [{ k: 'email', l: 'Email', value: user.email, required: true,
+           validate: (v) => (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) ? '' : 'Enter a valid email address.') },
+         { k: 'phone', l: 'Mobile', value: user.phone }],
+        [{ k: 'site', l: 'Site', value: user.site }, { k: 'licence', l: 'Licence', value: user.licence }],
+      ],
+      onSubmit: (v) => {
+        dispatch({
+          type: 'PATCH_USER', name: user.name, by: me.name, co: user.co,
+          patch: { role: v.role, reports: v.reports, email: v.email, phone: v.phone, site: v.site, licence: v.licence },
+          note: v.role !== user.role ? `role changed to ${v.role}` : 'contact details updated',
+        });
+        flash(`${user.name} updated.`, { title: 'Saved' });
+      },
+    },
+    suspend: user && {
+      title: `Suspend ${user.name}`, submit: 'Suspend',
+      note: 'A suspended user cannot sign in or submit inspections. Their records stay in place.',
+      fields: [[{ k: 'reason', l: 'Reason', options: ['certificate of fitness lapsed', 'training expired', 'under investigation', 'on extended leave'] }]],
+      onSubmit: (v) => {
+        dispatch({ type: 'SET_USER_STATUS', name: user.name, status: 'Suspended', reason: v.reason, by: me.name });
+        flash(`${user.name} suspended — ${v.reason}.`, {
+          tone: 'warn', title: 'Access suspended',
+          action: { label: 'Undo', onClick: () => dispatch({ type: 'SET_USER_STATUS', name: user.name, status: 'Active', by: me.name }) },
+        });
+      },
+    },
+    deleteUser: user && {
+      title: `Delete ${user.name}`, submit: 'Delete user',
+      note: `This removes ${user.name} from the register${user.vehicle && user.vehicle !== '—' ? ` and returns ${user.vehicle} to the pool` : ''}. Their inspections and audit entries are kept for seven years. Type the surname to confirm.`,
+      fields: [[{ k: 'confirm', l: `Type “${user.name.split(' ').slice(-1)[0]}” to confirm`, required: true,
+        validate: (v) => (v.trim().toLowerCase() === user.name.split(' ').slice(-1)[0].toLowerCase() ? '' : 'That does not match the surname.') }]],
+      onSubmit: () => {
+        const snapshot = user;
+        const theirTraining = store.enrolments.filter((e) => e.user === user.name);
+        dispatch({ type: 'DELETE_USER', name: user.name, by: me.name });
+        select('user', null);
+        flash(`${snapshot.name} deleted.`, {
+          tone: 'err', title: 'User removed',
+          action: { label: 'Undo', onClick: () => dispatch({ type: 'RESTORE_USER', user: snapshot, enrolments: theirTraining, by: me.name }) },
+        });
+      },
+    },
+    assignUser: user && {
+      title: `Assign a vehicle to ${user.name}`, submit: 'Assign',
+      note: 'Only unassigned vehicles are listed. The supervisor signs this operator’s go-but concessions.',
+      fields: [
+        [{ k: 'plate', l: 'Vehicle', options: vehicles.filter((v) => v.driver === '—').map((v) => `${v.plate} — ${v.make}`) }],
+        [{ k: 'sup', l: 'Supervisor', options: [user.reports, ...supervisors.filter((x) => x !== user.reports)].filter((x) => x && x !== '—') }],
+      ],
+      onSubmit: (v) => {
+        const plate = v.plate.split(' — ')[0];
+        dispatch({ type: 'ASSIGN_USER_VEHICLE', name: user.name, plate, sup: v.sup, by: me.name });
+        flash(`${plate} assigned to ${user.name}.`, { title: 'Vehicle assigned' });
+      },
+    },
+    unassignUser: user && {
+      title: `Unassign ${user.vehicle}`, submit: 'Unassign',
+      note: `${user.vehicle} goes back to the available pool.`,
+      fields: [[{ k: 'reason', l: 'Reason', options: ['scheduled maintenance', 'operator on leave', 'reassigned to another site', 'COF expired'] }]],
+      onSubmit: (v) => {
+        const plate = user.vehicle;
+        dispatch({ type: 'UNASSIGN_USER_VEHICLE', name: user.name, reason: v.reason, by: me.name });
+        flash(`${plate} unassigned from ${user.name}.`, { tone: 'info', title: 'Vehicle released' });
+      },
+    },
+    enrol: (user || selection.user) && {
+      title: `Assign training — ${selection.user}`, submit: 'Enrol',
+      note: 'The learner is notified, and the record shows as in progress until it is completed.',
+      fields: [[{ k: 'course', l: 'Course', options: store.courses.map((c) => c.name) }]],
+      onSubmit: (v) => {
+        const c = store.courses.find((x) => x.name === v.course);
+        dispatch({ type: 'ENROL', name: selection.user, course: c.id, by: me.name });
+        flash(`${selection.user} enrolled on ${c.name}.`, { tone: 'info', title: 'Training assigned' });
+      },
+    },
+    enrolCourse: selection.course && {
+      title: `Enrol on ${store.courses.find((c) => c.id === selection.course)?.name}`, submit: 'Enrol',
+      note: 'Pick the person to put on this course.',
+      fields: [[{ k: 'name', l: 'Person', options: users.map((u) => u.name) }]],
+      onSubmit: (v) => {
+        dispatch({ type: 'ENROL', name: v.name, course: selection.course, by: me.name });
+        flash(`${v.name} enrolled.`, { tone: 'info', title: 'Training assigned' });
+      },
+    },
     reject: inspection && {
       title: `Return #${inspection.ref} to the operator`, submit: 'Return',
       note: 'The operator recaptures the sheet. The rejection and its reason stay on the record.',
@@ -393,6 +543,7 @@ function Workspace() {
     inspections: <Inspections {...props} />,
     hierarchy: <Hierarchy {...props} />,
     compliance: <Compliance {...props} />,
+    learning: <Learning {...props} />,
     audit: <Audit {...props} />,
     profile: <CompanyProfile {...props} />,
     reports: <Reports {...props} />,
@@ -432,6 +583,10 @@ function Workspace() {
               onDoubleClick={() => setPaneWidth(360)} />
             <aside className="readpane" style={{ width: paneWidth }}>
               {tab === 'fleet' && <VehiclePane vehicle={vehicle} defects={defects} inspections={inspections} run={run} />}
+              {tab === 'users' && (
+                <UserPane user={user} vehicles={vehicles} inspections={inspections}
+                  courses={store.courses} enrolments={store.enrolments} run={run} />
+              )}
               {tab === 'inspections' && (inspView === 'defects'
                 ? <DefectPane defect={defect} run={run} />
                 : <InspectionPane inspection={inspection} templates={templates} defects={defects} run={run} />)}
@@ -451,19 +606,13 @@ function Workspace() {
 
       {runner && (
         <InspectionRunner tpl={runner.tpl} vehicles={vehicles} me={me} flash={flash}
+          gapFor={competencyGap}
           onClose={() => setRunner(null)} onSubmit={submitInspection} />
       )}
 
       {signedOut && <LockScreen me={me} onSignIn={() => { setSignedOut(false); flash('Signed back in.'); }} />}
 
-      <div className="toastwrap">
-        {toasts.map((t) => (
-          <div className="toast" key={t.id}>
-            <CircleCheck size={17} color="var(--green)" />
-            <span>{t.text}</span>
-          </div>
-        ))}
-      </div>
+      <Toasts items={toasts} onClose={closeToast} />
     </div>
   );
 }
@@ -471,20 +620,35 @@ function Workspace() {
 /* ── gate ─────────────────────────────────────────────────────── */
 export default function App() {
   const [session, setSession] = useState(null);
-  const [pending, setPending] = useState(null);
+  const [msg, setMsg] = useState('Ready');
+  const [toasts, setToasts] = useState([]);
+
+  /* flash(text) or flash(text, { tone, title, action }) — the tone drives the
+     toast's colour and icon, and an action gives the user a way back. */
+  const flash = useCallback((text, opts = {}) => {
+    const { tone = 'ok', title, action } = typeof opts === 'string' ? { tone: opts } : opts;
+    setMsg(text);
+    const id = Date.now() + Math.random();
+    setToasts((t) => [...t.slice(-3), { id, text, tone, title, action }]);
+    setTimeout(() => setMsg('Ready'), 4600);
+  }, []);
+  const closeToast = useCallback((id) => setToasts((t) => t.filter((x) => x.id !== id)), []);
 
   if (!session) {
     return (
-      <AuthShell
-        flash={(m) => setPending(m)}
-        onSignedIn={() => setSession(ME)}
-        onRegistered={(company) => setSession({ ...ME, co: company.name, newCompany: company })}
-      />
+      <>
+        <AuthShell
+          flash={flash}
+          onSignedIn={() => setSession(ME)}
+          onRegistered={(company) => setSession({ ...ME, co: company.name, newCompany: company })}
+        />
+        <Toasts items={toasts} onClose={closeToast} />
+      </>
     );
   }
   return (
-    <StoreProvider me={session}>
-      <Workspace />
+    <StoreProvider me={session} flash={flash}>
+      <Workspace msg={msg} setMsg={setMsg} toasts={toasts} flash={flash} closeToast={closeToast} />
     </StoreProvider>
   );
 }

@@ -44,8 +44,17 @@ data:
   to service, update the odometer and book a service, each with its own
   dialog and its own guard: returning a grounded vehicle to service is
   refused while a no-go defect is still open.
-- **Users and companies** — adding either writes through to the register,
-  and assigning a vehicle during user creation updates the fleet too.
+- **User management** — a record pane per person (contact, reporting line,
+  licence, vehicle, inspection history, competencies), then edit, assign
+  and unassign a vehicle, reset password, suspend, reactivate and delete.
+  Delete asks for the surname and is undoable from its toast; suspending
+  is undoable the same way.
+- **Learning** — courses, per-person records and the gap list: a required
+  course that is missing or expired is a gap, and the inspection runner
+  warns when the operator's competency has lapsed.
+- **Reports** — each report builds from the live store and renders as a
+  document with a summary strip and a table, exportable as real CSV.
+- **Companies** — registering writes through to the register.
 
 ## Layout
 
@@ -73,7 +82,9 @@ src/
   screens/
     Dashboard.jsx        KPI strip, charts, company performance report
     Registers.jsx        companies, users, fleet, inspections, defects, audit log
-    Misc.jsx             hierarchy, compliance, company profile, reports, analytics, settings
+    Learning.jsx         competency records, the course catalogue and the gap list
+    Reports.jsx          report definitions, the generated document and CSV export
+    Misc.jsx             hierarchy, compliance, company profile, analytics, settings
   auth/
     AuthShell.jsx        sign in, register a company, forgot and reset password,
                          email verification, lock screen
@@ -81,7 +92,8 @@ src/
     templates.js         the inspection forms, as sections of items with severities
     InspectionRunner.jsx the working sheet — capture, rules, submission
   components/
-    panes.jsx            reading panes: vehicle, completed sheet, defect
+    panes.jsx            reading panes: vehicle, user, completed sheet, defect
+    Toasts.jsx           the notification stack — tone, title, dismiss and undo
   store.jsx              the state every module mutates, plus the audit trail
 ```
 

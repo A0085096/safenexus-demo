@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useMemo, useReducer, useState, useCallback } from 'react';
-import { COMPANIES, USERS, FLEET, INSPECTIONS, AUDIT } from './data.js';
+import { COMPANIES, USERS, FLEET, INSPECTIONS, AUDIT, COURSES, ENROLMENTS } from './data.js';
 import { TEMPLATES } from './inspection/templates.js';
 
 /* ══════════════════════════════════════════════════════════════
@@ -37,6 +37,8 @@ const initial = {
     { id: 'DEF-100288', item: 'Brakes', plate: 'WC 321 CT', severity: 'No Go', raised: '17 Jun 2026', age: 1, status: 'Open', inspection: '2120345', co: 'Acme Mining Corp' },
   ],
   templates: TEMPLATES,
+  courses: COURSES,
+  enrolments: ENROLMENTS,
   audit: AUDIT,
 };
 
@@ -51,9 +53,58 @@ function reducer(state, a) {
       const s = { ...state, users: state.users.map((u) => (u.name === a.name ? { ...u, ...a.patch } : u)) };
       return audit(s, 'user', `**${a.by}** updated **${a.name}** — ${a.note}`, `${a.co || 'Acme Mining Corp'} · User change`);
     }
-    case 'DISABLE_USER': {
-      const s = { ...state, users: state.users.map((u) => (u.name === a.name ? { ...u, status: 'Disabled' } : u)) };
-      return audit(s, 'user', `**${a.by}** disabled **${a.name}** — sessions revoked`, 'Access control');
+    case 'SET_USER_STATUS': {
+      const s = { ...state, users: state.users.map((u) => (u.name === a.name ? { ...u, status: a.status } : u)) };
+      const verb = { Suspended: 'suspended', Active: 'reactivated', Disabled: 'disabled' }[a.status] || 'changed';
+      return audit(s, 'user', `**${a.by}** ${verb} **${a.name}**${a.reason ? ` — ${a.reason}` : ''}`, 'Access control');
+    }
+    case 'DELETE_USER': {
+      const u = state.users.find((x) => x.name === a.name);
+      let s = { ...state, users: state.users.filter((x) => x.name !== a.name) };
+      if (u && u.vehicle && u.vehicle !== '—') {
+        s = patchVehicle(s, u.vehicle, { driver: '—', sup: '—', status: 'Available' });
+      }
+      s = { ...s, enrolments: s.enrolments.filter((e) => e.user !== a.name) };
+      return audit(s, 'user', `**${a.by}** deleted **${a.name}** (${u?.role || 'user'}) — records retained for 7 years`, 'User removed');
+    }
+    case 'RESTORE_USER': {
+      let s = { ...state, users: [a.user, ...state.users] };
+      if (a.enrolments?.length) s = { ...s, enrolments: [...a.enrolments, ...s.enrolments] };
+      if (a.user.vehicle && a.user.vehicle !== '—') {
+        s = patchVehicle(s, a.user.vehicle, { driver: a.user.name, sup: a.user.reports, status: 'Assigned' });
+      }
+      return audit(s, 'user', `**${a.by}** restored **${a.user.name}**`, 'Deletion undone');
+    }
+    case 'ASSIGN_USER_VEHICLE': {
+      let s = { ...state, users: state.users.map((u) => (u.name === a.name ? { ...u, vehicle: a.plate } : u)) };
+      s = patchVehicle(s, a.plate, { driver: a.name, sup: a.sup, status: 'Assigned' });
+      return audit(s, 'assign', `**${a.by}** assigned **${a.plate}** to operator **${a.name}** under supervisor ${a.sup}`, 'Vehicle assignment');
+    }
+    case 'UNASSIGN_USER_VEHICLE': {
+      const u = state.users.find((x) => x.name === a.name);
+      let s = { ...state, users: state.users.map((x) => (x.name === a.name ? { ...x, vehicle: '—' } : x)) };
+      if (u?.vehicle && u.vehicle !== '—') s = patchVehicle(s, u.vehicle, { driver: '—', sup: '—', status: 'Available' });
+      return audit(s, 'unassign', `**${a.by}** unassigned **${u?.vehicle}** from operator **${a.name}** — reason: ${a.reason}`, 'Vehicle assignment');
+    }
+
+    /* ── learning ───────────────────────────────────────────── */
+    case 'ENROL': {
+      const s = { ...state, enrolments: [{ user: a.name, course: a.course, status: 'In progress', done: null, expires: null, score: null, progress: 0 }, ...state.enrolments] };
+      const c = state.courses.find((x) => x.id === a.course);
+      return audit(s, 'user', `**${a.by}** enrolled **${a.name}** on **${c?.name || a.course}**`, 'Training assigned');
+    }
+    case 'COMPLETE_COURSE': {
+      const c = state.courses.find((x) => x.id === a.course);
+      const done = new Date();
+      const expires = c?.validity ? new Date(done.getFullYear() + Math.floor(c.validity / 12), done.getMonth() + (c.validity % 12), done.getDate()) : null;
+      const fmt = (d) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      const s = {
+        ...state,
+        enrolments: state.enrolments.map((e) => (e.user === a.name && e.course === a.course
+          ? { ...e, status: 'Valid', done: fmt(done), expires: expires ? fmt(expires) : null, score: a.score, progress: 100 }
+          : e)),
+      };
+      return audit(s, 'insp', `**${a.name}** completed **${c?.name || a.course}** — ${a.score}%`, 'Training record');
     }
 
     /* ── fleet ──────────────────────────────────────────────── */
@@ -140,7 +191,7 @@ function reducer(state, a) {
   }
 }
 
-export function StoreProvider({ children, me }) {
+export function StoreProvider({ children, me, flash }) {
   const [state, dispatch] = useReducer(reducer, initial);
   const [selection, setSelection] = useState({ vehicle: null, user: null, inspection: null, defect: null, company: null });
   const [inspView, setInspView] = useState('sheets');   /* 'sheets' | 'defects' — the reading pane follows it */
@@ -150,6 +201,7 @@ export function StoreProvider({ children, me }) {
   const value = useMemo(() => ({
     ...state,
     me,
+    flash,
     dispatch,
     selection,
     select,
@@ -161,7 +213,7 @@ export function StoreProvider({ children, me }) {
     openDefects: state.defects.filter((d) => d.status === 'Open'),
     newRef: () => String(2120353 + state.inspections.length),
     newId: ref,
-  }), [state, selection, select, inspView, me]);
+  }), [state, selection, select, inspView, me, flash]);
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }

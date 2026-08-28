@@ -194,7 +194,7 @@ export function DataGrid({
                     onClick={() => pick(k, r)}
                     onKeyDown={(e) => e.key === 'Enter' && pick(k, r)}>
                     {cols.map((c) => (
-                      <td key={c.key} className={[c.num && 'num', c.mono && 'mono'].filter(Boolean).join(' ')} style={c.style}>
+                      <td key={c.key} className={[c.num && 'num', c.mono && 'mono', c.wrap && 'wrap'].filter(Boolean).join(' ')} style={c.style}>
                         {c.render(r)}
                       </td>
                     ))}

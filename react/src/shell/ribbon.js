@@ -7,19 +7,22 @@ import {
   FileText, Table2, SlidersHorizontal, Palette, Globe, Plug, KeyRound, Smartphone, Database,
   PanelLeft, Rows3, Columns3, ChevronsUp, Maximize, Settings, Info, FilePlus, Boxes, ShieldAlert,
   Clock, TrendingUp, PieChart, BarChart3, Percent,
+  GraduationCap, Trash2,
 } from 'lucide-react';
 
 export const TABS = [
   { key: 'dashboard', label: 'Dashboard' }, { key: 'companies', label: 'Companies' },
   { key: 'users', label: 'Users' }, { key: 'fleet', label: 'Fleet' },
   { key: 'inspections', label: 'Inspections' }, { key: 'hierarchy', label: 'Hierarchy' },
-  { key: 'compliance', label: 'Compliance' }, { key: 'audit', label: 'Audit log' },
+  { key: 'compliance', label: 'Compliance' }, { key: 'learning', label: 'Learning' },
+  { key: 'audit', label: 'Audit log' },
   { key: 'profile', label: 'Company profile' }, { key: 'reports', label: 'Reports' },
   { key: 'analytics', label: 'Analytics' }, { key: 'settings', label: 'Settings' },
   { key: 'view', label: 'View' },
 ];
 
 export const CTX = {
+  learning: ['Training tools', 'Competency register'],
   companies: ['Company tools', 'Acme Mining Corp'],
   users: ['User tools', 'J. Swart'],
   fleet: ['Vehicle tools', 'CA 123 GP'],
@@ -40,10 +43,16 @@ export const RIBBON = {
     { label: 'Output', lg: [[Printer, 'Print\nregister', 'print']], sm: [[Download, 'Export CSV', 'export'], [FilterX, 'Clear filters', 'clearFilters']] },
   ],
   users: [
-    { label: 'People', lg: [[UserPlus, 'New\nuser', 'dlg:user'], [Pencil, 'Edit\nuser', 'editUser']], sm: [[Lock, 'Reset password', 'resetPassword'], [ShieldCheck, 'Enforce 2FA', 'enforceMfa'], [UserX, 'Disable user', 'disableUser']] },
-    { label: 'Assignment', lg: [[Car, 'Assign\nvehicle', 'assignVehicle'], [Network, 'Change\nsupervisor', 'assignSupervisor']], sm: [[CarFront, 'Unassign vehicle', 'unassignVehicle'], [UsersRound, 'Bulk assign', 'bulkAssign'], [Network, 'Open hierarchy', 'goto:hierarchy']] },
-    { label: 'Certificates', lg: [[BadgeCheck, 'COF\nregister', 'goto:compliance']], sm: [[CalendarClock, 'Expiry reminders', 'alerts'], [Upload, 'Upload certificate', 'upload']] },
+    { label: 'People', lg: [[UserPlus, 'New\nuser', 'dlg:user'], [Pencil, 'Edit\nuser', 'editUser']], sm: [[IdCard, 'Open record', 'openUser'], [KeyRound, 'Reset password', 'resetPassword'], [ShieldCheck, 'Enforce 2FA', 'enforceMfa']] },
+    { label: 'Lifecycle', lg: [[UserX, 'Suspend\nuser', 'suspendUser'], [Trash2, 'Delete\nuser', 'deleteUser']], sm: [[BadgeCheck, 'Reactivate', 'reactivateUser'], [Network, 'Change supervisor', 'changeSupervisor'], [Mail, 'Resend invitation', 'resendInvite']] },
+    { label: 'Assignment', lg: [[Car, 'Assign\nvehicle', 'assignUserVehicle'], [CarFront, 'Unassign\nvehicle', 'unassignUserVehicle']], sm: [[UsersRound, 'Bulk assign', 'bulkAssign'], [Network, 'Open hierarchy', 'goto:hierarchy'], [Truck, 'Open the vehicle', 'openUserVehicle']] },
+    { label: 'Competency', lg: [[GraduationCap, 'Assign\ntraining', 'enrol']], sm: [[Award, 'Training record', 'goto:learning'], [BadgeCheck, 'COF register', 'goto:compliance'], [Upload, 'Upload certificate', 'upload']] },
     { label: 'Output', lg: [[Printer, 'Print\nlist', 'print']], sm: [[Download, 'Export CSV', 'export'], [Mail, 'Email selected', 'email']] },
+  ],
+  learning: [
+    { label: 'Assign', lg: [[GraduationCap, 'Assign\ntraining', 'enrol'], [Award, 'Record\ncompletion', 'completeSelected']], sm: [[UsersRound, 'Bulk enrol', 'bulkEnrol'], [Upload, 'Upload certificate', 'upload'], [Mail, 'Email the learner', 'email']] },
+    { label: 'Compliance', lg: [[AlertTriangle, 'Training\ngaps', 'trainingGaps'], [Clock, 'Expiring\nsoon', 'expiringTraining']], sm: [[BadgeCheck, 'COF register', 'goto:compliance'], [Users, 'Open the person', 'goto:users'], [History, 'Audit trail', 'goto:audit']] },
+    { label: 'Output', lg: [[Printer, 'Print\nmatrix', 'print']], sm: [[Download, 'Export CSV', 'export'], [FileText, 'Training report', 'report:Training matrix']] },
   ],
   fleet: [
     { label: 'Vehicles', lg: [[Truck, 'New\nvehicle', 'dlg:vehicle'], [Car, 'Assign to\noperator', 'assignVehicle']], sm: [[Pencil, 'Edit vehicle', 'editVehicle'], [Fuel, 'Log fuel', 'logFuel'], [Gauge, 'Update odometer', 'logOdo']] },
@@ -103,6 +112,7 @@ export const JUMPS = [
   ['Grounded vehicles', AlertTriangle, 'goto:fleet'],
   ['COF expiring', BadgeCheck, 'goto:compliance'],
   ['Unassigned operators', UserX, 'goto:hierarchy'],
+  ['Training gaps', GraduationCap, 'goto:learning'],
   ['Audit trail', History, 'goto:audit'],
 ];
 
@@ -147,4 +157,8 @@ export const MESSAGES = {
   account: 'Signed in as Kobus van der Merwe (Administrator).',
   about: 'SafeNexus ERP 2026.6 · build 4812 · SAFENEXUS-SQL01.',
   schedule: 'Report scheduled for the first of each month.',
+  resendInvite: 'Invitation resent.',
+  bulkEnrol: 'Bulk enrolment queued for every operator without the course.',
+  changeSupervisor: 'Supervisor changed.',
+  upload: 'Certificate uploaded and queued for verification.',
 };

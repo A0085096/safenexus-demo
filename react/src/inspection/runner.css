@@ -72,3 +72,10 @@
   border-bottom: 1px solid var(--stroke-soft); font-size: 12.5px;
 }
 .sheet-row .s { flex: 1; }
+
+.runner-warn {
+  display: flex; gap: 9px; align-items: flex-start; padding: 9px 14px; flex-shrink: 0;
+  background: var(--gold-bg); border-bottom: 1px solid #EDD9B0; color: var(--gold);
+  font-size: 12.5px; line-height: 1.55;
+}
+.runner-warn svg { flex-shrink: 0; margin-top: 1px; }

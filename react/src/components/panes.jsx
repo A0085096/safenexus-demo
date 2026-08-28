@@ -1,9 +1,10 @@
 import React from 'react';
 import {
   ClipboardCheck, Truck, AlertTriangle, CheckCircle2, XCircle, Wrench, Car, CarFront,
-  Gauge, FileText, Printer, CircleAlert, RotateCcw,
+  Gauge, FileText, Printer, CircleAlert, RotateCcw, Users, Pencil, KeyRound, PauseCircle,
+  PlayCircle, Trash2, GraduationCap, Mail, Phone,
 } from 'lucide-react';
-import { Btn, Badge, SecHead, KV, resultBadge, vehicleBadge } from './ui.jsx';
+import { Btn, Badge, SecHead, KV, Avatar, resultBadge, vehicleBadge, roleBadge, statusBadge } from './ui.jsx';
 import { allItems } from '../inspection/templates.js';
 import { nf } from '../theme.js';
 
@@ -222,6 +223,120 @@ export function DefectPane({ defect, run }) {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/* ── user ─────────────────────────────────────────────────────── */
+const trainingTone = (s) => ({ Valid: 'green', Expiring: 'gold', Expired: 'red', 'In progress': 'blue' }[s] || 'grey');
+
+export function UserPane({ user, vehicles, inspections, courses, enrolments, run }) {
+  if (!user) return <Empty icon={Users} text="Select a user to manage them." />;
+  const u = user;
+  const mine = enrolments.filter((e) => e.user === u.name);
+  const required = courses.filter((c) => c.roles.includes(u.role) && c.required);
+  const gaps = required.filter((c) => {
+    const e = mine.find((x) => x.course === c.id);
+    return !e || e.status === 'Expired';
+  });
+  const history = inspections.filter((i) => i.op === u.name).slice(0, 4);
+  const veh = vehicles.find((v) => v.plate === u.vehicle);
+  const suspended = u.status === 'Suspended';
+
+  return (
+    <div style={{ padding: 14 }}>
+      <div style={{ display: 'flex', gap: 11, alignItems: 'center' }}>
+        <Avatar init={u.init} tone={u.tone} large />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 17, fontWeight: 600 }}>{u.name}</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>{u.empNo} · {u.co}</div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+        {roleBadge(u.role)}{statusBadge(u.status)}
+        {gaps.length > 0 && <Badge tone="red">{gaps.length} training gap{gaps.length === 1 ? '' : 's'}</Badge>}
+      </div>
+
+      {suspended && (
+        <div style={{ background: 'var(--gold-bg)', border: '1px solid #EDD9B0', color: 'var(--gold)', padding: '8px 10px', borderRadius: 4, fontSize: 12.5, marginTop: 12, lineHeight: 1.5 }}>
+          Suspended. They cannot sign in or submit inspections until they are reactivated.
+        </div>
+      )}
+
+      <SecHead>Contact</SecHead>
+      <KV k="Email" v={<span style={{ color: 'var(--brand-dark)' }}>{u.email}</span>} />
+      <KV k="Mobile" v={u.phone} />
+      <KV k="Site" v={u.site} />
+      <KV k="Started" v={u.started} />
+      <KV k="Last active" v={u.lastActive} />
+
+      <SecHead>Role and reporting</SecHead>
+      <KV k="Role" v={u.role} />
+      <KV k="Reports to" v={u.reports} />
+      <KV k="Licence" v={u.licence} />
+      <KV k="COF expiry" v={u.cof} />
+
+      <SecHead>Vehicle</SecHead>
+      {u.vehicle && u.vehicle !== '—'
+        ? (
+          <>
+            <KV k="Assigned" v={<span style={{ fontFamily: 'var(--num)', fontWeight: 600 }}>{u.vehicle}</span>} />
+            {veh && <KV k="Model" v={`${veh.make} · ${veh.fleetNo}`} />}
+            {veh && <KV k="Status" v={veh.status} />}
+          </>
+        )
+        : <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>No vehicle assigned.</div>}
+
+      {u.role === 'Operator' && (
+        <>
+          <SecHead>Inspection record</SecHead>
+          <KV k="Submitted" v={`${u.insps} inspections`} />
+          <KV k="Pass rate" v={u.passRate ? `${u.passRate}%` : '—'} />
+          <KV k="Defects raised" v={u.defects} />
+          {history.map((i) => (
+            <div key={i.ref} className="sheet-row">
+              <span className="s" style={{ fontFamily: 'var(--num)' }}>#{i.ref}</span>
+              <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>{i.vehicle}</span>
+              {resultBadge(i.result)}
+            </div>
+          ))}
+        </>
+      )}
+
+      <SecHead note={`${mine.filter((e) => e.status === 'Valid').length} of ${required.length} required valid`}>Training</SecHead>
+      {mine.length === 0
+        ? <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>No training recorded.</div>
+        : mine.map((e) => {
+          const c = courses.find((x) => x.id === e.course);
+          return (
+            <div key={e.course} className="sheet-row">
+              <span className="s">{c?.name || e.course}</span>
+              {e.status === 'In progress'
+                ? <span style={{ fontSize: 11, color: 'var(--text3)' }}>{e.progress}%</span>
+                : <span style={{ fontSize: 11, color: 'var(--text3)' }}>{e.expires || '—'}</span>}
+              <Badge tone={trainingTone(e.status)}>{e.status}</Badge>
+            </div>
+          );
+        })}
+      {gaps.length > 0 && (
+        <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 6, lineHeight: 1.5 }}>
+          Missing or expired: {gaps.map((c) => c.name).join(', ')}.
+        </div>
+      )}
+
+      <SecHead>Actions</SecHead>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <Btn small primary icon={Pencil} onClick={() => run('editUser')}>Edit</Btn>
+        {u.vehicle && u.vehicle !== '—'
+          ? <Btn small icon={CarFront} onClick={() => run('unassignUserVehicle')}>Unassign vehicle</Btn>
+          : <Btn small icon={Car} onClick={() => run('assignUserVehicle')}>Assign vehicle</Btn>}
+        <Btn small icon={GraduationCap} onClick={() => run('enrol')}>Assign training</Btn>
+        <Btn small icon={KeyRound} onClick={() => run('resetPassword')}>Reset password</Btn>
+        {suspended
+          ? <Btn small icon={PlayCircle} onClick={() => run('reactivateUser')}>Reactivate</Btn>
+          : <Btn small icon={PauseCircle} onClick={() => run('suspendUser')}>Suspend</Btn>}
+        <Btn small danger icon={Trash2} onClick={() => run('deleteUser')}>Delete</Btn>
+      </div>
     </div>
   );
 }

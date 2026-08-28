@@ -4,7 +4,7 @@ import {
   BadgeCheck, Wrench, Clock, UserX, Car, CarFront, UserPlus, FileText,
 } from 'lucide-react';
 import {
-  MONTHLY, ISO_DATA, ISO_MONTHS, AGING, PERF, KPIS,
+  MONTHLY, ISO_DATA, ISO_MONTHS, AGING, PERF, KPIS, BASE, FLEET_BASE,
 } from '../data.js';
 import { useStore } from '../store.jsx';
 import { SERIES, OUTCOME, nf } from '../theme.js';
@@ -162,15 +162,15 @@ export default function Dashboard({ run, goTab }) {
   const noGoOpen = openDefects.filter((d) => d.severity === 'No Go');
   const grounded = vehicles.filter((v) => v.status === 'Maintenance');
   const fleetMix = [
-    { k: 'Assigned', v: 128 + vehicles.filter((v) => v.status === 'Assigned').length, c: OUTCOME.ok },
-    { k: 'Available', v: 41 + vehicles.filter((v) => v.status === 'Available').length, c: OUTCOME.go },
-    { k: 'Maintenance', v: 6 + grounded.length, c: OUTCOME.ng },
+    { k: 'Assigned', v: FLEET_BASE.Assigned + vehicles.filter((v) => v.status === 'Assigned').length, c: OUTCOME.ok },
+    { k: 'Available', v: FLEET_BASE.Available + vehicles.filter((v) => v.status === 'Available').length, c: OUTCOME.go },
+    { k: 'Maintenance', v: FLEET_BASE.Maintenance + grounded.length, c: OUTCOME.ng },
   ];
   const fleetTotal = fleetMix.reduce((a, d) => a + d.v, 0);
   const kpis = KPIS.map((k) => (k.key === 'nogo'
-    ? { ...k, val: String(noGoOpen.length), note: `${grounded.length} vehicle(s) grounded here` }
+    ? { ...k, val: String(noGoOpen.length), delta: `${grounded.length} grounded`, dir: noGoOpen.length ? 'warn' : 'up', note: 'open across the platform' }
     : k.key === 'insp'
-      ? { ...k, val: nf(1241 + inspections.length), note: `${inspections.length} captured in this session` }
+      ? { ...k, val: nf(BASE.inspections + inspections.length), note: `${inspections.length} on the register here` }
       : k));
   const attention = [
     ...grounded.map((v) => ({
@@ -192,8 +192,8 @@ export default function Dashboard({ run, goTab }) {
     <>
       <div className="cmdstrip solo">
         <div className="glance">
-          <span><b>{companies.length + 6}</b> companies</span>
-          <span><b>{240 + users.length}</b> users</span>
+          <span><b>{BASE.companies + companies.length}</b> companies</span>
+          <span><b>{BASE.users + users.length}</b> users</span>
           <span><b>{fleetTotal}</b> vehicles</span>
           <span><b>92.4%</b> average compliance</span>
         </div>
