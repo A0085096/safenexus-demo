@@ -24,7 +24,8 @@ import { Users, Fleet, Inspections } from './screens/Registers.jsx';
 import AuditLog from './screens/AuditLog.jsx';
 import Forms from './screens/Forms.jsx';
 import Workshop from './screens/Workshop.jsx';
-import { Hierarchy, Compliance, CompanyProfile } from './screens/Misc.jsx';
+import { Hierarchy, CompanyProfile } from './screens/Misc.jsx';
+import Compliance from './screens/Compliance.jsx';
 import Analytics from './screens/Analytics.jsx';
 import Settings from './screens/Settings.jsx';
 import Reports from './screens/Reports.jsx';
@@ -461,6 +462,12 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
           return flash(`${workOrder.ref} is already authorised.`, { tone: 'warn' });
         }
         const cost = woCost(workOrder);
+        if (cost > store.settings.woApprovalLimit) {
+          return flash(
+            `${workOrder.ref} costs ${R(cost)}, above the ${R(store.settings.woApprovalLimit)} workshop limit. It needs an approval on the Admin tab before work may start.`,
+            { tone: 'warn', title: 'Above your limit', action: { label: 'Open approvals', onClick: () => run('adminView:approvals') } },
+          );
+        }
         dispatch({ type: 'AUTHORISE_WO', ref: workOrder.ref, cost, by: me.name });
         return flash(`${workOrder.ref} authorised at ${R(cost)} and moved to in progress.`, { title: 'Workshop' });
       }
@@ -622,6 +629,7 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
           { tone: decision === 'Declined' ? 'warn' : 'ok', title: 'Approval' });
       }
       case 'usersView': store.setView('users', arg); return goTab('users');
+      case 'complianceView': store.setView('compliance', arg); return goTab('compliance');
       case 'rateCard':
         return flash('Rate cards are held per customer and lane — the floor is R 24.00 per kilometre.', { title: 'Rates' });
       case 'download':
@@ -873,7 +881,8 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
          { k: 'departTime', l: 'Departure time', options: ['04:00', '05:00', '06:00', '07:00', '09:00', '13:00', '17:00'] }],
         [{ k: 'tons', l: 'Load, tons', type: 'number', value: '30' },
          { k: 'rate', l: 'Rate per kilometre', type: 'number', value: '26.40',
-           validate: (v) => (+v >= 24 ? '' : 'Below the R 24.00 floor — this needs an approval before it can be planned.') }],
+           validate: (v) => (+v >= store.settings.rateFloor ? ''
+             : `Below the ${R(store.settings.rateFloor)} floor — this needs an approval before it can be planned.`) }],
         [{ k: 'priority', l: 'Priority', options: ['Standard', 'Urgent'] }],
       ],
       onSubmit: (v) => {
@@ -883,7 +892,7 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         const ref = 'JOB-26-' + Math.floor(4300 + Math.random() * 300);
         const hours = Math.max(2, Math.round(lane[2] / 58));
         const revenue = Math.round(lane[2] * (+v.rate || 26.4));
-        const fuelCost = Math.round((lane[2] / (veh.rate || 2.6)) * 24.1);
+        const fuelCost = Math.round((lane[2] / (veh.rate || 2.6)) * store.settings.dieselPrice);
         const tollCost = Math.round(lane[2] * 0.42);
         const driverCost = Math.round(hours * 128);
         const other = Math.round(lane[2] * 1.7);
@@ -919,7 +928,7 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         [{ k: 'station', l: 'Where', options: FUEL_SITES }, { k: 'driver', l: 'Operator', options: operators.length ? operators : ['—'] }],
         [{ k: 'litres', l: 'Litres', type: 'number', required: true,
            validate: (v) => (+v > 0 ? '' : 'Enter the litres drawn.') },
-         { k: 'rate', l: 'Rate per litre', type: 'number', value: '24.10' }],
+         { k: 'rate', l: 'Rate per litre', type: 'number', value: String(store.settings.dieselPrice) }],
         [{ k: 'meter', l: 'Meter reading', type: 'number', required: true },
          { k: 'since', l: 'Distance or hours since the last fill', type: 'number', required: true }],
       ],
@@ -934,7 +943,8 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         const variance = target ? +(((consumption - target) / target) * 100 * (plant ? -1 : 1)).toFixed(1) : 0;
         const exception = +v.meter < veh.km ? 'Meter reading lower than the previous fill'
           : litres > veh.tank ? 'Litres exceed the tank capacity'
-            : Math.abs(variance) > 25 ? `Consumption ${Math.abs(variance).toFixed(0)}% off the model target` : null;
+            : Math.abs(variance) > store.settings.fuelVariancePct * 2
+              ? `Consumption ${Math.abs(variance).toFixed(0)}% off the model target` : null;
         const ref = 'FT-26-' + Math.floor(60300 + Math.random() * 400);
         dispatch({
           type: 'ADD_FUEL', by: me.name,
@@ -1009,15 +1019,16 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
     },
     logTread: tyre && {
       title: `Record the tread on ${tyre.serial}`, submit: 'Record',
-      note: `${tyre.brand} at ${tyre.position} on ${tyre.vehicle}, last measured at ${tyre.tread} mm. Below 3 mm the tyre is not legal and the vehicle should not move on it.`,
+      note: `${tyre.brand} at ${tyre.position} on ${tyre.vehicle}, last measured at ${tyre.tread} mm. Below ${store.settings.minTreadMm} mm the tyre is not legal and the vehicle should not move on it.`,
       fields: [[{ k: 'tread', l: 'Tread depth, mm', type: 'number', value: String(tyre.tread), required: true,
         validate: (v) => (+v >= 0 && +v <= 30 ? '' : 'Enter a depth between 0 and 30 mm.') }]],
       onSubmit: (v) => {
         dispatch({ type: 'LOG_TREAD', serial: tyre.serial, tread: +v.tread, by: me.name });
-        flash(+v.tread < 3
-          ? `${tyre.serial} measured at ${v.tread} mm — below the legal limit. Scrap it before ${tyre.vehicle} runs again.`
+        const min = store.settings.minTreadMm;
+        flash(+v.tread < min
+          ? `${tyre.serial} measured at ${v.tread} mm — below the ${min} mm legal limit. Scrap it before ${tyre.vehicle} runs again.`
           : `${tyre.serial} measured at ${v.tread} mm.`,
-        { tone: +v.tread < 3 ? 'err' : +v.tread < 5 ? 'warn' : 'ok', title: 'Tread recorded' });
+        { tone: +v.tread < min ? 'err' : +v.tread < min + 2 ? 'warn' : 'ok', title: 'Tread recorded' });
       },
     },
     scrapTyre: tyre && {
@@ -1104,7 +1115,7 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
        ══════════════════════════════════════════════════════════ */
     bookLabour: workOrder && {
       title: `Book labour to ${workOrder.ref}`, submit: 'Book it',
-      note: `${workOrder.labourHours} hours booked so far at ${R(workOrder.labourRate)} an hour. Labour and parts together are what the job card costs.`,
+      note: `${workOrder.labourHours} hours booked so far at ${R(store.settings.labourRate)} an hour. Labour and parts together are what the job card costs.`,
       fields: [
         [{ k: 'hours', l: 'Hours', type: 'number', value: '2', required: true,
           validate: (v) => (+v > 0 ? '' : 'Enter the hours worked.') },
@@ -1121,7 +1132,7 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
        ══════════════════════════════════════════════════════════ */
     po: {
       title: 'Raise a purchase order', submit: 'Raise it',
-      note: 'An order above R 250 000 needs an approval before it can be sent to the supplier.',
+      note: `An order above ${R(store.settings.poApprovalLimit)} needs an approval before it can be sent to the supplier.`,
       fields: [
         [{ k: 'supplier', l: 'Supplier', options: SUPPLIERS }, { k: 'site', l: 'Deliver to', options: siteOptions }],
         [{ k: 'sku', l: 'Part', options: store.parts.map((x) => `${x.sku} · ${x.desc}`) },
@@ -1146,10 +1157,11 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         select('po', ref);
         goTab('procurement');
         const total = poTotal(po2);
-        flash(total > 250000
-          ? `${ref} raised at ${R(total)} — above the R 250 000 limit, so it needs an approval before it can be sent.`
+        const over = total > store.settings.poApprovalLimit;
+        flash(over
+          ? `${ref} raised at ${R(total)} — above the ${R(store.settings.poApprovalLimit)} limit, so it needs an approval before it can be sent.`
           : `${ref} raised on ${v.supplier} at ${R(total)}.`,
-        { tone: total > 250000 ? 'warn' : 'ok', title: 'Order raised' });
+        { tone: over ? 'warn' : 'ok', title: 'Order raised' });
       },
     },
 
@@ -1223,7 +1235,9 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         [{ k: 'customer', l: 'Customer', options: [...new Set(store.jobs.filter((j) => j.status === 'Delivered' && !j.invoice && j.pod).map((j) => j.customer))].sort() }],
         [{ k: 'discount', l: 'Discount, %', type: 'number', value: '0' },
          { k: 'vat', l: 'VAT, %', type: 'number', value: '15' }],
-        [{ k: 'terms', l: 'Payment terms', options: ['30 days', '14 days', '60 days', 'On presentation'] }],
+        [{ k: 'terms', l: 'Payment terms',
+          options: [store.settings.paymentTerms,
+            ...['30 days', '14 days', '60 days', 'On presentation'].filter((t) => t !== store.settings.paymentTerms)] }],
       ],
       onSubmit: (v) => {
         const billable = store.jobs.filter((j) => j.customer === v.customer && j.status === 'Delivered' && !j.invoice && j.pod);

@@ -19,7 +19,7 @@ import { num, fmtShort } from '../erp/seed.js';
    it, so offline units are the first thing this screen shows.
    ══════════════════════════════════════════════════════════════ */
 export default function Telematics({ run }) {
-  const { vehicles, events, users, selection, select, subView, setView } = useStore();
+  const { vehicles, events, users, settings, selection, select, subView, setView } = useStore();
   const view = subView.telematics || 'events';
 
   const online = vehicles.filter((v) => v.telematics?.online);
@@ -91,12 +91,12 @@ export default function Telematics({ run }) {
       { l: 'Average utilisation', v: (vehicles.reduce((a, v) => a + (v.month?.utilPct || 0), 0) / (vehicles.length || 1)).toFixed(0), unit: '%', icon: TrendingUp,
         note: 'engine time against available time' },
       { l: 'Average idling', v: avgIdle.toFixed(1), unit: '%', icon: Timer,
-        dir: avgIdle > 15 ? 'dn' : 'up',
-        note: 'alert threshold is 15% of engine hours' },
+        dir: avgIdle > settings.idleAlertPct ? 'dn' : 'up',
+        note: `alert threshold is ${settings.idleAlertPct}% of engine hours` },
     ]} />
   );
 
-  if (view === 'behaviour') return <><>{kpis}</><Behaviour users={users} events={events} switcher={switcher} /></>;
+  if (view === 'behaviour') return <><>{kpis}</><Behaviour users={users} events={events} settings={settings} switcher={switcher} /></>;
 
   if (view === 'units') {
     return (
@@ -140,7 +140,9 @@ export default function Telematics({ run }) {
    next to the events that made it, because "62" is an argument and
    "nine harsh-braking events and four over-speeds" is a coaching
    conversation. */
-function Behaviour({ users, events, switcher }) {
+function Behaviour({ users, events, settings, switcher }) {
+  const ceiling = settings.maxWeeklyHours;
+  const warnAt = ceiling - 5;
   const operators = users.filter((u) => u.role === 'Operator');
 
   const rows = useMemo(() => operators.map((u) => {
@@ -164,22 +166,22 @@ function Behaviour({ users, events, switcher }) {
       render: (r) => <span style={{ color: r.events.speeding > 6 ? 'var(--red)' : 'var(--text)' }}>{r.events.speeding}</span> },
     { key: 'h', label: 'Harsh events', num: true, value: (r) => r.events.harsh, render: (r) => r.events.harsh },
     { key: 'i', label: 'Idle', num: true, value: (r) => r.events.idle,
-      render: (r) => <span style={{ fontFamily: 'var(--num)', color: r.events.idle > 15 ? 'var(--gold)' : 'var(--text)' }}>{r.events.idle}%</span> },
+      render: (r) => <span style={{ fontFamily: 'var(--num)', color: r.events.idle > settings.idleAlertPct ? 'var(--gold)' : 'var(--text)' }}>{r.events.idle}%</span> },
     { key: 'km', label: 'Km, month', num: true, value: (r) => r.kmMonth, render: (r) => num(r.kmMonth) },
     { key: 'hw', label: 'Hours, week', num: true, value: (r) => r.hoursWeek,
-      render: (r) => <span style={{ fontFamily: 'var(--num)', color: r.hoursWeek > 55 ? 'var(--red)' : 'var(--text)' }}>{r.hoursWeek}</span> },
+      render: (r) => <span style={{ fontFamily: 'var(--num)', color: r.hoursWeek > warnAt ? 'var(--red)' : 'var(--text)' }}>{r.hoursWeek}</span> },
     { key: 'sc', label: 'Score', num: true, value: (r) => r.score, render: (r) => (
       <Bar value={r.score} max={100} target={70}
         colour={r.score >= 75 ? SERIES[1] : r.score >= 55 ? SERIES[2] : SERIES[4]}
         label={String(r.score)} />
     ) },
     { key: 'st', label: 'Standing', value: (r) => r.score,
-      render: (r) => (r.score < 45
+      render: (r) => (r.score < settings.standDownScore
         ? <Badge tone="red">Stand down for coaching</Badge>
-        : r.score < 65 ? <Badge tone="gold">Coaching due</Badge> : <Badge tone="green">Good standing</Badge>) },
+        : r.score < settings.coachingScore ? <Badge tone="gold">Coaching due</Badge> : <Badge tone="green">Good standing</Badge>) },
   ];
 
-  const overHours = rows.filter((r) => r.hoursWeek > 55);
+  const overHours = rows.filter((r) => r.hoursWeek > warnAt);
 
   return (
     <>
@@ -188,13 +190,13 @@ function Behaviour({ users, events, switcher }) {
           <Timer size={15} strokeWidth={1.8} />
           <span>
             <b>{overHours.length} operator{overHours.length === 1 ? '' : 's'}</b> {overHours.length === 1 ? 'is' : 'are'} over
-            55 hours this week, against a 60-hour ceiling. Dispatch blocks a job that would take one past it —
+            {' '}{warnAt} hours this week, against a {ceiling}-hour ceiling. Dispatch blocks a job that would take one past it —
             fatigue is the cause behind most of the events on this screen, not the driving.
           </span>
         </div>
       )}
       <DataGrid cols={cols} rows={rows} keyOf={(r) => r.name} toolbar={switcher}
-        rowClass={(r) => (r.score < 45 ? 'overdue' : '')} />
+        rowClass={(r) => (r.score < settings.standDownScore ? 'overdue' : '')} />
       <div className="grid-2">
         <Panel title="Events by kind" note="last seven days, across the fleet" flush>
           <Breakdown rows={[...new Set(events.map((e) => e.kind))].map((k, i) => ({

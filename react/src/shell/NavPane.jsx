@@ -3,22 +3,45 @@ import { Search, X, ChevronRight, LogOut } from 'lucide-react';
 import { SITES } from '../data.js';
 import { JUMPS } from './ribbon.js';
 import { useStore } from '../store.jsx';
+import { until, invDue, invState } from '../erp/seed.js';
 
 /* The workspace scope lives here: which company you are looking at,
    and the queues worth jumping to, each carrying its live count. */
 export default function NavPane({ company: site, setCompany: setSite, width, setWidth, run, hidden }) {
-  const { me, tenant, inspections, defects, vehicles, users } = useStore();
+  const {
+    me, tenant, inspections, defects, vehicles, users, workOrders,
+    fuel, tyres, parts, incidents, invoices, approvals, documents, settings,
+  } = useStore();
   const [q, setQ] = useState('');
 
+  /* Each queue carries what is actually in it. A queue with no number
+     against it is a queue nobody works. */
   const counts = {
     'goto:inspections': inspections.filter((i) => !i.signed).length,
     'goto:fleet': vehicles.filter((v) => v.status === 'Maintenance').length,
-    'goto:compliance': defects.filter((d) => d.status === 'Overdue').length,
-    'goto:hierarchy': users.filter((u) => u.role === 'Operator' && u.reports === '—').length,
+    lapsedConcessions: defects.filter((d) => d.status === 'Overdue').length,
+    'goto:workshop': workOrders.filter((w) => w.status !== 'Completed').length,
+    'fuelView:exceptions': fuel.filter((f) => f.exception).length,
+    'tyresView:legal': tyres.filter((t) => t.status !== 'Scrapped' && t.tread < 3).length,
+    'partsView:reorder': parts.filter((p) => p.qty <= p.reorder).length,
+    'documentsView:expiring': documents.filter((d) => d.expires && until(d.expires) <= settings.cofWarnDays).length,
+    'goto:incidents': incidents.filter((i) => i.status !== 'Closed').length,
+    'goto:billing': invoices.filter((i) => invState(i) === 'Overdue').length,
+    'adminView:approvals': approvals.filter((a) => a.status === 'Pending').length,
     'goto:audit': 0,
   };
   const tones = {
-    'goto:inspections': 'gold', 'goto:fleet': 'red', 'goto:compliance': 'gold', 'goto:hierarchy': 'gold',
+    'goto:inspections': 'gold',
+    'goto:fleet': 'red',
+    lapsedConcessions: 'red',
+    'goto:workshop': 'gold',
+    'fuelView:exceptions': 'red',
+    'tyresView:legal': 'red',
+    'partsView:reorder': 'gold',
+    'documentsView:expiring': 'gold',
+    'goto:incidents': 'red',
+    'goto:billing': 'gold',
+    'adminView:approvals': 'gold',
   };
 
   const drag = useCallback((e) => {

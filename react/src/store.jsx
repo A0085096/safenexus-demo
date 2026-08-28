@@ -25,6 +25,14 @@ const LABELS = {
   notifyNoGo: 'no-go alerts', notifySignOff: 'sign-off reminders',
   notifyCof: 'COF expiry alerts', notifyTraining: 'training alerts',
   backupTime: 'the backup window',
+  fuelVariancePct: 'the fuel variance threshold', idleAlertPct: 'the idling alert',
+  dieselPrice: 'the diesel price', labourRate: 'the standard labour rate',
+  downtimeEscalationDays: 'the off-road escalation', woApprovalLimit: 'the workshop authorisation limit',
+  poApprovalLimit: 'the stores order limit', minTreadMm: 'the legal tread depth',
+  planningHorizonDays: 'the planning horizon', rateFloor: 'the rate floor',
+  otdTarget: 'the on-time delivery target', podDeadlineHours: 'the proof-of-delivery deadline',
+  paymentTerms: 'the payment terms', maxWeeklyHours: 'the weekly driving ceiling',
+  coachingScore: 'the coaching threshold', standDownScore: 'the stand-down threshold',
 };
 
 const AppCtx = createContext(null);
@@ -125,6 +133,25 @@ const initial = {
     notifyTraining: false,
     retentionYears: 7,
     backupTime: '02:00',
+
+    /* ── fleet operations ──────────────────────────────────────
+       Read by a module rather than displayed by one. */
+    fuelVariancePct: 12,
+    idleAlertPct: 15,
+    dieselPrice: 24.1,
+    labourRate: 465,
+    downtimeEscalationDays: 5,
+    woApprovalLimit: 150000,
+    poApprovalLimit: 250000,
+    minTreadMm: 3,
+    planningHorizonDays: 14,
+    rateFloor: 24,
+    otdTarget: 95,
+    podDeadlineHours: 24,
+    paymentTerms: '30 days',
+    maxWeeklyHours: 60,
+    coachingScore: 65,
+    standDownScore: 45,
   },
   actor: 'Kobus van der Merwe',
 };
@@ -368,14 +395,15 @@ function reducer(state, a) {
        ══════════════════════════════════════════════════════════ */
     case 'LOG_TREAD': {
       const t = state.tyres.find((x) => x.serial === a.serial);
-      const status = a.tread < 3 ? 'Scrap' : a.tread < 5 ? 'Watch' : a.tread > 13 ? 'New' : 'Running';
+      const min = state.settings.minTreadMm;
+      const status = a.tread < min ? 'Scrap' : a.tread < min + 2 ? 'Watch' : a.tread > 13 ? 'New' : 'Running';
       const s = {
         ...state,
         tyres: state.tyres.map((x) => (x.serial === a.serial ? { ...x, tread: a.tread, status } : x)),
       };
-      return audit(s, a.tread < 3 ? 'warn' : 'insp',
-        `**${a.by}** measured **${a.serial}** at ${a.tread} mm on ${t?.vehicle} ${t?.position}${a.tread < 3 ? ' — below the 3 mm legal limit' : ''}`,
-        'Tyre register', { entity: a.serial, actor: a.by, severity: a.tread < 3 ? 'Warning' : 'Information' });
+      return audit(s, a.tread < min ? 'warn' : 'insp',
+        `**${a.by}** measured **${a.serial}** at ${a.tread} mm on ${t?.vehicle} ${t?.position}${a.tread < min ? ` — below the ${min} mm legal limit` : ''}`,
+        'Tyre register', { entity: a.serial, actor: a.by, severity: a.tread < min ? 'Warning' : 'Information' });
     }
     case 'SCRAP_TYRE': {
       const t = state.tyres.find((x) => x.serial === a.serial);

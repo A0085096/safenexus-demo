@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+  Truck,
   Building2, ShieldCheck, ClipboardCheck, Bell, Plug, Database, KeyRound,
   Check, RotateCcw, AlertTriangle, Info, CircleCheck, XCircle,
 } from 'lucide-react';
@@ -16,6 +17,7 @@ import { Btn, Badge, Panel, SecHead, KV } from '../components/ui.jsx';
 const SECTIONS = [
   { id: 'org', label: 'Organisation', icon: Building2 },
   { id: 'inspection', label: 'Inspection rules', icon: ClipboardCheck },
+  { id: 'operations', label: 'Fleet operations', icon: Truck },
   { id: 'security', label: 'Security and access', icon: ShieldCheck },
   { id: 'roles', label: 'Roles and permissions', icon: KeyRound },
   { id: 'notify', label: 'Notifications', icon: Bell },
@@ -175,6 +177,125 @@ export default function Settings({ run }) {
                 <div className="set-num">
                   <input className="inp" type="number" step="500" value={v.serviceWarnKm}
                     onChange={(e) => edit('serviceWarnKm')(+e.target.value)} /><span>km</span>
+                </div>
+              </Row>
+            </Panel>
+          </>
+        )}
+
+        {section === 'operations' && (
+          <>
+            <div className="infobar">
+              <Info size={15} />
+              <span>Everything below is read by a module rather than displayed by one. The fuel variance
+                threshold decides which fills land in the exception queue, the diesel price and labour rate
+                are what a job and a job card are costed at, and the dispatch rules are what block a job
+                from being planned or invoiced.</span>
+            </div>
+
+            <Panel title="Fuel and consumption">
+              <Row label="Consumption variance alert" note="How far a fill may deviate from the model target before it is flagged.">
+                <div className="set-num">
+                  <input className="inp" type="number" min="1" max="50" value={v.fuelVariancePct}
+                    onChange={(e) => edit('fuelVariancePct')(+e.target.value)} /><span>%</span>
+                </div>
+              </Row>
+              <Row label="Idling alert" note="Raised on the daily exception report when idle time passes this share of engine hours.">
+                <div className="set-num">
+                  <input className="inp" type="number" min="1" max="60" value={v.idleAlertPct}
+                    onChange={(e) => edit('idleAlertPct')(+e.target.value)} /><span>%</span>
+                </div>
+              </Row>
+              <Row label="Diesel price" note="Used to cost a haulage job until the fuel card file lands.">
+                <div className="set-num">
+                  <input className="inp" type="number" step="0.1" value={v.dieselPrice}
+                    onChange={(e) => edit('dieselPrice')(+e.target.value)} /><span>R per litre</span>
+                </div>
+              </Row>
+            </Panel>
+
+            <Panel title="Workshop and stores">
+              <Row label="Standard labour rate" note="The internal workshop recovery rate every job card is costed at.">
+                <div className="set-num">
+                  <input className="inp" type="number" step="5" value={v.labourRate}
+                    onChange={(e) => edit('labourRate')(+e.target.value)} /><span>R per hour</span>
+                </div>
+              </Row>
+              <Row label="Off-road escalation" note="Downtime beyond this is escalated to the fleet director.">
+                <div className="set-num">
+                  <input className="inp" type="number" min="1" max="30" value={v.downtimeEscalationDays}
+                    onChange={(e) => edit('downtimeEscalationDays')(+e.target.value)} /><span>days</span>
+                </div>
+              </Row>
+              <Row label="Workshop authorisation limit" note="A job card above this needs an approval before work may start.">
+                <div className="set-num">
+                  <input className="inp" type="number" step="10000" value={v.woApprovalLimit}
+                    onChange={(e) => edit('woApprovalLimit')(+e.target.value)} /><span>R</span>
+                </div>
+              </Row>
+              <Row label="Stores order limit" note="A purchase order above this needs an approval before it can be sent.">
+                <div className="set-num">
+                  <input className="inp" type="number" step="10000" value={v.poApprovalLimit}
+                    onChange={(e) => edit('poApprovalLimit')(+e.target.value)} /><span>R</span>
+                </div>
+              </Row>
+              <Row label="Legal tread depth" note="A tyre below this may not run. The tyre register and the pre-use sheet both read it.">
+                <div className="set-num">
+                  <input className="inp" type="number" step="0.5" min="1" max="10" value={v.minTreadMm}
+                    onChange={(e) => edit('minTreadMm')(+e.target.value)} /><span>mm</span>
+                </div>
+              </Row>
+            </Panel>
+
+            <Panel title="Dispatch and billing">
+              <Row label="Planning horizon" note="How far ahead a haulage job may be committed.">
+                <div className="set-num">
+                  <input className="inp" type="number" min="1" max="90" value={v.planningHorizonDays}
+                    onChange={(e) => edit('planningHorizonDays')(+e.target.value)} /><span>days</span>
+                </div>
+              </Row>
+              <Row label="Rate floor" note="A job planned below this needs an approval before it may run.">
+                <div className="set-num">
+                  <input className="inp" type="number" step="0.5" value={v.rateFloor}
+                    onChange={(e) => edit('rateFloor')(+e.target.value)} /><span>R per km</span>
+                </div>
+              </Row>
+              <Row label="On-time delivery target" note="Measured against the customer's expected date.">
+                <div className="set-num">
+                  <input className="inp" type="number" min="50" max="100" value={v.otdTarget}
+                    onChange={(e) => edit('otdTarget')(+e.target.value)} /><span>%</span>
+                </div>
+              </Row>
+              <Row label="Proof of delivery deadline" note="After delivery, before invoicing is blocked.">
+                <div className="set-num">
+                  <input className="inp" type="number" min="1" max="168" value={v.podDeadlineHours}
+                    onChange={(e) => edit('podDeadlineHours')(+e.target.value)} /><span>hours</span>
+                </div>
+              </Row>
+              <Row label="Payment terms" note="The due date every customer invoice is raised against.">
+                <select className="inp" value={v.paymentTerms} onChange={(e) => edit('paymentTerms')(e.target.value)}>
+                  {['14 days', '30 days', '60 days', 'On presentation'].map((o) => <option key={o}>{o}</option>)}
+                </select>
+              </Row>
+            </Panel>
+
+            <Panel title="Operator hours">
+              <Row label="Maximum weekly driving" note="Dispatch blocks a job that would take an operator past this.">
+                <div className="set-num">
+                  <input className="inp" type="number" min="20" max="80" value={v.maxWeeklyHours}
+                    onChange={(e) => edit('maxWeeklyHours')(+e.target.value)} /><span>hours</span>
+                </div>
+              </Row>
+              <Row label="Coaching threshold" note="A behaviour score below this puts the operator on the coaching list.">
+                <div className="set-num">
+                  <input className="inp" type="number" min="0" max="100" value={v.coachingScore}
+                    onChange={(e) => edit('coachingScore')(+e.target.value)} />
+                </div>
+              </Row>
+              <Row label="Stand-down threshold" note="A score below this stands the operator down until coaching is done.">
+                <div className="set-num">
+                  <input className="inp" type="number" min="0" max="100" value={v.standDownScore}
+                    onChange={(e) => edit('standDownScore')(+e.target.value)} />
                 </div>
               </Row>
             </Panel>

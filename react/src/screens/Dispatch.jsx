@@ -24,7 +24,7 @@ export const jobTone = (s) => ({
    without a spreadsheet.
    ══════════════════════════════════════════════════════════════ */
 export default function Dispatch({ run, openDialog }) {
-  const { jobs, selection, select, subView, setView, vehicles } = useStore();
+  const { jobs, settings, selection, select, subView, setView, vehicles } = useStore();
   const view = subView.dispatch || 'register';
 
   const live = jobs.filter((j) => j.status === 'In transit' || j.status === 'Loading');
@@ -78,8 +78,8 @@ export default function Dispatch({ run, openDialog }) {
       { l: 'Margin', v: revenue ? ((margin / revenue) * 100).toFixed(1) : '0', unit: '%', icon: Percent,
         delta: R(margin), dir: margin > 0 ? 'up' : 'dn', note: 'revenue less fuel, tolls, operator and other' },
       { l: 'On-time delivery', v: delivered.length ? ((onTime / delivered.length) * 100).toFixed(1) : '—', unit: '%', icon: Clock,
-        note: `${delivered.length - onTime} late · target 95%`,
-        dir: onTime / Math.max(1, delivered.length) >= 0.95 ? 'up' : 'dn',
+        note: `${delivered.length - onTime} late · target ${settings.otdTarget}%`,
+        dir: (onTime / Math.max(1, delivered.length)) * 100 >= settings.otdTarget ? 'up' : 'dn',
         delta: noPod ? `${noPod} without a POD` : 'all PODs in' },
     ]} />
   );
@@ -119,7 +119,8 @@ export default function Dispatch({ run, openDialog }) {
    Seven columns, because dispatch is planned by the day and the
    question is always "what is committed on Thursday". */
 function PlanBoard({ jobs, run, switcher, openDialog }) {
-  const { selection, select } = useStore();
+  const { selection, select, settings } = useStore();
+  const horizon = settings.planningHorizonDays;
   const days = Array.from({ length: 7 }, (_, i) => shift(i - 1));
 
   return (
@@ -131,7 +132,8 @@ function PlanBoard({ jobs, run, switcher, openDialog }) {
           {jobs.filter((j) => days.includes(j.depart)).length} jobs committed across the window
         </span>
       </div>
-      <Panel title="Committed work" note="yesterday, today and the five days ahead — the planning horizon is 14 days">
+      <Panel title="Committed work"
+        note={`yesterday, today and the five days ahead — the planning horizon is ${horizon} days`}>
         <div className="board">
           {days.map((d, i) => {
             const list = jobs.filter((j) => j.depart === d && j.status !== 'Cancelled');

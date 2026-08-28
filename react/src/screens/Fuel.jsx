@@ -19,7 +19,7 @@ import { R, num, fmtShort, vtype } from '../erp/seed.js';
    exception until a person clears it, with a reason, in the trail.
    ══════════════════════════════════════════════════════════════ */
 export default function Fuel({ run, openDialog }) {
-  const { fuel, vehicles, selection, select, subView, setView } = useStore();
+  const { fuel, vehicles, settings, selection, select, subView, setView } = useStore();
   const view = subView.fuel || 'register';
 
   const exceptions = fuel.filter((f) => f.exception);
@@ -46,7 +46,7 @@ export default function Fuel({ run, openDialog }) {
       render: (r) => <span style={{ fontFamily: 'var(--num)' }}>{r.consumption} <span style={{ color: 'var(--text3)', fontSize: 11 }}>{r.unit}</span></span> },
     { key: 'var', label: 'vs target', num: true, value: (r) => r.variance,
       render: (r) => (r.variance
-        ? <span style={{ fontFamily: 'var(--num)', fontWeight: 600, color: Math.abs(r.variance) > 12 ? 'var(--red)' : r.variance < 0 ? 'var(--gold)' : 'var(--green)' }}>
+        ? <span style={{ fontFamily: 'var(--num)', fontWeight: 600, color: Math.abs(r.variance) > settings.fuelVariancePct ? 'var(--red)' : r.variance < 0 ? 'var(--gold)' : 'var(--green)' }}>
             {r.variance > 0 ? '+' : ''}{r.variance}%
           </span>
         : <span style={{ color: 'var(--text3)' }}>—</span>) },
@@ -79,7 +79,7 @@ export default function Fuel({ run, openDialog }) {
     ]} />
   );
 
-  if (view === 'consumption') return <><>{kpis}</><Consumption fuel={fuel} vehicles={vehicles} switcher={switcher} run={run} /></>;
+  if (view === 'consumption') return <><>{kpis}</><Consumption fuel={fuel} vehicles={vehicles} settings={settings} switcher={switcher} run={run} /></>;
 
   const rows = view === 'exceptions' ? exceptions : fuel;
 
@@ -117,7 +117,8 @@ export default function Fuel({ run, openDialog }) {
    Every vehicle type carries a target — kilometres per litre for
    wheels, litres per hour for plant. A vehicle 12% off its target
    is either broken, badly driven, or being drained. */
-function Consumption({ fuel, vehicles, switcher, run }) {
+function Consumption({ fuel, vehicles, settings, switcher, run }) {
+  const limit = settings.fuelVariancePct;
   const rows = useMemo(() => {
     const by = {};
     fuel.forEach((f) => {
@@ -138,7 +139,7 @@ function Consumption({ fuel, vehicles, switcher, run }) {
     }).sort((a, b) => a.variance - b.variance);
   }, [fuel, vehicles]);
 
-  const worst = rows.filter((r) => r.variance < -12);
+  const worst = rows.filter((r) => r.variance < -limit);
 
   const cols = [
     { key: 'v', label: 'Vehicle', mono: true, value: (r) => r.vehicle, render: (r) => r.vehicle },
@@ -153,7 +154,7 @@ function Consumption({ fuel, vehicles, switcher, run }) {
     { key: 'ac', label: 'Actual', num: true, value: (r) => r.actual,
       render: (r) => <span style={{ fontFamily: 'var(--num)', fontWeight: 600 }}>{r.actual.toFixed(2)}</span> },
     { key: 'var', label: 'Variance', num: true, value: (r) => r.variance, render: (r) => {
-      const bad = r.variance < -12;
+      const bad = r.variance < -limit;
       return (
         <Bar value={Math.min(30, Math.abs(r.variance))} max={30}
           colour={bad ? SERIES[4] : r.variance < 0 ? SERIES[2] : SERIES[1]}
@@ -171,13 +172,13 @@ function Consumption({ fuel, vehicles, switcher, run }) {
           <TrendingDown size={15} strokeWidth={1.8} />
           <span>
             <b>{worst.length} vehicle{worst.length === 1 ? '' : 's'}</b> {worst.length === 1 ? 'is' : 'are'} burning
-            more than 12% above the model target — the alert threshold set on the Settings tab. That is either a
+            more than {limit}% above the model target — the alert threshold set on the Settings tab. That is either a
             fault, a driving pattern or a loss, and each one is worth a work order before it is worth an argument.
           </span>
         </div>
       )}
       <DataGrid cols={cols} rows={rows} keyOf={(r) => r.vehicle} toolbar={switcher}
-        rowClass={(r) => (r.variance < -12 ? 'overdue' : '')}
+        rowClass={(r) => (r.variance < -limit ? 'overdue' : '')}
         emptyText="No vehicle has drawn fuel in the period." />
       <div className="grid-2">
         <Panel title="Spend by site" flush>

@@ -23,12 +23,13 @@ const tyreTone = (s) => ({
    a legal one, and the vehicle should not be moving.
    ══════════════════════════════════════════════════════════════ */
 export default function Tyres({ run, openDialog }) {
-  const { tyres, selection, select, subView, setView } = useStore();
+  const { tyres, settings, selection, select, subView, setView } = useStore();
+  const limit = settings.minTreadMm;
   const view = subView.tyres || 'register';
 
   const fitted = tyres.filter((t) => t.status !== 'Scrapped');
-  const illegal = fitted.filter((t) => t.tread < 3);
-  const watch = fitted.filter((t) => t.tread >= 3 && t.tread < 5);
+  const illegal = fitted.filter((t) => t.tread < limit);
+  const watch = fitted.filter((t) => t.tread >= limit && t.tread < limit + 2);
   const spend = tyres.reduce((a, t) => a + t.cost, 0);
   const run90 = fitted.reduce((a, t) => a + t.run, 0);
   const fleetCpk = run90 ? fitted.reduce((a, t) => a + t.cost, 0) / run90 : 0;
@@ -48,8 +49,8 @@ export default function Tyres({ run, openDialog }) {
     ) },
     { key: 'run', label: 'Run', num: true, value: (r) => r.run, render: (r) => num(r.run) },
     { key: 'tr', label: 'Tread', num: true, value: (r) => r.tread, render: (r) => (
-      <Bar value={Math.min(20, r.tread)} max={20} target={3}
-        colour={r.tread < 3 ? SERIES[4] : r.tread < 5 ? SERIES[2] : SERIES[1]}
+      <Bar value={Math.min(20, r.tread)} max={20} target={limit}
+        colour={r.tread < limit ? SERIES[4] : r.tread < limit + 2 ? SERIES[2] : SERIES[1]}
         label={r.tread.toFixed(1) + ' mm'} />
     ) },
     { key: 'pr', label: 'Pressure', num: true, value: (r) => r.pressure, render: (r) => r.pressure + ' kPa' },
@@ -71,10 +72,10 @@ export default function Tyres({ run, openDialog }) {
     <Kpis items={[
       { l: 'Tyres on the fleet', v: fitted.length, icon: CircleDot,
         note: `${tyres.filter((t) => t.status === 'Scrapped').length} scrapped in the period` },
-      { l: 'Below the 3 mm limit', v: illegal.length, icon: AlertTriangle,
+      { l: `Below the ${limit} mm limit`, v: illegal.length, icon: AlertTriangle,
         dir: illegal.length ? 'dn' : 'up',
         delta: illegal.length ? 'not roadworthy' : 'all legal',
-        note: `${watch.length} more on watch between 3 and 5 mm` },
+        note: `${watch.length} more on watch between ${limit} and ${limit + 2} mm` },
       { l: 'Tyre spend', v: R(spend).replace('R ', ''), unit: 'R', icon: Coins,
         note: 'fitted cost across the register' },
       { l: 'Fleet cost per km', v: 'R ' + fleetCpk.toFixed(3), icon: Ruler,
@@ -93,7 +94,7 @@ export default function Tyres({ run, openDialog }) {
         <div className="infobar" style={{ marginBottom: 12 }}>
           <AlertTriangle size={15} strokeWidth={1.8} />
           <span>
-            A tyre under 3 mm is below the legal tread depth. The vehicle it is on may not be operated until
+            A tyre under {limit} mm is below the legal tread depth. The vehicle it is on may not be operated until
             the tyre is replaced — scrapping it here raises the record, and the pre-use sheet will fail the
             vehicle on <b>Wheel condition</b> until it is fitted with a legal one.
           </span>
@@ -101,7 +102,7 @@ export default function Tyres({ run, openDialog }) {
       )}
       <DataGrid cols={cols} rows={rows} keyOf={(r) => r.serial} totalLabel={tyres.length}
         selected={selection.tyre} onSelect={(k) => select('tyre', k)}
-        rowClass={(r) => (r.tread < 3 ? 'overdue' : '')}
+        rowClass={(r) => (r.tread < limit ? 'overdue' : '')}
         toolbar={
           <>
             {switcher}
@@ -111,7 +112,7 @@ export default function Tyres({ run, openDialog }) {
           </>
         }
         emptyText={view === 'legal'
-          ? 'Every fitted tyre is above the 3 mm legal limit.'
+          ? `Every fitted tyre is above the ${limit} mm legal limit.`
           : 'No tyre matches this filter.'} />
     </>
   );
