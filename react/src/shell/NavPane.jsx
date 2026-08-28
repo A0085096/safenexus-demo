@@ -1,20 +1,20 @@
 import React, { useCallback, useState } from 'react';
 import { Search, X, ChevronRight, LogOut } from 'lucide-react';
-import { NAV_COMPANIES } from '../data.js';
+import { SITES } from '../data.js';
 import { JUMPS } from './ribbon.js';
 import { useStore } from '../store.jsx';
 
 /* The workspace scope lives here: which company you are looking at,
    and the queues worth jumping to, each carrying its live count. */
-export default function NavPane({ company, setCompany, width, setWidth, run, hidden }) {
-  const { me, inspections, defects, vehicles, users } = useStore();
+export default function NavPane({ company: site, setCompany: setSite, width, setWidth, run, hidden }) {
+  const { me, tenant, inspections, defects, vehicles, users } = useStore();
   const [q, setQ] = useState('');
 
   const counts = {
     'goto:inspections': inspections.filter((i) => !i.signed).length,
     'goto:fleet': vehicles.filter((v) => v.status === 'Maintenance').length,
-    'goto:compliance': defects.filter((d) => d.status === 'Open' && d.age > 25).length,
-    'goto:hierarchy': users.filter((u) => u.role === 'Operator' && u.reports === '—').length + 3,
+    'goto:compliance': defects.filter((d) => d.status === 'Overdue').length,
+    'goto:hierarchy': users.filter((u) => u.role === 'Operator' && u.reports === '—').length,
     'goto:audit': 0,
   };
   const tones = {
@@ -36,7 +36,8 @@ export default function NavPane({ company, setCompany, width, setWidth, run, hid
   }, [width, setWidth]);
 
   if (hidden) return null;
-  const list = NAV_COMPANIES.filter((c) => c.name.toLowerCase().includes(q.toLowerCase()));
+  const countFor = (key) => (key === 'ALL' ? vehicles.length : vehicles.filter((v) => v.site === key).length);
+  const list = SITES.filter((c) => c.name.toLowerCase().includes(q.toLowerCase()));
 
   return (
     <>
@@ -44,24 +45,32 @@ export default function NavPane({ company, setCompany, width, setWidth, run, hid
         <div className="nav-scroll">
           <div className="nav-search">
             <Search size={13} strokeWidth={1.9} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a company" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a site" />
             {q && <button onClick={() => setQ('')} aria-label="Clear"><X size={11} /></button>}
           </div>
 
-          <div className="nav-head">Scope</div>
+          <div className="nav-tenant">
+            <span className="nav-tenant-av">{tenant.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('')}</span>
+            <span>
+              <b>{tenant.name}</b>
+              <i>{tenant.plan} plan · {tenant.industry}</i>
+            </span>
+          </div>
+
+          <div className="nav-head">Sites</div>
           {list.map((c) => {
-            const on = company === c.key;
+            const on = site === c.key;
             return (
-              <button key={c.key} className={'nav-item' + (on ? ' on' : '')} onClick={() => setCompany(c.key, c.name)}>
+              <button key={c.key} className={'nav-item' + (on ? ' on' : '')} onClick={() => setSite(c.key, c.name)}>
                 <span className={'nav-chip' + (c.key === 'ALL' ? ' all' : '')}>
-                  {c.key === 'ALL' ? '★' : c.name.split(/\s+/).slice(0, 2).map((w) => w[0]).join('')}
+                  {c.key === 'ALL' ? '★' : c.key}
                 </span>
                 <span className="lbl">{c.name}</span>
-                <span className="cnt">{c.n}</span>
+                <span className="cnt">{countFor(c.key)}</span>
               </button>
             );
           })}
-          {!list.length && <div className="nav-empty">No company matches “{q}”.</div>}
+          {!list.length && <div className="nav-empty">No site matches “{q}”.</div>}
 
           <div className="nav-head spaced">Queues</div>
           {JUMPS.map(([l, I, cmd]) => {

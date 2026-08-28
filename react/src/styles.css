@@ -217,6 +217,18 @@ input[type=checkbox] { width: 13px; height: 13px; cursor: pointer; accent-color:
 .nav-search input { border: none; outline: none; background: transparent; font: 400 12.5px var(--ui); width: 100%; color: var(--text); }
 .nav-search button { border: none; background: transparent; cursor: pointer; color: var(--text3); display: flex; padding: 0; }
 
+.nav-tenant {
+  display: flex; align-items: center; gap: 9px; padding: 8px 9px; margin-bottom: 10px;
+  background: #fff; border: 1px solid var(--stroke); border-radius: 5px;
+}
+.nav-tenant-av {
+  width: 26px; height: 26px; border-radius: 5px; background: var(--primary); color: #fff;
+  display: flex; align-items: center; justify-content: center; font: 700 10px var(--num); flex-shrink: 0;
+}
+.nav-tenant span:last-child { min-width: 0; }
+.nav-tenant b { display: block; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-tenant i { display: block; font-style: normal; font-size: 10.5px; color: var(--text3); }
+
 .nav-head {
   font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em;
   color: var(--text3); padding: 4px 8px 5px;

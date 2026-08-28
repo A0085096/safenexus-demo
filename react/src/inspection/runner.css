@@ -27,17 +27,21 @@
 }
 .runner-cond.on { border-color: var(--brand); background: var(--sel); color: var(--brand-dark); font-weight: 600; }
 .runner-decl {
-  padding: 9px 14px; font-size: 11.5px; line-height: 1.6; color: var(--text2);
+  display: flex; gap: 9px; align-items: flex-start; padding: 9px 14px; cursor: pointer;
+  font-size: 11.5px; line-height: 1.6; color: var(--text2);
   background: #FCFDFE; border-bottom: 1px solid var(--stroke-soft); flex-shrink: 0;
 }
+.runner-decl input { margin-top: 2px; flex-shrink: 0; }
 .runner-body { flex: 1; overflow-y: auto; min-height: 0; }
 .runner-tools {
   padding: 8px 14px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
   border-bottom: 1px solid var(--stroke-soft); position: sticky; top: 0; background: #fff; z-index: 3;
 }
 .runner-sec {
-  padding: 5px 14px; font-size: 11.5px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .03em; display: flex; justify-content: space-between; position: sticky; top: 37px; z-index: 2;
+  width: 100%; border: none; text-align: left; cursor: pointer;
+  padding: 6px 14px; font: 700 11.5px var(--ui); text-transform: uppercase;
+  letter-spacing: .03em; display: flex; justify-content: space-between; align-items: center;
+  position: sticky; top: 37px; z-index: 2;
 }
 .runner-sec.nogo { background: var(--red); color: #fff; }
 .runner-sec.gobut { background: #F2C744; color: #3B2A00; }
@@ -79,3 +83,17 @@
   font-size: 12.5px; line-height: 1.55;
 }
 .runner-warn svg { flex-shrink: 0; margin-top: 1px; }
+
+.runner-item-wrap { border-bottom: 1px solid var(--stroke-soft); }
+.runner-item-wrap:nth-child(even) { background: var(--band); }
+.runner-item-wrap.r-nogo { background: var(--red-bg); }
+.runner-item-wrap.r-gobut { background: var(--gold-bg); }
+.runner-item-wrap .runner-item { border-bottom: none; background: transparent; }
+.item-marks {
+  display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;
+  font: 600 11px var(--num); color: var(--text3);
+}
+.item-marks span { display: inline-flex; align-items: center; gap: 3px; }
+.item-detail { display: flex; gap: 8px; align-items: center; padding: 0 14px 8px; }
+.item-detail .inp { flex: 1; padding: 5px 8px; font-size: 12.5px; }
+.signers { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }

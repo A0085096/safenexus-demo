@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import { TrendingUp, TrendingDown, Minus, ArrowRight } from 'lucide-react';
 import { useStore } from '../store.jsx';
-import { MONTHLY, ISO_DATA, ISO_MONTHS, PERF, CATEGORIES, passRate } from '../data.js';
+import { MONTHLY, SITE_SERIES, SITE_MONTHS, SITE_PERF, CATEGORIES, passRate, siteName } from '../data.js';
 import { SERIES, SEQ, nf, targetTone } from '../theme.js';
 import { ChartCard, Panel, Seg, Btn, Badge, Legend, SecHead } from '../components/ui.jsx';
 import { rechartsTip } from '../charts/tooltip.jsx';
@@ -40,7 +40,7 @@ const Delta = ({ now, was, unit = '', invert }) => {
 export default function Analytics({ run, goTab }) {
   const { inspections, defects, vehicles, settings, select, setInspView } = useStore();
   const [months, setMonths] = useState(6);
-  const [cut, setCut] = useState('company');
+  const [cut, setCut] = useState('site');
 
   const series = MONTHLY.slice(MONTHLY.length - months);
   const now = MONTHLY[MONTHLY.length - 1];
@@ -65,9 +65,9 @@ export default function Analytics({ run, goTab }) {
   }));
 
   const cuts = {
-    company: {
-      label: 'By company',
-      rows: PERF.map((p) => ({ k: p.co, v: p.pass, n: p.insp, tone: targetTone(p.pass, settings.complianceTarget), suffix: '%' })),
+    site: {
+      label: 'By site',
+      rows: SITE_PERF.map((p) => ({ k: p.site, v: p.pass, n: p.insp, tone: targetTone(p.pass, settings.complianceTarget), suffix: '%' })),
       note: `pass rate against a ${settings.complianceTarget}% target`,
     },
     shift: {
@@ -89,8 +89,8 @@ export default function Analytics({ run, goTab }) {
   const active = cuts[cut];
   const maxCut = Math.max(...active.rows.map((r) => r.v));
 
-  const worst = [...PERF].sort((a, b) => a.pass - b.pass)[0];
-  const bestMover = [...PERF].sort((a, b) => (b.trend[5] - b.trend[0]) - (a.trend[5] - a.trend[0]))[0];
+  const worst = [...SITE_PERF].sort((a, b) => a.pass - b.pass)[0];
+  const bestMover = [...SITE_PERF].sort((a, b) => (b.trend[5] - b.trend[0]) - (a.trend[5] - a.trend[0]))[0];
 
   return (
     <>
@@ -149,11 +149,11 @@ export default function Analytics({ run, goTab }) {
       </div>
 
       <div className="grid-2">
-        <ChartCard title="Capture volume by company" note="the last six months, stacked by month">
+        <ChartCard title="Capture volume by site" note="the last six months, stacked by month">
           <ResponsiveContainer width="100%" height={210}>
-            <BarChart data={ISO_MONTHS.map((m, i) => {
+            <BarChart data={SITE_MONTHS.map((m, i) => {
               const row = { m };
-              ISO_DATA.forEach((d) => { row[d.co] = d.v[i]; });
+              SITE_SERIES.forEach((d) => { row[d.site] = d.v[i]; });
               return row;
             })} margin={{ top: 12, right: 6, bottom: 0, left: -14 }} barCategoryGap="26%">
               <CartesianGrid stroke="var(--grid)" vertical={false} />
@@ -164,19 +164,19 @@ export default function Analytics({ run, goTab }) {
                 rows: p.map((x) => ({ c: x.color, k: x.dataKey, v: x.value })),
                 foot: `${nf(p.reduce((a, x) => a + x.value, 0))} in total`,
               }))} cursor={{ fill: 'rgba(23,98,181,.05)' }} />
-              {ISO_DATA.map((d) => (
-                <Bar key={d.co} dataKey={d.co} stackId="a" fill={d.c} stroke="#fff" strokeWidth={1} maxBarSize={44} />
+              {SITE_SERIES.map((d) => (
+                <Bar key={d.key} dataKey={d.site} stackId="a" fill={d.c} stroke="#fff" strokeWidth={1} maxBarSize={44} />
               ))}
             </BarChart>
           </ResponsiveContainer>
-          <Legend items={ISO_DATA.map((d) => ({ c: d.c, l: d.co }))} />
+          <Legend items={SITE_SERIES.map((d) => ({ c: d.c, l: d.site }))} />
         </ChartCard>
 
         <Panel title="What to do about it" note="read from the live records">
           <div className="insight-row">
             <Badge tone="red">Worst performer</Badge>
             <div>
-              <b>{worst.co}</b> sits at {worst.pass}%, {(settings.complianceTarget - worst.pass).toFixed(1)} pp under
+              <b>{worst.site}</b> sits at {worst.pass}%, {(settings.complianceTarget - worst.pass).toFixed(1)} pp under
               the {settings.complianceTarget}% target, with {worst.ng} no-go defect{worst.ng === 1 ? '' : 's'} open.
             </div>
             <Btn small icon={ArrowRight} onClick={() => goTab('compliance')}>Compliance</Btn>
@@ -184,7 +184,7 @@ export default function Analytics({ run, goTab }) {
           <div className="insight-row">
             <Badge tone="green">Best trend</Badge>
             <div>
-              <b>{bestMover.co}</b> has gained {(bestMover.trend[5] - bestMover.trend[0]).toFixed(1)} pp over six
+              <b>{bestMover.site}</b> has gained {(bestMover.trend[5] - bestMover.trend[0]).toFixed(1)} pp over six
               months — the clearest improvement on the platform.
             </div>
             <Sparkline values={bestMover.trend} color={SERIES[1]} w={62} h={22} />
@@ -207,7 +207,7 @@ export default function Analytics({ run, goTab }) {
           <div className="insight-row">
             <Badge tone="purple">Fleet</Badge>
             <div>
-              {vehicles.filter((v) => v.status === 'Maintenance').length} vehicle(s) grounded here,
+              {vehicles.filter((v) => v.status === 'Maintenance').length} of {vehicles.length} vehicles grounded,
               and {inspections.filter((i) => !i.signed).length} sheet(s) still await a signature.
             </div>
             <Btn small icon={ArrowRight} onClick={() => goTab('fleet')}>Fleet</Btn>

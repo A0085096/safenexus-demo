@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import {
   ClipboardCheck, ShieldCheck, Truck, Users as UsersIcon, AlertTriangle, BadgeCheck,
-  Download, Printer, ArrowLeft, FileText, GraduationCap, FileJson, Columns3, Clock,
+  Download, Printer, ArrowLeft, FileText, Wrench, FileJson, Columns3,
   PlayCircle, PauseCircle, Mail,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
 import { SERIES, nf } from '../theme.js';
 import { Panel, Btn, Badge, Seg, SecHead } from '../components/ui.jsx';
 import Sparkline from '../charts/Sparkline.jsx';
-import { PERF } from '../data.js';
+import { SITE_PERF, siteName, TENANT } from '../data.js';
 
 const ICONS = {
   clipboard: ClipboardCheck, shield: ShieldCheck, truck: Truck,
-  users: UsersIcon, alert: AlertTriangle, cert: BadgeCheck, learn: GraduationCap,
+  users: UsersIcon, alert: AlertTriangle, cert: BadgeCheck, tool: Wrench,
 };
 
 /* ══════════════════════════════════════════════════════════════
@@ -25,8 +25,8 @@ const DEFS = [
     id: 'inspection', name: 'Inspection report', icon: 'clipboard', tone: 'blue',
     desc: 'Every sheet captured in the period, with its outcome and sign-off state.',
     build: ({ inspections }) => ({
-      cols: ['Ref', 'Captured', 'Vehicle', 'Operator', 'Company', 'Shift', 'In order', 'Go-but', 'No-go', 'Result', 'Sign-off'],
-      rows: inspections.map((i) => [`#${i.ref}`, i.date, i.vehicle, i.op, i.co, i.shift, i.ok, i.go, i.ng,
+      cols: ['Ref', 'Captured', 'Vehicle', 'Operator', 'Site', 'Shift', 'In order', 'Go-but', 'No-go', 'Result', 'Sign-off'],
+      rows: inspections.map((i) => [`#${i.ref}`, i.date, i.vehicle, i.op, siteName(i.site), i.shift, i.ok, i.go, i.ng,
         i.result === 'in-order' ? 'In order' : i.result === 'go-but' ? 'Go-but' : 'No-go', i.signed ? 'Signed' : 'Pending']),
       summary: (rows) => [
         ['Sheets captured', rows.length],
@@ -40,14 +40,14 @@ const DEFS = [
     id: 'compliance', name: 'Compliance report', icon: 'shield', tone: 'green',
     desc: 'Pass rate per company against the 90% target, with the trend behind it.',
     build: () => ({
-      cols: ['Company', 'Plan', 'Users', 'Vehicles', 'Inspections', 'Pass rate', 'No-go', 'Trend', 'Status'],
-      rows: PERF.map((p) => [p.co, p.plan, p.users, p.vehicles, p.insp, `${p.pass}%`, p.ng,
+      cols: ['Site', 'Users', 'Vehicles', 'Inspections', 'Pass rate', 'No-go', 'Trend', 'Status'],
+      rows: SITE_PERF.map((p) => [p.site, p.users, p.vehicles, p.insp, `${p.pass}%`, p.ng,
         `${(p.trend[5] - p.trend[0]).toFixed(1)} pp`, p.pass >= 95 ? 'On track' : p.pass >= 90 ? 'Watch' : 'Below target']),
       summary: (rows) => [
-        ['Companies', rows.length],
-        ['Below the 90% target', rows.filter((r) => r[8] === 'Below target').length],
-        ['Open no-go defects', rows.reduce((a, r) => a + r[6], 0)],
-        ['Total inspections', nf(rows.reduce((a, r) => a + r[4], 0))],
+        ['Sites', rows.length],
+        ['Below target', rows.filter((r) => r[7] === 'Below target').length],
+        ['Open no-go defects', rows.reduce((a, r) => a + r[5], 0)],
+        ['Total inspections', nf(rows.reduce((a, r) => a + r[3], 0))],
       ],
     }),
   },
@@ -55,9 +55,9 @@ const DEFS = [
     id: 'fleet', name: 'Fleet status report', icon: 'truck', tone: 'gold',
     desc: 'Assignment, odometer, service position and open defects per vehicle.',
     build: ({ vehicles, defects }) => ({
-      cols: ['Plate', 'Fleet no.', 'Type', 'Make', 'Company', 'Operator', 'Odometer', 'To service', 'Open defects', 'Status'],
-      rows: vehicles.map((v) => [v.plate, v.fleetNo, v.type, v.make, v.co, v.driver, nf(v.km),
-        nf(v.serviceDue - v.km), defects.filter((d) => d.plate === v.plate && d.status === 'Open').length, v.status]),
+      cols: ['Plate', 'Fleet no.', 'Type', 'Make', 'Site', 'Operator', 'Odometer', 'To service', 'Open defects', 'Status'],
+      rows: vehicles.map((v) => [v.plate, v.fleetNo, v.type, v.make, siteName(v.site), v.driver, nf(v.km),
+        nf(v.serviceDue - v.km), defects.filter((d) => d.plate === v.plate && d.status !== 'Closed').length, v.status]),
       summary: (rows) => [
         ['Vehicles', rows.length],
         ['Assigned', rows.filter((r) => r[9] === 'Assigned').length],
@@ -70,13 +70,14 @@ const DEFS = [
     id: 'defects', name: 'Defect history', icon: 'alert', tone: 'red',
     desc: 'Every defect raised, its age against the 30-day rule and whether it is closed.',
     build: ({ defects }) => ({
-      cols: ['Defect', 'Item', 'Vehicle', 'Company', 'Severity', 'Raised', 'Age (days)', 'Status', 'From inspection'],
-      rows: defects.map((d) => [d.id, d.item, d.plate, d.co, d.severity, d.raised, d.age, d.status, `#${d.inspection}`]),
+      cols: ['Defect', 'Item', 'Section', 'Vehicle', 'Site', 'Severity', 'Raised by', 'Raised', 'Rectify by', 'Concession', 'Work order', 'Status'],
+      rows: defects.map((d) => [d.id, d.item, d.section, d.plate, siteName(d.site), d.severity, d.raisedBy, d.raised, d.due,
+        d.severity === 'No Go' ? 'n/a' : d.supervisorSigned ? 'Signed' : 'Unsigned', d.workOrder || '—', d.status]),
       summary: (rows) => [
         ['Defects', rows.length],
-        ['Open', rows.filter((r) => r[7] === 'Open').length],
-        ['No-go', rows.filter((r) => r[4] === 'No Go').length],
-        ['Past the 30-day rule', rows.filter((r) => r[6] > 30 && r[7] === 'Open').length],
+        ['Open', rows.filter((r) => r[11] !== 'Closed').length],
+        ['No-go', rows.filter((r) => r[5] === 'No Go').length],
+        ['Lapsed concessions', rows.filter((r) => r[11] === 'Overdue').length],
       ],
     }),
   },
@@ -84,8 +85,8 @@ const DEFS = [
     id: 'users', name: 'User activity report', icon: 'users', tone: 'purple',
     desc: 'Who is on the platform, what they operate and how much they capture.',
     build: ({ users }) => ({
-      cols: ['Name', 'Employee no.', 'Role', 'Company', 'Reports to', 'Vehicle', 'Inspections', 'Pass rate', 'Last active', 'Status'],
-      rows: users.map((u) => [u.name, u.empNo, u.role, u.co, u.reports, u.vehicle, u.insps,
+      cols: ['Name', 'Employee no.', 'Role', 'Site', 'Reports to', 'Vehicle', 'Inspections', 'Pass rate', 'Last active', 'Status'],
+      rows: users.map((u) => [u.name, u.empNo, u.role, siteName(u.site), u.reports, u.vehicle, u.insps,
         u.passRate ? `${u.passRate}%` : '—', u.lastActive, u.status]),
       summary: (rows) => [
         ['Users', rows.length],
@@ -99,10 +100,10 @@ const DEFS = [
     id: 'cof', name: 'COF expiry report', icon: 'cert', tone: 'teal',
     desc: 'Certificate of fitness expiry per operator and per vehicle.',
     build: ({ users, vehicles }) => ({
-      cols: ['Holder', 'Kind', 'Company', 'Reference', 'Expires'],
+      cols: ['Holder', 'Kind', 'Site', 'Reference', 'Expires'],
       rows: [
-        ...users.filter((u) => u.cof && u.cof !== 'N/A').map((u) => [u.name, 'Operator COF', u.co, u.empNo, u.cof]),
-        ...vehicles.map((v) => [v.plate, 'Vehicle COF', v.co, v.fleetNo, v.cof]),
+        ...users.filter((u) => u.cof && u.cof !== 'N/A').map((u) => [u.name, 'Operator COF', siteName(u.site), u.empNo, u.cof]),
+        ...vehicles.map((v) => [v.plate, 'Vehicle COF', siteName(v.site), v.fleetNo, v.cof]),
       ],
       summary: (rows) => [
         ['Certificates tracked', rows.length],
@@ -113,21 +114,16 @@ const DEFS = [
     }),
   },
   {
-    id: 'training', name: 'Training matrix', icon: 'learn', tone: 'blue',
-    desc: 'Competency per person and course, with what has lapsed.',
-    build: ({ enrolments, courses, users }) => ({
-      cols: ['Person', 'Role', 'Course', 'Category', 'Required', 'Completed', 'Valid until', 'Score', 'Status'],
-      rows: enrolments.map((e) => {
-        const c = courses.find((x) => x.id === e.course);
-        const u = users.find((x) => x.name === e.user);
-        return [e.user, u?.role || '—', c?.name || e.course, c?.cat || '—', c?.required ? 'Yes' : 'No',
-          e.done || '—', e.expires || '—', e.score != null ? `${e.score}%` : `${e.progress || 0}% done`, e.status];
-      }),
+    id: 'workshop', name: 'Workshop report', icon: 'tool', tone: 'purple',
+    desc: 'Work orders raised from defects, their state and the vehicle they hold.',
+    build: ({ workOrders }) => ({
+      cols: ['Work order', 'Vehicle', 'Site', 'Type', 'Opened', 'From defect', 'Assigned to', 'Status'],
+      rows: workOrders.map((w) => [w.ref, w.vehicle, siteName(w.site), w.type, w.opened, w.defect || '—', w.assigned, w.status]),
       summary: (rows) => [
-        ['Records', rows.length],
-        ['Valid', rows.filter((r) => r[8] === 'Valid').length],
-        ['Expiring', rows.filter((r) => r[8] === 'Expiring').length],
-        ['Expired', rows.filter((r) => r[8] === 'Expired').length],
+        ['Work orders', rows.length],
+        ['Open', rows.filter((r) => r[7] !== 'Completed').length],
+        ['Awaiting parts', rows.filter((r) => r[7] === 'Awaiting parts').length],
+        ['From a defect', rows.filter((r) => r[5] !== '—').length],
       ],
     }),
   },
@@ -161,7 +157,7 @@ function ReportView({ def, data, scope, period, onBack, flash, me }) {
   const save = (asJson) => {
     const payload = asJson
       ? JSON.stringify({
-        report: def.name, scope: scope === 'ALL' ? 'All companies' : scope, period,
+        report: def.name, scope: scope === 'ALL' ? 'All sites' : scope, period,
         generated: new Date().toISOString(), generatedBy: me.name,
         summary: Object.fromEntries(summary), rows: body.map((r) => Object.fromEntries(r.map((c, i) => [cols[i], c]))),
       }, null, 2)
@@ -182,7 +178,7 @@ function ReportView({ def, data, scope, period, onBack, flash, me }) {
         <Btn small icon={ArrowLeft} onClick={onBack}>All reports</Btn>
         <span style={{ fontSize: 12.5, fontWeight: 600 }}>{def.name}</span>
         <span style={{ fontSize: 12, color: 'var(--text3)' }}>
-          {scope === 'ALL' ? 'all companies' : scope} · {period} · generated by {me.name} at{' '}
+          {scope === 'ALL' ? 'all sites' : scope} · {period} · generated by {me.name} at{' '}
           {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
         </span>
         <span className="count" style={{ display: 'flex', gap: 8, position: 'relative' }}>
@@ -252,7 +248,7 @@ export default function Reports({ run }) {
       type: 'RECORD_RUN', by: me.name,
       run: {
         id: 'RUN-' + Math.floor(4472 + Math.random() * 400),
-        report: d.name, scope: scope === 'ALL' ? 'All companies' : scope, period,
+        report: d.name, scope: scope === 'ALL' ? 'All sites' : scope, period,
         by: me.name, at: 'Just now', rows: n, format: 'On screen', status: 'Complete',
       },
     });
@@ -270,8 +266,8 @@ export default function Reports({ run }) {
       <div className="cmdstrip solo">
         <span style={{ fontSize: 12.5, color: 'var(--text2)' }}>Scope</span>
         <Seg value={scope} onChange={setScope} options={[
-          { v: 'ALL', l: 'All companies' },
-          ...store.companies.slice(0, 3).map((c) => ({ v: c.name, l: c.name.split(' ')[0] })),
+          { v: 'ALL', l: 'All sites' },
+          ...SITE_PERF.map((c) => ({ v: c.site, l: c.site.split(' ')[0] })),
         ]} />
         <span style={{ fontSize: 12.5, color: 'var(--text2)', marginLeft: 6 }}>Period</span>
         <select className="inp" style={{ width: 168 }} value={period} onChange={(e) => setPeriod(e.target.value)}>

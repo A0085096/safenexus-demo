@@ -4,13 +4,13 @@ import {
   BadgeCheck, Wrench, Clock, UserX, Car, CarFront, UserPlus, FileText,
 } from 'lucide-react';
 import {
-  MONTHLY, ISO_DATA, ISO_MONTHS, AGING, PERF, KPIS, BASE, FLEET_BASE,
+  MONTHLY, SITE_SERIES, SITE_MONTHS, AGING, SITE_PERF, KPIS, siteName,
 } from '../data.js';
 import { useStore } from '../store.jsx';
 import { SERIES, OUTCOME, nf, targetTone, targetLabel } from '../theme.js';
 import {
   Panel, ChartCard, Seg, Legend, Btn, Badge, Avatar, ListRow, SecHead, RichText,
-  resultBadge, planBadge,
+  resultBadge,
 } from '../components/ui.jsx';
 import Sparkline from '../charts/Sparkline.jsx';
 import VolumeChart from '../charts/VolumeChart.jsx';
@@ -49,7 +49,7 @@ function Kpi({ k }) {
 
 /* ── company performance report ───────────────────────────────── */
 const PERF_COLS = [
-  { k: 'co', l: 'Company' }, { k: 'plan', l: 'Plan' },
+  { k: 'site', l: 'Site' },
   { k: 'users', l: 'Users', num: true }, { k: 'vehicles', l: 'Vehicles', num: true },
   { k: 'insp', l: 'Inspections', num: true }, { k: 'pass', l: 'Pass rate vs 90% target', num: true },
   { k: 'ng', l: 'No-go', num: true }, { k: 'trend', l: '6-month trend', num: true },
@@ -58,18 +58,18 @@ const PERF_COLS = [
 
 function PerformanceReport({ run, target }) {
   const [sort, setSort] = useState({ k: 'pass', d: -1 });
-  const rows = [...PERF].sort((a, b) => {
+  const rows = [...SITE_PERF].sort((a, b) => {
     const k = sort.k === 'trend' ? 'pass' : sort.k === 'status' ? 'pass' : sort.k;
     const x = a[k], y = b[k];
     return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y))) * sort.d;
   });
-  const sum = (k) => PERF.reduce((a, d) => a + d[k], 0);
-  const weighted = PERF.reduce((a, d) => a + d.pass * d.insp, 0) / sum('insp');
+  const sum = (k) => SITE_PERF.reduce((a, d) => a + d[k], 0);
+  const weighted = SITE_PERF.reduce((a, d) => a + d.pass * d.insp, 0) / sum('insp');
 
   return (
     <div className="chart-card">
       <div className="chart-hd">
-        <h2>Company performance</h2>
+        <h2>Site performance</h2>
         <span className="note">June 2026 · target {target}%</span>
         <div className="right">
           <Legend items={[
@@ -98,9 +98,8 @@ function PerformanceReport({ run, target }) {
               const tone = targetTone(d.pass, target);
               const drift = +(d.trend[5] - d.trend[0]).toFixed(1);
               return (
-                <tr key={d.co}>
-                  <td style={{ fontWeight: 600 }}>{d.co}</td>
-                  <td>{planBadge(d.plan)}</td>
+                <tr key={d.key}>
+                  <td style={{ fontWeight: 600 }}>{d.site}</td>
                   <td className="num">{d.users}</td>
                   <td className="num">{d.vehicles}</td>
                   <td className="num">{nf(d.insp)}</td>
@@ -134,7 +133,7 @@ function PerformanceReport({ run, target }) {
           </tbody>
           <tfoot>
             <tr>
-              <td>6 companies</td><td />
+              <td>3 sites</td>
               <td className="num">{sum('users')}</td>
               <td className="num">{sum('vehicles')}</td>
               <td className="num">{nf(sum('insp'))}</td>
@@ -152,7 +151,7 @@ function PerformanceReport({ run, target }) {
 
 /* ── screen ───────────────────────────────────────────────────── */
 export default function Dashboard({ run, goTab }) {
-  const { vehicles, inspections, defects, audit, users, companies, select, settings } = useStore();
+  const { vehicles, inspections, defects, audit, users, select, settings } = useStore();
   const [period, setPeriod] = useState(6);
   const [isoView, setIsoView] = useState('iso');
   const months = MONTHLY.slice(MONTHLY.length - period);
@@ -163,40 +162,41 @@ export default function Dashboard({ run, goTab }) {
   const noGoOpen = openDefects.filter((d) => d.severity === 'No Go');
   const grounded = vehicles.filter((v) => v.status === 'Maintenance');
   const fleetMix = [
-    { k: 'Assigned', v: FLEET_BASE.Assigned + vehicles.filter((v) => v.status === 'Assigned').length, c: OUTCOME.ok },
-    { k: 'Available', v: FLEET_BASE.Available + vehicles.filter((v) => v.status === 'Available').length, c: OUTCOME.go },
-    { k: 'Maintenance', v: FLEET_BASE.Maintenance + grounded.length, c: OUTCOME.ng },
+    { k: 'Assigned', v: vehicles.filter((v) => v.status === 'Assigned').length, c: OUTCOME.ok },
+    { k: 'Available', v: vehicles.filter((v) => v.status === 'Available').length, c: OUTCOME.go },
+    { k: 'Maintenance', v: grounded.length, c: OUTCOME.ng },
   ];
   const fleetTotal = fleetMix.reduce((a, d) => a + d.v, 0);
   const kpis = KPIS.map((k) => (k.key === 'nogo'
-    ? { ...k, val: String(noGoOpen.length), delta: `${grounded.length} grounded`, dir: noGoOpen.length ? 'warn' : 'up', note: 'open across the platform' }
-    : k.key === 'insp'
-      ? { ...k, val: nf(BASE.inspections + inspections.length), note: `${inspections.length} on the register here` }
+    ? { ...k, val: String(noGoOpen.length), delta: `${grounded.length} grounded`, dir: noGoOpen.length ? 'warn' : 'up', note: 'open across the fleet' }
+    : k.key === 'avail'
+      ? { ...k, val: (100 - grounded.length / vehicles.length * 100).toFixed(1), note: `${grounded.length} of ${vehicles.length} in maintenance` }
       : k));
   const attention = [
     ...grounded.map((v) => ({
       icon: 'alert', tone: 'red', n: `${v.plate} — grounded`,
-      s: `${v.make} · ${v.co}`, r: 'off road',
+      s: `${v.make} · ${siteName(v.site)}`, r: 'off road',
     })),
-    ...openDefects.filter((d) => d.age > 25).map((d) => ({
-      icon: 'clock', tone: d.age > 30 ? 'red' : 'gold', n: `${d.item} — go-but aging`,
-      s: `${d.plate} · ${d.co}`, r: `${d.age} of 30 days`,
+    ...openDefects.filter((d) => d.status === 'Overdue').map((d) => ({
+      icon: 'clock', tone: 'red', n: `${d.item} — concession lapsed`,
+      s: `${d.plate} · ${siteName(d.site)}`, r: 'concession lapsed',
     })),
-    { icon: 'cert', tone: 'red', n: 'P. Dlamini — COF expires', s: 'Supervisor · Acme Mining Corp', r: '6 days' },
-    { icon: 'user', tone: 'gold', n: '3 operators without a supervisor', s: 'Acme Mining Corp', r: 'unassigned' },
+    { icon: 'cert', tone: 'red', n: 'Priya Dlamini — COF expires', s: 'Supervisor · Lephalale open pit', r: '12 days' },
+    { icon: 'user', tone: 'gold', n: 'Naledi Motaung has no vehicle', s: 'Operator · Steelpoort section', r: 'unassigned' },
   ].slice(0, 6);
   const agingTotal = openDefects.length;
 
+  const isoData = SITE_SERIES.map((s) => ({ co: s.site, c: s.c, v: s.v }));
   const isoNote = { iso: 'isometric · height is volume', bars: 'grouped columns · same data', table: 'exact values' }[isoView];
 
   return (
     <>
       <div className="cmdstrip solo">
         <div className="glance">
-          <span><b>{BASE.companies + companies.length}</b> companies</span>
-          <span><b>{BASE.users + users.length}</b> users</span>
+          <span><b>{users.length}</b> users</span>
           <span><b>{fleetTotal}</b> vehicles</span>
-          <span><b>92.4%</b> average compliance</span>
+          <span><b>3</b> sites</span>
+          <span><b>{openDefects.length}</b> open defects</span>
         </div>
         <div className="count" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <Seg value={period} onChange={setPeriod}
@@ -239,10 +239,10 @@ export default function Dashboard({ run, goTab }) {
       </div>
 
       <div className="grid-2">
-        <ChartCard title="Inspections by company" note={isoNote}
+        <ChartCard title="Inspections by site" note={isoNote}
           right={
             <>
-              <Legend items={ISO_DATA.map((d) => ({ c: d.c, l: d.co }))} />
+              <Legend items={isoData.map((d) => ({ c: d.c, l: d.co }))} />
               <Seg value={isoView} onChange={setIsoView} options={[
                 { v: 'iso', l: '3D', icon: Box },
                 { v: 'bars', l: '2D', icon: BarChart3 },
@@ -250,16 +250,16 @@ export default function Dashboard({ run, goTab }) {
               ]} />
             </>
           }>
-          {isoView === 'iso' && <Iso3D data={ISO_DATA} months={ISO_MONTHS} />}
-          {isoView === 'bars' && <GroupedBars data={ISO_DATA} months={ISO_MONTHS} />}
+          {isoView === 'iso' && <Iso3D data={isoData} months={SITE_MONTHS} />}
+          {isoView === 'bars' && <GroupedBars data={isoData} months={SITE_MONTHS} />}
           {isoView === 'table' && (
             <div className="gridwrap" style={{ margin: -12 }}>
               <table className="grid">
                 <thead>
-                  <tr><th>Company</th>{ISO_MONTHS.map((m) => <th key={m} className="num">{m}</th>)}<th className="num">Total</th></tr>
+                  <tr><th>Site</th>{SITE_MONTHS.map((m) => <th key={m} className="num">{m}</th>)}<th className="num">Total</th></tr>
                 </thead>
                 <tbody>
-                  {ISO_DATA.map((d) => (
+                  {isoData.map((d) => (
                     <tr key={d.co}>
                       <td>
                         <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: d.c, marginRight: 7 }} />
@@ -272,9 +272,9 @@ export default function Dashboard({ run, goTab }) {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td>All companies</td>
-                    {ISO_MONTHS.map((m, i) => <td className="num" key={m}>{nf(ISO_DATA.reduce((a, d) => a + d.v[i], 0))}</td>)}
-                    <td className="num">{nf(ISO_DATA.reduce((a, d) => a + d.v.reduce((x, y) => x + y, 0), 0))}</td>
+                    <td>All sites</td>
+                    {SITE_MONTHS.map((m, i) => <td className="num" key={m}>{nf(isoData.reduce((a, d) => a + d.v[i], 0))}</td>)}
+                    <td className="num">{nf(isoData.reduce((a, d) => a + d.v.reduce((x, y) => x + y, 0), 0))}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -294,7 +294,7 @@ export default function Dashboard({ run, goTab }) {
             {[...openDefects].sort((a, b) => b.age - a.age).slice(0, 4).map((a) => (
               <ListRow key={a.id}
                 avatar={<Avatar tone={a.age > 30 ? 'red' : 'gold'} icon={AlertTriangle} />}
-                title={a.item} sub={`${a.plate} · ${a.co}`}
+                title={a.item} sub={`${a.plate} · ${siteName(a.site)}`}
                 onClick={() => run('openDefect:' + a.id)}
                 right={
                   <>
@@ -324,7 +324,7 @@ export default function Dashboard({ run, goTab }) {
                   <td className="mono">#{i.ref}</td>
                   <td className="mono">{i.vehicle}</td>
                   <td>{i.op}</td>
-                  <td style={{ color: 'var(--text2)' }}>{i.co}</td>
+                  <td style={{ color: 'var(--text2)' }}>{siteName(i.site)}</td>
                   <td style={{ color: 'var(--text2)' }}>{i.date}</td>
                   <td className="num" style={{ color: i.ng ? 'var(--red)' : i.go ? 'var(--gold)' : 'var(--text3)', fontWeight: 600 }}>
                     {i.go + i.ng}

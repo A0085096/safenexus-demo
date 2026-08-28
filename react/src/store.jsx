@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useMemo, useReducer, useState, useCallback } from 'react';
-import { COMPANIES, USERS, FLEET, INSPECTIONS, AUDIT, COURSES, ENROLMENTS } from './data.js';
+import { TENANT, USERS, FLEET, INSPECTIONS, DEFECTS, WORK_ORDERS, AUDIT } from './data.js';
 import { TEMPLATES } from './inspection/templates.js';
 
 /* ══════════════════════════════════════════════════════════════
@@ -56,20 +56,13 @@ const patchVehicle = (state, plate, patch) => ({
 });
 
 const initial = {
-  companies: COMPANIES,
+  tenant: TENANT,
   users: USERS,
   vehicles: FLEET,
   inspections: INSPECTIONS.map((i) => ({ ...i, sheet: null })),
-  defects: [
-    { id: 'DEF-100241', item: 'Air conditioner', plate: 'DBN 001 NP', severity: 'Go But', raised: '15 May 2026', age: 34, status: 'Open', inspection: '2120290', co: 'Grootegeluk Coal' },
-    { id: 'DEF-100238', item: 'Reflective tape condition', plate: 'GP 112 ZL', severity: 'Go But', raised: '17 May 2026', age: 32, status: 'Open', inspection: '2120281', co: 'Zimele Logistics' },
-    { id: 'DEF-100252', item: 'Windows and windscreen wipers', plate: 'CA 123 GP', severity: 'Go But', raised: '21 May 2026', age: 28, status: 'Open', inspection: '2120302', co: 'Acme Mining Corp' },
-    { id: 'DEF-100260', item: 'Window washer', plate: 'WC 321 CT', severity: 'Go But', raised: '23 May 2026', age: 26, status: 'Open', inspection: '2120311', co: 'Acme Mining Corp' },
-    { id: 'DEF-100288', item: 'Brakes', plate: 'WC 321 CT', severity: 'No Go', raised: '17 Jun 2026', age: 1, status: 'Open', inspection: '2120345', co: 'Acme Mining Corp' },
-  ],
+  defects: DEFECTS,
+  workOrders: WORK_ORDERS,
   templates: TEMPLATES,
-  courses: COURSES,
-  enrolments: ENROLMENTS,
   audit: AUDIT.map((a, i) => ({
     ...a,
     id: 'AUD-' + (3990 + i),
@@ -78,17 +71,16 @@ const initial = {
     session: a.actor === 'System' ? '—' : 'sess-8841c2',
   })),
   reportRuns: [
-    { id: 'RUN-4471', report: 'Compliance report', scope: 'All companies', period: 'June 2026', by: 'Kobus van der Merwe', at: 'Today 08:02', rows: 6, format: 'PDF', status: 'Complete' },
-    { id: 'RUN-4468', report: 'COF expiry report', scope: 'All companies', period: '90-day window', by: 'Thabo Nkosi', at: 'Today 07:41', rows: 14, format: 'PDF', status: 'Complete' },
-    { id: 'RUN-4463', report: 'Fleet status report', scope: 'Grootegeluk Coal', period: 'June 2026', by: 'Vusi Molefe', at: 'Yesterday 16:20', rows: 48, format: 'CSV', status: 'Complete' },
+    { id: 'RUN-4471', report: 'Compliance report', scope: 'All sites', period: 'June 2026', by: 'Kobus van der Merwe', at: 'Today 08:02', rows: 3, format: 'PDF', status: 'Complete' },
+    { id: 'RUN-4468', report: 'COF expiry report', scope: 'All sites', period: '90-day window', by: 'Thabo Nkosi', at: 'Today 07:41', rows: 12, format: 'PDF', status: 'Complete' },
+    { id: 'RUN-4463', report: 'Fleet status report', scope: 'Steelpoort section', period: 'June 2026', by: 'Refilwe Sekhukhune', at: 'Yesterday 16:20', rows: 3, format: 'CSV', status: 'Complete' },
   ],
   schedules: [
-    { id: 'SCH-11', report: 'Compliance report', scope: 'All companies', cadence: 'Monthly, first working day', to: 'exco@acmecorp.co.za', format: 'PDF', on: true, next: '01 Jul 2026' },
-    { id: 'SCH-12', report: 'COF expiry report', scope: 'All companies', cadence: 'Weekly, Monday 06:00', to: 'safety@acmecorp.co.za', format: 'CSV', on: true, next: '22 Jun 2026' },
-    { id: 'SCH-13', report: 'Defect history', scope: 'Acme Mining Corp', cadence: 'Quarterly', to: 'board@acmecorp.co.za', format: 'PDF', on: false, next: '—' },
+    { id: 'SCH-11', report: 'Compliance report', scope: 'All sites', cadence: 'Monthly, first working day', to: 'exco@acmecorp.co.za', format: 'PDF', on: true, next: '01 Jul 2026' },
+    { id: 'SCH-12', report: 'COF expiry report', scope: 'All sites', cadence: 'Weekly, Monday 06:00', to: 'safety@acmecorp.co.za', format: 'CSV', on: true, next: '22 Jun 2026' },
+    { id: 'SCH-13', report: 'Defect history', scope: 'Lephalale open pit', cadence: 'Quarterly', to: 'board@acmecorp.co.za', format: 'PDF', on: false, next: '—' },
   ],
   settings: {
-    /* these are read by the modules, not just displayed */
     goButMaxDays: 30,
     requireConcession: true,
     autoGroundOnNoGo: true,
@@ -96,23 +88,19 @@ const initial = {
     passRateTarget: 95,
     cofWarnDays: 90,
     serviceWarnKm: 2000,
-    /* platform */
     platformName: 'SafeNexus ERP',
     supportEmail: 'support@safenexus.co.za',
     timezone: 'Africa/Johannesburg (SAST)',
     dateFormat: 'DD/MM/YYYY',
-    /* security */
     passwordPolicy: 'Strong (12+ characters, number, symbol)',
     sessionTimeout: '8 hours',
     mfa: true,
     loginAudit: true,
     ipAllowlist: false,
-    /* notifications */
     notifyNoGo: true,
     notifySignOff: true,
     notifyCof: true,
     notifyTraining: false,
-    /* data */
     retentionYears: 7,
     backupTime: '02:00',
   },
@@ -142,12 +130,11 @@ function reducer(state, a) {
       if (u && u.vehicle && u.vehicle !== '—') {
         s = patchVehicle(s, u.vehicle, { driver: '—', sup: '—', status: 'Available' });
       }
-      s = { ...s, enrolments: s.enrolments.filter((e) => e.user !== a.name) };
-      return audit(s, 'user', `**${a.by}** deleted **${a.name}** (${u?.role || 'user'}) — records retained for 7 years`, 'User removed');
+      return audit(s, 'user', `**${a.by}** deleted **${a.name}** (${u?.role || 'user'}) — records retained for ${state.settings.retentionYears} years`,
+        'User removed', { entity: a.name, actor: a.by, severity: 'Warning' });
     }
     case 'RESTORE_USER': {
       let s = { ...state, users: [a.user, ...state.users] };
-      if (a.enrolments?.length) s = { ...s, enrolments: [...a.enrolments, ...s.enrolments] };
       if (a.user.vehicle && a.user.vehicle !== '—') {
         s = patchVehicle(s, a.user.vehicle, { driver: a.user.name, sup: a.user.reports, status: 'Assigned' });
       }
@@ -165,24 +152,49 @@ function reducer(state, a) {
       return audit(s, 'unassign', `**${a.by}** unassigned **${u?.vehicle}** from operator **${a.name}** — reason: ${a.reason}`, 'Vehicle assignment');
     }
 
-    /* ── learning ───────────────────────────────────────────── */
-    case 'ENROL': {
-      const s = { ...state, enrolments: [{ user: a.name, course: a.course, status: 'In progress', done: null, expires: null, score: null, progress: 0 }, ...state.enrolments] };
-      const c = state.courses.find((x) => x.id === a.course);
-      return audit(s, 'user', `**${a.by}** enrolled **${a.name}** on **${c?.name || a.course}**`, 'Training assigned');
+    /* ── concessions and workshop ───────────────────────────── */
+    case 'SIGN_CONCESSION': {
+      const d = state.defects.find((x) => x.id === a.id);
+      const s = { ...state, defects: state.defects.map((x) => (x.id === a.id ? { ...x, supervisorSigned: true } : x)) };
+      return audit(s, 'assign', `**${a.by}** signed the go-but concession on **${a.id}** — ${d?.item} on ${d?.plate}`,
+        'Concession signed', { entity: a.id, actor: a.by });
     }
-    case 'COMPLETE_COURSE': {
-      const c = state.courses.find((x) => x.id === a.course);
-      const done = new Date();
-      const expires = c?.validity ? new Date(done.getFullYear() + Math.floor(c.validity / 12), done.getMonth() + (c.validity % 12), done.getDate()) : null;
-      const fmt = (d) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    case 'RAISE_WO': {
+      const d = state.defects.find((x) => x.id === a.id);
+      const wo = {
+        ref: a.ref, vehicle: d.plate, site: d.site, type: a.woType, status: 'Awaiting authorisation',
+        opened: today(), defect: a.id, assigned: a.assigned, note: a.note || d.item,
+      };
+      let s = { ...state, workOrders: [wo, ...state.workOrders] };
+      s = { ...s, defects: s.defects.map((x) => (x.id === a.id ? { ...x, workOrder: a.ref } : x)) };
+      return audit(s, 'assign', `**${a.by}** raised work order **${a.ref}** against **${a.id}** — ${d.item} on ${d.plate}`,
+        'Work order raised', { entity: a.ref, actor: a.by });
+    }
+    case 'WO_STATUS': {
+      const w = state.workOrders.find((x) => x.ref === a.ref);
+      const s = { ...state, workOrders: state.workOrders.map((x) => (x.ref === a.ref ? { ...x, status: a.status } : x)) };
+      return audit(s, 'assign', `**${a.by}** moved work order **${a.ref}** to ${a.status.toLowerCase()} — ${w?.vehicle}`,
+        'Workshop', { entity: a.ref, actor: a.by });
+    }
+    case 'PUBLISH_TEMPLATE': {
       const s = {
         ...state,
-        enrolments: state.enrolments.map((e) => (e.user === a.name && e.course === a.course
-          ? { ...e, status: 'Valid', done: fmt(done), expires: expires ? fmt(expires) : null, score: a.score, progress: 100 }
-          : e)),
+        templates: state.templates.map((t) => (t.id === a.id
+          ? { ...t, status: 'Published', revision: t.status === 'Draft' ? t.revision : t.revision }
+          : t)),
       };
-      return audit(s, 'insp', `**${a.name}** completed **${c?.name || a.course}** — ${a.score}%`, 'Training record');
+      const t = state.templates.find((x) => x.id === a.id);
+      return audit(s, 'user', `**${a.by}** published **${t?.name}** revision ${t?.revision}`,
+        'Inspection form', { entity: a.id, actor: a.by, severity: 'Warning' });
+    }
+    case 'REVISE_TEMPLATE': {
+      const t = state.templates.find((x) => x.id === a.id);
+      const s = {
+        ...state,
+        templates: state.templates.map((x) => (x.id === a.id ? { ...x, revision: x.revision + 1, status: 'Draft' } : x)),
+      };
+      return audit(s, 'user', `**${a.by}** opened revision ${(t?.revision || 0) + 1} of **${t?.name}** as a draft`,
+        'Inspection form', { entity: a.id, actor: a.by });
     }
 
     /* ── fleet ──────────────────────────────────────────────── */
@@ -243,7 +255,7 @@ function reducer(state, a) {
     }
     case 'CLOSE_DEFECT': {
       const d = state.defects.find((x) => x.id === a.id);
-      let s = { ...state, defects: state.defects.map((x) => (x.id === a.id ? { ...x, status: 'Closed' } : x)) };
+      let s = { ...state, defects: state.defects.map((x) => (x.id === a.id ? { ...x, status: 'Closed', closedOn: today() } : x)) };
       if (d && d.severity === 'No Go') {
         const stillOpen = s.defects.some((x) => x.plate === d.plate && x.severity === 'No Go' && x.status === 'Open');
         if (!stillOpen) {
@@ -258,11 +270,6 @@ function reducer(state, a) {
       return audit(s, 'warn', `**${a.by}** extended the concession on **${a.id}** by ${a.days} days`, 'Concession extended');
     }
 
-    /* ── companies ──────────────────────────────────────────── */
-    case 'ADD_COMPANY': {
-      const s = { ...state, companies: [a.company, ...state.companies] };
-      return audit(s, 'user', `**${a.by}** registered **${a.company.name}** on the ${a.company.plan} plan`, 'Company created');
-    }
     case 'SET_SETTINGS': {
       const changed = Object.keys(a.patch).filter((k) => state.settings[k] !== a.patch[k]);
       const s = { ...state, settings: { ...state.settings, ...a.patch } };
@@ -308,7 +315,8 @@ export function StoreProvider({ children, me, flash }) {
     /* derived */
     vehicle: state.vehicles.find((v) => v.plate === selection.vehicle) || null,
     inspection: state.inspections.find((i) => i.ref === selection.inspection) || null,
-    openDefects: state.defects.filter((d) => d.status === 'Open'),
+    openDefects: state.defects.filter((d) => d.status !== 'Closed'),
+    workOrder: state.workOrders.find((w) => w.ref === selection.workOrder) || null,
     set: (patch, section) => dispatch({ type: 'SET_SETTINGS', patch, section, by: me.name }),
     newRef: () => String(2120353 + state.inspections.length),
     newId: ref,

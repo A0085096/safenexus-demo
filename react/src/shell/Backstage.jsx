@@ -1,13 +1,13 @@
 import React from 'react';
 import {
-  ChevronLeft, Building2, UserPlus, FilePlus, Truck, Printer, Download, Settings, Info,
+  ChevronLeft, Building2, UserPlus, Wrench, Truck, Printer, Download, Settings, Info,
 } from 'lucide-react';
 import { KV } from '../components/ui.jsx';
 
 const ITEMS = [
   [Building2, 'Company profile', 'goto:profile'],
   [UserPlus, 'New user', 'dlg:user'],
-  [FilePlus, 'New company', 'dlg:company'],
+  [Wrench, 'Raise work order', 'raiseWO'],
   [Truck, 'New vehicle', 'dlg:vehicle'],
   [Printer, 'Print', 'print'],
   [Download, 'Export', 'export'],
@@ -26,24 +26,24 @@ export default function Backstage({ onClose, run }) {
         ))}
       </div>
       <div className="bs-body">
-        <h1>Platform</h1>
+        <h1>Acme Mining Corp</h1>
         <div className="bs-cols">
           <div>
             <h3>Current period</h3>
             <KV k="Period" v="June 2026" />
-            <KV k="Companies" v="12 registered, 10 active" />
-            <KV k="Users" v="248 across all tiers" />
-            <KV k="Vehicles" v="184, 7 in maintenance" />
-            <KV k="Inspections" v="1 247 this month" />
-            <KV k="Awaiting sign-off" v="5" />
+            <KV k="Sites" v="3 active" />
+            <KV k="Users" v="11 across all roles" />
+            <KV k="Vehicles" v="10 on the register" />
+            <KV k="Inspections" v="449 this month" />
+            <KV k="Awaiting sign-off" v="3" />
           </div>
           <div>
             <h3>Compliance</h3>
             <KV k="Audit trail" v="Append-only, 7-year retention" />
             <KV k="Privacy" v="POPIA — consent on file" />
-            <KV k="Pass rate" v="98.2% platform-wide" />
-            <KV k="COF register" v="14 certificates expiring in 90 days" />
-            <KV k="Go-but rule" v="30-day maximum age" />
+            <KV k="Pass rate" v="98.2% across the fleet" />
+            <KV k="COF register" v="certificates tracked per operator and vehicle" />
+            <KV k="Go-but rule" v="a concession runs for a fixed window, then lapses" />
             <KV k="Last backup" v="18 Jun 2026, 02:00" />
           </div>
           <div>

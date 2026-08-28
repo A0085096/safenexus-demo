@@ -19,7 +19,7 @@ const Empty = ({ icon: Icon, text }) => (
 export function VehiclePane({ vehicle, defects, inspections, run }) {
   if (!vehicle) return <Empty icon={Truck} text="Select a vehicle to manage it." />;
   const v = vehicle;
-  const mine = defects.filter((d) => d.plate === v.plate && d.status === 'Open');
+  const mine = defects.filter((d) => d.plate === v.plate && d.status !== 'Closed');
   const noGo = mine.filter((d) => d.severity === 'No Go');
   const history = inspections.filter((i) => i.vehicle === v.plate).slice(0, 5);
   const toService = v.serviceDue - v.km;
@@ -44,7 +44,7 @@ export function VehiclePane({ vehicle, defects, inspections, run }) {
       <SecHead>Assignment</SecHead>
       <KV k="Operator" v={v.driver} />
       <KV k="Supervisor" v={v.sup} />
-      <KV k="Company" v={v.co} />
+      <KV k="Site" v={v.site} />
 
       <SecHead>Condition</SecHead>
       <KV k="Odometer" v={`${nf(v.km)} km`} />
@@ -60,7 +60,7 @@ export function VehiclePane({ vehicle, defects, inspections, run }) {
           <div key={d.id} className="sheet-row">
             <Badge tone={d.severity === 'No Go' ? 'red' : 'gold'}>{d.severity}</Badge>
             <span className="s">{d.item}</span>
-            <span style={{ fontSize: 11.5, color: d.age > 30 ? 'var(--red)' : 'var(--text3)' }}>{d.age} d</span>
+            <span style={{ fontSize: 11.5, color: d.status === 'Overdue' ? 'var(--red)' : 'var(--text3)' }}>{d.due}</span>
             <Btn small onClick={() => run('closeDefect:' + d.id)}>Close</Btn>
           </div>
         ))}
@@ -194,32 +194,65 @@ export function InspectionPane({ inspection, templates, defects, run }) {
 }
 
 /* ── defect ───────────────────────────────────────────────────── */
-export function DefectPane({ defect, run }) {
+export function DefectPane({ defect, workOrders, settings, run }) {
   if (!defect) return <Empty icon={CircleAlert} text="Select a defect to work it." />;
   const d = defect;
-  const over = d.age > 30;
+  const lapsed = d.status === 'Overdue';
+  const wo = workOrders?.find((w) => w.ref === d.workOrder);
   return (
     <div style={{ padding: 14 }}>
       <div style={{ fontSize: 12, color: 'var(--brand-dark)' }}>{d.id}</div>
-      <div style={{ fontSize: 17, fontWeight: 600, margin: '2px 0 8px' }}>{d.item}</div>
+      <div style={{ fontSize: 17, fontWeight: 600, margin: '2px 0 8px', lineHeight: 1.4 }}>{d.item}</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         <Badge tone={d.severity === 'No Go' ? 'red' : 'gold'}>{d.severity}</Badge>
-        <Badge tone={d.status === 'Closed' ? 'green' : 'grey'}>{d.status}</Badge>
-        {over && d.status === 'Open' && <Badge tone="red">past the 30-day rule</Badge>}
+        <Badge tone={d.status === 'Closed' ? 'green' : lapsed ? 'red' : 'blue'}>{d.status}</Badge>
+        <Badge tone="purple">{d.plate}</Badge>
       </div>
-      <SecHead>Detail</SecHead>
+
+      {lapsed && (
+        <div className="auth-err" style={{ marginTop: 12 }}>
+          <AlertTriangle size={15} />
+          <span>The concession lapsed on {d.due}. The vehicle is running on an expired go-but, which is
+            no better than running with no inspection at all.</span>
+        </div>
+      )}
+      {d.severity === 'Go But' && !d.supervisorSigned && d.status !== 'Closed' && (
+        <div style={{ background: 'var(--gold-bg)', border: '1px solid #EDD9B0', color: 'var(--gold)', padding: '8px 10px', borderRadius: 4, fontSize: 12.5, marginTop: 12, lineHeight: 1.5 }}>
+          No supervisor has signed this concession. Until one does, treat the vehicle as a no-go.
+        </div>
+      )}
+
+      <SecHead>Defect</SecHead>
+      <KV k="From inspection" v={
+        <button className="link" onClick={() => run('openInspection:' + d.inspection)}>#{d.inspection}</button>
+      } />
+      <KV k="Section" v={d.section} />
       <KV k="Vehicle" v={d.plate} />
-      <KV k="Company" v={d.co} />
-      <KV k="Raised" v={`${d.raised} · ${d.age} days ago`} />
-      <KV k="From inspection" v={'#' + d.inspection} />
-      {d.severity === 'No Go' && <KV k="Effect" v="Vehicle grounded until closed" />}
-      {d.status === 'Open' && (
+      <KV k="Raised" v={`${d.raised} by ${d.raisedBy}`} />
+      <KV k="Rectify by" v={<span style={{ color: lapsed ? 'var(--red)' : 'var(--text)', fontWeight: lapsed ? 600 : 400 }}>{d.due}</span>} />
+      <KV k="Concession" v={d.severity === 'No Go'
+        ? 'Not applicable — a no-go grounds the vehicle'
+        : d.supervisorSigned ? 'Signed by the supervisor' : 'Unsigned — treat as a no-go'} />
+      <KV k="Work order" v={wo
+        ? <button className="link" style={{ fontFamily: 'var(--num)' }} onClick={() => run('openWO:' + wo.ref)}>{wo.ref} · {wo.status}</button>
+        : 'Not raised'} />
+      {d.closedOn && <KV k="Closed" v={d.closedOn} />}
+
+      <SecHead>Note</SecHead>
+      <div style={{ fontSize: 12.5, lineHeight: 1.7, background: 'var(--pane)', border: '1px solid var(--stroke)', borderRadius: 4, padding: 10 }}>
+        {d.note}
+      </div>
+
+      {d.status !== 'Closed' && (
         <>
           <SecHead>Actions</SecHead>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <Btn small primary icon={CheckCircle2} onClick={() => run('closeDefect:' + d.id)}>Close defect</Btn>
-            <Btn small icon={Wrench} onClick={() => run('bookService')}>Book repair</Btn>
-            {d.severity === 'Go But' && <Btn small icon={FileText} onClick={() => run('extendDefect:' + d.id)}>Extend concession</Btn>}
+            {!d.workOrder && <Btn small icon={Wrench} onClick={() => run('raiseWO:' + d.id)}>Raise work order</Btn>}
+            {d.severity === 'Go But' && !d.supervisorSigned
+              && <Btn small icon={CheckCircle2} onClick={() => run('signConcession:' + d.id)}>Sign concession</Btn>}
+            {d.severity === 'Go But'
+              && <Btn small icon={FileText} onClick={() => run('extendDefect:' + d.id)}>Extend</Btn>}
           </div>
         </>
       )}
@@ -227,18 +260,94 @@ export function DefectPane({ defect, run }) {
   );
 }
 
-/* ── user ─────────────────────────────────────────────────────── */
-const trainingTone = (s) => ({ Valid: 'green', Expiring: 'gold', Expired: 'red', 'In progress': 'blue' }[s] || 'grey');
+/* ── work order ───────────────────────────────────────────────── */
+export function WorkOrderPane({ wo, defects, run }) {
+  if (!wo) return <Empty icon={Wrench} text="Select a work order." />;
+  const d = defects.find((x) => x.id === wo.defect);
+  const NEXT = ['Awaiting authorisation', 'Awaiting parts', 'In progress', 'Road test', 'Completed'];
+  return (
+    <div style={{ padding: 14 }}>
+      <div style={{ fontSize: 12, color: 'var(--brand-dark)' }}>{wo.ref}</div>
+      <div style={{ font: '600 19px var(--num)', letterSpacing: '.4px', margin: '2px 0 8px' }}>{wo.vehicle}</div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <Badge tone={wo.status === 'Completed' ? 'green' : wo.status === 'In progress' ? 'blue' : 'gold'}>{wo.status}</Badge>
+        <Badge tone="grey">{wo.type}</Badge>
+      </div>
+      {d && d.severity === 'No Go' && d.status !== 'Closed' && (
+        <div className="auth-err" style={{ marginTop: 12 }}>
+          <AlertTriangle size={15} />
+          <span>{wo.vehicle} stays off the road until {d.id} is closed and it is returned to service.</span>
+        </div>
+      )}
+      <SecHead>Job</SecHead>
+      <KV k="Opened" v={wo.opened} />
+      <KV k="Assigned to" v={wo.assigned} />
+      <KV k="From defect" v={d
+        ? <button className="link" style={{ fontFamily: 'var(--num)' }} onClick={() => run('openDefect:' + d.id)}>{d.id} · {d.item}</button>
+        : 'Raised directly'} />
+      <SecHead>Work</SecHead>
+      <div style={{ fontSize: 12.5, lineHeight: 1.7, background: 'var(--pane)', border: '1px solid var(--stroke)', borderRadius: 4, padding: 10 }}>
+        {wo.note}
+      </div>
+      <SecHead>Move it on</SecHead>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {NEXT.filter((x) => x !== wo.status).map((x) => (
+          <Btn key={x} small primary={x === 'Completed'} onClick={() => run('woStatus:' + x)}>{x}</Btn>
+        ))}
+        <Btn small icon={Truck} onClick={() => run('openWOVehicle')}>Open the vehicle</Btn>
+      </div>
+    </div>
+  );
+}
 
-export function UserPane({ user, vehicles, inspections, courses, enrolments, run }) {
+/* ── inspection form ──────────────────────────────────────────── */
+export function FormPane({ template, run }) {
+  if (!template) return <Empty icon={ClipboardCheck} text="Select a form to see what it asks." />;
+  const t = template;
+  return (
+    <div style={{ padding: 14 }}>
+      <div style={{ fontSize: 12, color: 'var(--brand-dark)' }}>{t.code} · Rev {t.revision}</div>
+      <div style={{ fontSize: 16, fontWeight: 600, margin: '2px 0 8px', lineHeight: 1.4 }}>{t.name}</div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {t.status === 'Published' ? <Badge tone="green">Published</Badge> : <Badge tone="gold">Draft</Badge>}
+        <Badge tone="grey">{t.owner}</Badge>
+      </div>
+      <SecHead>Rules</SecHead>
+      <KV k="Applies to" v={t.appliesTo.join(', ')} />
+      <KV k="Meter" v={t.meterLabel} />
+      <KV k="Go-but window" v={`${t.goButMaxDays} days`} />
+      <KV k="Sign-off chain" v={t.signoffs.join(' → ')} />
+      <KV k="Last updated" v={t.updated} />
+      <KV k="Used this month" v={`${t.usedThisMonth} sheets`} />
+      <SecHead>Declaration</SecHead>
+      <div style={{ fontSize: 12, lineHeight: 1.65, color: 'var(--text2)' }}>{t.declaration}</div>
+      <SecHead note={`${t.sections.reduce((a, x) => a + x.items.length, 0)} items`}>Sections</SecHead>
+      {t.sections.map((sec) => (
+        <div key={sec.id} className="sheet-row">
+          <span className="s">
+            {sec.title}
+            {sec.condition && <span style={{ color: 'var(--text3)' }}> · only when “{sec.condition}”</span>}
+          </span>
+          <Badge tone={sec.severity === 'No Go' ? 'red' : 'gold'}>{sec.severity}</Badge>
+          <span style={{ fontSize: 11, color: 'var(--text3)' }}>{sec.items.length}</span>
+        </div>
+      ))}
+      <SecHead>Actions</SecHead>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {t.status === 'Published'
+          ? <Btn small primary icon={ClipboardCheck} onClick={() => run('startInspection:' + t.id)}>Use this form</Btn>
+          : <Btn small primary icon={CheckCircle2} onClick={() => run('publishForm')}>Publish</Btn>}
+        <Btn small icon={FileText} onClick={() => run('reviseForm')}>New revision</Btn>
+        <Btn small onClick={() => run('print')}>Print blank</Btn>
+      </div>
+    </div>
+  );
+}
+
+/* ── user ─────────────────────────────────────────────────────── */
+export function UserPane({ user, vehicles, inspections, siteOf, run }) {
   if (!user) return <Empty icon={Users} text="Select a user to manage them." />;
   const u = user;
-  const mine = enrolments.filter((e) => e.user === u.name);
-  const required = courses.filter((c) => c.roles.includes(u.role) && c.required);
-  const gaps = required.filter((c) => {
-    const e = mine.find((x) => x.course === c.id);
-    return !e || e.status === 'Expired';
-  });
   const history = inspections.filter((i) => i.op === u.name).slice(0, 4);
   const veh = vehicles.find((v) => v.plate === u.vehicle);
   const suspended = u.status === 'Suspended';
@@ -249,12 +358,11 @@ export function UserPane({ user, vehicles, inspections, courses, enrolments, run
         <Avatar init={u.init} tone={u.tone} large />
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 17, fontWeight: 600 }}>{u.name}</div>
-          <div style={{ fontSize: 12, color: 'var(--text3)' }}>{u.empNo} · {u.co}</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>{u.empNo} · {siteOf(u.site)}</div>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
         {roleBadge(u.role)}{statusBadge(u.status)}
-        {gaps.length > 0 && <Badge tone="red">{gaps.length} training gap{gaps.length === 1 ? '' : 's'}</Badge>}
       </div>
 
       {suspended && (
@@ -266,7 +374,7 @@ export function UserPane({ user, vehicles, inspections, courses, enrolments, run
       <SecHead>Contact</SecHead>
       <KV k="Email" v={<span style={{ color: 'var(--brand-dark)' }}>{u.email}</span>} />
       <KV k="Mobile" v={u.phone} />
-      <KV k="Site" v={u.site} />
+      <KV k="Site" v={siteOf(u.site)} />
       <KV k="Started" v={u.started} />
       <KV k="Last active" v={u.lastActive} />
 
@@ -303,36 +411,14 @@ export function UserPane({ user, vehicles, inspections, courses, enrolments, run
         </>
       )}
 
-      <SecHead note={`${mine.filter((e) => e.status === 'Valid').length} of ${required.length} required valid`}>Training</SecHead>
-      {mine.length === 0
-        ? <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>No training recorded.</div>
-        : mine.map((e) => {
-          const c = courses.find((x) => x.id === e.course);
-          return (
-            <div key={e.course} className="sheet-row">
-              <span className="s">{c?.name || e.course}</span>
-              {e.status === 'In progress'
-                ? <span style={{ fontSize: 11, color: 'var(--text3)' }}>{e.progress}%</span>
-                : <span style={{ fontSize: 11, color: 'var(--text3)' }}>{e.expires || '—'}</span>}
-              <Badge tone={trainingTone(e.status)}>{e.status}</Badge>
-            </div>
-          );
-        })}
-      {gaps.length > 0 && (
-        <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 6, lineHeight: 1.5 }}>
-          Missing or expired: {gaps.map((c) => c.name).join(', ')}.
-        </div>
-      )}
-
       <SecHead>Actions</SecHead>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         <Btn small primary icon={Pencil} onClick={() => run('editUser')}>Edit</Btn>
         {u.vehicle && u.vehicle !== '—'
           ? <Btn small icon={CarFront} onClick={() => run('unassignUserVehicle')}>Unassign vehicle</Btn>
           : <Btn small icon={Car} onClick={() => run('assignUserVehicle')}>Assign vehicle</Btn>}
-        <Btn small icon={GraduationCap} onClick={() => run('enrol')}>Assign training</Btn>
         <Btn small icon={KeyRound} onClick={() => run('resetPassword')}>Reset password</Btn>
-        {suspended
+        {u.status === 'Suspended'
           ? <Btn small icon={PlayCircle} onClick={() => run('reactivateUser')}>Reactivate</Btn>
           : <Btn small icon={PauseCircle} onClick={() => run('suspendUser')}>Suspend</Btn>}
         <Btn small danger icon={Trash2} onClick={() => run('deleteUser')}>Delete</Btn>

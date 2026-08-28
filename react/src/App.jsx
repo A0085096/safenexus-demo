@@ -8,21 +8,23 @@ import StatusBar from './shell/StatusBar.jsx';
 import Backstage from './shell/Backstage.jsx';
 import { MESSAGES } from './shell/ribbon.js';
 import { Dialog } from './components/ui.jsx';
-import { VehiclePane, InspectionPane, DefectPane, UserPane } from './components/panes.jsx';
+import { VehiclePane, InspectionPane, DefectPane, UserPane, WorkOrderPane, FormPane } from './components/panes.jsx';
 import Toasts from './components/Toasts.jsx';
 import AuthShell, { LockScreen } from './auth/AuthShell.jsx';
 import InspectionRunner from './inspection/InspectionRunner.jsx';
 import { templateFor } from './inspection/templates.js';
 import { StoreProvider, useStore } from './store.jsx';
+import { siteName, SITES } from './data.js';
 
 import Dashboard from './screens/Dashboard.jsx';
-import { Companies, Users, Fleet, Inspections } from './screens/Registers.jsx';
+import { Users, Fleet, Inspections } from './screens/Registers.jsx';
 import AuditLog from './screens/AuditLog.jsx';
+import Forms from './screens/Forms.jsx';
+import Workshop from './screens/Workshop.jsx';
 import { Hierarchy, Compliance, CompanyProfile } from './screens/Misc.jsx';
 import Analytics from './screens/Analytics.jsx';
 import Settings from './screens/Settings.jsx';
 import Reports from './screens/Reports.jsx';
-import Learning from './screens/Learning.jsx';
 
 const ME = {
   name: 'Kobus van der Merwe', initials: 'KM', role: 'Administrator',
@@ -30,7 +32,7 @@ const ME = {
 };
 
 /* screens that carry a reading pane */
-const PANE_TABS = { fleet: 1, inspections: 1, users: 1 };
+const PANE_TABS = { fleet: 1, inspections: 1, users: 1, workshop: 1 };
 
 function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
   const store = useStore();
@@ -66,24 +68,15 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
     return false;
   };
 
-  /* the competency behind the signature: a lapsed pre-use course is
-     worth saying out loud before the sheet is captured */
-  const competencyGap = useCallback((name) => {
-    const u = users.find((x) => x.name === name);
-    if (!u) return null;
-    const required = store.courses.filter((c) => c.required && c.roles.includes(u.role));
-    const lapsed = required.filter((c) => {
-      const e = store.enrolments.find((x) => x.user === u.name && x.course === c.id);
-      return !e || e.status === 'Expired';
-    });
-    if (!lapsed.length) return null;
-    return `has no valid ${lapsed.map((c) => c.name.toLowerCase()).join(' or ')}`;
-  }, [users, store.courses, store.enrolments]);
-
-  const openRunner = useCallback(() => {
+  const openRunner = useCallback((templateId) => {
+    const chosen = templateId && templates.find((t) => t.id === templateId);
+    if (chosen && chosen.status !== 'Published') {
+      flash(`${chosen.name} is a draft — publish it before it can be used to capture.`, { tone: 'warn', title: 'Draft form' });
+      return;
+    }
     const v = vehicle || vehicles.find((x) => x.status !== 'Maintenance') || vehicles[0];
-    setRunner({ tpl: templateFor(v.type), plate: v.plate });
-  }, [vehicle, vehicles]);
+    setRunner({ tpl: chosen || templateFor(v.type, templates), plate: v.plate });
+  }, [vehicle, vehicles, templates, flash]);
 
   /* ── inspection submission: the rules live here ─────────────── */
   const submitInspection = (r) => {
@@ -96,23 +89,35 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
     const result = failed ? 'no-go' : r.goBut.length ? 'go-but' : 'in-order';
     const v = vehicles.find((x) => x.plate === r.plate);
 
+    const fmtDate = (dt) => dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const today = new Date();
+    const due = new Date(today.getTime() + rules.goButMaxDays * 86400000);
     const raised = [
-      ...r.noGo.map((i) => ({ severity: 'No Go', label: i.label })),
-      ...r.goBut.map((i) => ({ severity: 'Go But', label: i.label })),
+      ...r.noGo.map((i) => ({ severity: 'No Go', item: i })),
+      ...r.goBut.map((i) => ({ severity: 'Go But', item: i })),
     ].map((d, n) => ({
-      id: `DEF-${100300 + defects.length + n}`,
-      item: d.label, plate: r.plate, severity: d.severity,
-      raised: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      age: 0, status: 'Open', inspection: ref, co: v?.co || me.co,
+      id: `DEF-26-${5100 + defects.length + n}`,
+      item: d.item.label, section: d.item.section, plate: r.plate, site: v?.site || 'PIT',
+      severity: d.severity,
+      raised: fmtDate(today),
+      due: d.severity === 'No Go' ? fmtDate(today) : fmtDate(due),
+      age: 0, status: 'Open', inspection: ref, raisedBy: r.operator,
+      supervisorSigned: d.severity === 'No Go' ? true : !!r.supSigned,
+      workOrder: null,
+      note: r.notes?.[d.item.id]
+        || (d.severity === 'No Go'
+          ? 'Vehicle grounded until the defect is repaired and signed off.'
+          : 'Operating under a go-but concession.'),
     }));
 
     dispatch({
       type: 'ADD_INSPECTION',
       inspection: {
-        ref, date: 'Just now', vehicle: r.plate, op: r.operator, co: v?.co || me.co,
+        ref, date: 'Just now', vehicle: r.plate, op: r.operator, site: v?.site || 'PIT',
         shift: r.shift, ok, go: r.goBut.length, ng: r.noGo.length, result,
         signed: false, sheet: r.results, meter: r.meter, remarks: r.remarks,
         conds: r.conds, supSigned: r.supSigned, templateId: r.tpl.id,
+        notes: r.notes, photos: r.photos, delay: r.delay, signers: r.signers,
       },
       defects: raised,
       ground: grounded,
@@ -158,7 +163,7 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         return undefined;
 
       /* inspections */
-      case 'startInspection': return openRunner();
+      case 'startInspection': return openRunner(arg);
       case 'signOff': {
         if (!need(inspection, 'an inspection')) return goTab('inspections');
         if (inspection.signed) return flash(`#${inspection.ref} is already signed off.`);
@@ -261,27 +266,71 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         return flash(`Reset link emailed to ${user.email}. It expires in 30 minutes.`, { title: 'Password reset sent' });
       }
 
-      /* learning */
-      case 'enrol':
-        if (!need(user || selection.user, 'a user')) return goTab('users');
-        return setDialog('enrol');
-      case 'enrolFor': {
-        const [name, course] = arg.split('|');
-        dispatch({ type: 'ENROL', name, course, by: me.name });
-        return flash(`${name} enrolled.`, { title: 'Training assigned', tone: 'info' });
+      /* concessions, workshop and forms */
+      case 'inspView':
+        store.setInspView(arg);
+        return goTab('inspections');
+      case 'lapsedConcessions': {
+        store.setInspView('defects');
+        goTab('inspections');
+        const n = defects.filter((d) => d.status === 'Overdue').length;
+        return flash(n
+          ? `${n} concession(s) have lapsed — those vehicles are running as if uninspected.`
+          : 'No concession has lapsed.', { tone: n ? 'warn' : 'ok' });
       }
-      case 'enrolCourse': {
-        select('course', arg);
-        return setDialog('enrolCourse');
+      case 'signConcession': {
+        const id = arg || selection.defect;
+        if (!need(id, 'a defect')) return undefined;
+        const d = defects.find((x) => x.id === id);
+        if (d?.severity !== 'Go But') return flash('Only a go-but defect carries a concession.', { tone: 'warn' });
+        if (d.supervisorSigned) return flash(`${id} is already signed.`, { tone: 'warn' });
+        dispatch({ type: 'SIGN_CONCESSION', id, by: me.name });
+        return flash(`Concession on ${id} signed — ${d.item} may run to ${d.due}.`, { title: 'Concession signed' });
       }
-      case 'completeCourse': {
-        const [name, course] = arg.split('|');
-        dispatch({ type: 'COMPLETE_COURSE', name, course, score: 88, by: me.name });
-        return flash(`${name} recorded as competent.`, { title: 'Course completed' });
+      case 'raiseWO': {
+        const id = arg || selection.defect;
+        if (!need(id, 'a defect')) { store.setInspView('defects'); return goTab('inspections'); }
+        const d = defects.find((x) => x.id === id);
+        if (d?.workOrder) return flash(`${id} already has work order ${d.workOrder}.`, { tone: 'warn' });
+        select('defect', id);
+        return setDialog('raiseWO');
       }
-      case 'trainingGaps':
-      case 'expiringTraining':
-        return goTab('learning');
+      case 'woStatus': {
+        const ref = selection.workOrder;
+        if (!need(ref, 'a work order')) return goTab('workshop');
+        dispatch({ type: 'WO_STATUS', ref, status: arg, by: me.name });
+        return flash(`${ref} moved to ${arg.toLowerCase()}.`, { title: 'Workshop' });
+      }
+      case 'openWO': {
+        select('workOrder', arg);
+        return goTab('workshop');
+      }
+      case 'openWODefect': {
+        const w = store.workOrders.find((x) => x.ref === selection.workOrder);
+        if (!need(w?.defect, 'a work order raised from a defect')) return undefined;
+        select('defect', w.defect);
+        store.setInspView('defects');
+        return goTab('inspections');
+      }
+      case 'openWOVehicle': {
+        const w = store.workOrders.find((x) => x.ref === selection.workOrder);
+        if (!need(w, 'a work order')) return goTab('workshop');
+        select('vehicle', w.vehicle);
+        return goTab('fleet');
+      }
+      case 'publishForm': {
+        const t = templates.find((x) => x.id === selection.template);
+        if (!need(t, 'a form')) { store.setInspView('forms'); return goTab('inspections'); }
+        if (t.status === 'Published') return flash(`${t.name} is already published.`, { tone: 'warn' });
+        dispatch({ type: 'PUBLISH_TEMPLATE', id: t.id, by: me.name });
+        return flash(`${t.name} published at revision ${t.revision}.`, { title: 'Form published' });
+      }
+      case 'reviseForm': {
+        const t = templates.find((x) => x.id === selection.template);
+        if (!need(t, 'a form')) { store.setInspView('forms'); return goTab('inspections'); }
+        dispatch({ type: 'REVISE_TEMPLATE', id: t.id, by: me.name });
+        return flash(`Revision ${t.revision + 1} of ${t.name} opened as a draft.`, { tone: 'info', title: 'New revision' });
+      }
 
       /* session */
       case 'signOut': return setSignedOut(true);
@@ -299,7 +348,7 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
   /* ── dialogs ────────────────────────────────────────────────── */
   const operators = users.filter((u) => u.role === 'Operator').map((u) => u.name);
   const supervisors = users.filter((u) => ['Supervisor', 'Safety officer'].includes(u.role)).map((u) => u.name);
-  const companyNames = store.companies.map((c) => c.name);
+  const siteOptions = SITES.filter((x) => x.key !== 'ALL').map((x) => x.name);
 
   const DIALOGS = {
     user: {
@@ -310,7 +359,7 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         [{ k: 'email', l: 'Email address', p: 'johan.swart@acmecorp.co.za', type: 'email', required: true,
           validate: (v) => (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) ? '' : 'Enter a valid email address.') }],
         [{ k: 'role', l: 'Role', options: ['Operator', 'Supervisor', 'Safety officer', 'Administrator'] },
-         { k: 'co', l: 'Company', options: companyNames }],
+         { k: 'siteName', l: 'Site', options: siteOptions }],
         [{ k: 'reports', l: 'Reports to', options: ['—', ...supervisors] },
          { k: 'vehicle', l: 'Assign vehicle', options: ['—', ...vehicles.filter((v) => v.driver === '—').map((v) => v.plate)] }],
         [{ k: 'cof', l: 'COF expiry', type: 'date' }, { k: 'phone', l: 'Mobile number', p: '+27 82 000 0000' }],
@@ -320,8 +369,12 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         dispatch({
           type: 'ADD_USER', by: me.name,
           user: {
-            name, init: (v.first[0] + v.last[0]).toUpperCase(), role: v.role, co: v.co,
+            name, init: (v.first[0] + v.last[0]).toUpperCase(), role: v.role,
+            site: (SITES.find((x) => x.name === v.siteName) || SITES[1]).key,
             reports: v.reports, vehicle: v.vehicle, insps: 0, status: 'Active',
+            empNo: 'AM-' + Math.floor(1400 + Math.random() * 500), email: v.email, phone: v.phone,
+            started: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+            licence: '—', lastActive: 'Never', passRate: null, defects: 0,
             cof: v.cof ? new Date(v.cof).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A',
             tone: v.role === 'Administrator' ? 'purple' : v.role === 'Safety officer' ? 'green' : v.role === 'Supervisor' ? 'blue' : 'gold',
           },
@@ -333,29 +386,6 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         flash(`${name} created. Credentials emailed automatically.`);
       },
     },
-    company: {
-      title: 'Register company', submit: 'Register',
-      note: 'Registering a company creates its administrator account and starts a 30-day trial.',
-      fields: [
-        [{ k: 'name', l: 'Company name', p: 'Acme Mining Corp', required: true }],
-        [{ k: 'reg', l: 'Registration number', p: '2018/123456/07' }, { k: 'vat', l: 'VAT number', p: '4890123456' }],
-        [{ k: 'industry', l: 'Industry', options: ['Mining', 'Logistics', 'Construction', 'Agriculture'] },
-         { k: 'plan', l: 'Plan', options: ['Starter', 'Pro', 'Enterprise'] }],
-        [{ k: 'email', l: 'Administrator email', p: 'admin@acmecorp.co.za', type: 'email', required: true }],
-      ],
-      onSubmit: (v) => {
-        dispatch({
-          type: 'ADD_COMPANY', by: me.name,
-          company: {
-            name: v.name.trim(), init: v.name.trim().split(/\s+/).slice(0, 2).map((w) => w[0].toUpperCase()).join(''),
-            industry: v.industry, users: 1, vehicles: 0, compliance: 0, plan: v.plan, status: 'Trial',
-            date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
-          },
-        });
-        goTab('companies');
-        flash(`${v.name} registered. Administrator credentials sent to ${v.email}.`);
-      },
-    },
     vehicle: {
       title: 'Add vehicle', submit: 'Add vehicle',
       note: 'A vehicle must pass a pre-use inspection before it can be assigned to an operator.',
@@ -364,8 +394,8 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
          { k: 'fleetNo', l: 'Fleet number', p: 'AM-025', required: true }],
         [{ k: 'make', l: 'Make and model', p: 'Toyota Hilux', required: true },
          { k: 'year', l: 'Year', p: '2026', type: 'number' }],
-        [{ k: 'type', l: 'Type', options: ['LDV bakkie', 'Crew bus', 'Panel van', 'Haul truck', 'Excavator'] },
-         { k: 'co', l: 'Company', options: companyNames }],
+        [{ k: 'type', l: 'Type', options: ['LDV bakkie', 'Crew bus', 'Panel van', 'Haul truck', 'Excavator', 'Front-end loader'] },
+         { k: 'siteName', l: 'Site', options: siteOptions }],
         [{ k: 'km', l: 'Current odometer', p: '0', type: 'number' },
          { k: 'permit', l: 'Permit area', options: ['—', 'Red permit area'] }],
       ],
@@ -375,7 +405,8 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
           type: 'ADD_VEHICLE', by: me.name,
           vehicle: {
             plate: v.plate.toUpperCase().trim(), fleetNo: v.fleetNo, type: v.type, make: v.make,
-            year: +v.year || 2026, co: v.co, driver: '—', sup: '—', lastInsp: 'Never', km,
+            year: +v.year || 2026, site: (SITES.find((x) => x.name === v.siteName) || SITES[1]).key,
+            driver: '—', sup: '—', lastInsp: 'Never', km,
             status: 'Available', cof: 'Not captured', serviceDue: km + 15000,
             permit: v.permit === '—' ? '' : v.permit,
           },
@@ -482,12 +513,11 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         validate: (v) => (v.trim().toLowerCase() === user.name.split(' ').slice(-1)[0].toLowerCase() ? '' : 'That does not match the surname.') }]],
       onSubmit: () => {
         const snapshot = user;
-        const theirTraining = store.enrolments.filter((e) => e.user === user.name);
         dispatch({ type: 'DELETE_USER', name: user.name, by: me.name });
         select('user', null);
         flash(`${snapshot.name} deleted.`, {
           tone: 'err', title: 'User removed',
-          action: { label: 'Undo', onClick: () => dispatch({ type: 'RESTORE_USER', user: snapshot, enrolments: theirTraining, by: me.name }) },
+          action: { label: 'Undo', onClick: () => dispatch({ type: 'RESTORE_USER', user: snapshot, by: me.name }) },
         });
       },
     },
@@ -514,23 +544,21 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         flash(`${plate} unassigned from ${user.name}.`, { tone: 'info', title: 'Vehicle released' });
       },
     },
-    enrol: (user || selection.user) && {
-      title: `Assign training — ${selection.user}`, submit: 'Enrol',
-      note: 'The learner is notified, and the record shows as in progress until it is completed.',
-      fields: [[{ k: 'course', l: 'Course', options: store.courses.map((c) => c.name) }]],
+    raiseWO: defect && {
+      title: `Raise a work order for ${defect.id}`, submit: 'Raise',
+      note: `${defect.item} on ${defect.plate}. The work order keeps the link to this defect, so the vehicle can be traced from the sheet that failed it to the job that clears it.`,
+      fields: [
+        [{ k: 'woType', l: 'Type of work', options: ['Repair', 'Auto electrical', 'Brake overhaul', 'Tyres', 'Bodywork', 'Scheduled service A'] },
+         { k: 'assigned', l: 'Assigned to', options: ['On-site workshop', 'Toyota Lephalale', 'Ford Polokwane', 'Mobile technician'] }],
+        [{ k: 'note', l: 'Instructions', p: defect.item, area: true }],
+      ],
       onSubmit: (v) => {
-        const c = store.courses.find((x) => x.name === v.course);
-        dispatch({ type: 'ENROL', name: selection.user, course: c.id, by: me.name });
-        flash(`${selection.user} enrolled on ${c.name}.`, { tone: 'info', title: 'Training assigned' });
-      },
-    },
-    enrolCourse: selection.course && {
-      title: `Enrol on ${store.courses.find((c) => c.id === selection.course)?.name}`, submit: 'Enrol',
-      note: 'Pick the person to put on this course.',
-      fields: [[{ k: 'name', l: 'Person', options: users.map((u) => u.name) }]],
-      onSubmit: (v) => {
-        dispatch({ type: 'ENROL', name: v.name, course: selection.course, by: me.name });
-        flash(`${v.name} enrolled.`, { tone: 'info', title: 'Training assigned' });
+        const ref = 'WO-26-' + Math.floor(3230 + Math.random() * 200);
+        dispatch({ type: 'RAISE_WO', id: defect.id, ref, woType: v.woType, assigned: v.assigned, note: v.note || defect.item, by: me.name });
+        flash(`${ref} raised against ${defect.id}.`, {
+          title: 'Work order raised',
+          action: { label: 'Open it', onClick: () => { select('workOrder', ref); goTab('workshop'); } },
+        });
       },
     },
     reject: inspection && {
@@ -548,13 +576,12 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
   const props = { run, goTab, openDialog: setDialog };
   const screen = {
     dashboard: <Dashboard {...props} />,
-    companies: <Companies {...props} />,
     users: <Users {...props} />,
     fleet: <Fleet {...props} />,
-    inspections: <Inspections {...props} />,
+    workshop: <Workshop {...props} />,
+    inspections: inspView === 'forms' ? <Forms {...props} /> : <Inspections {...props} />,
     hierarchy: <Hierarchy {...props} />,
     compliance: <Compliance {...props} />,
-    learning: <Learning {...props} />,
     audit: <AuditLog {...props} />,
     profile: <CompanyProfile {...props} />,
     reports: <Reports {...props} />,
@@ -595,12 +622,14 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
             <aside className="readpane" style={{ width: paneWidth }}>
               {tab === 'fleet' && <VehiclePane vehicle={vehicle} defects={defects} inspections={inspections} run={run} />}
               {tab === 'users' && (
-                <UserPane user={user} vehicles={vehicles} inspections={inspections}
-                  courses={store.courses} enrolments={store.enrolments} run={run} />
+                <UserPane user={user} vehicles={vehicles} inspections={inspections} siteOf={siteName} run={run} />
               )}
+              {tab === 'workshop' && <WorkOrderPane wo={store.workOrder} defects={defects} run={run} />}
               {tab === 'inspections' && (inspView === 'defects'
-                ? <DefectPane defect={defect} run={run} />
-                : <InspectionPane inspection={inspection} templates={templates} defects={defects} run={run} />)}
+                ? <DefectPane defect={defect} workOrders={store.workOrders} settings={store.settings} run={run} />
+                : inspView === 'forms'
+                  ? <FormPane template={templates.find((t) => t.id === selection.template)} run={run} />
+                  : <InspectionPane inspection={inspection} templates={templates} defects={defects} run={run} />)}
             </aside>
           </>
         )}
@@ -617,7 +646,7 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
 
       {runner && (
         <InspectionRunner tpl={runner.tpl} vehicles={vehicles} me={me} flash={flash}
-          gapFor={competencyGap} rules={store.settings}
+          rules={store.settings}
           onClose={() => setRunner(null)} onSubmit={submitInspection} />
       )}
 

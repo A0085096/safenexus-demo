@@ -24,7 +24,7 @@ export const TEMPLATES = [
     id: 'TPL-001',
     name: 'Pre-use inspection — LDV, crew bus and light vehicle',
     code: 'SN-MIN-328693', revision: 9, status: 'Published',
-    owner: 'Engineering department',
+    owner: 'Engineering department', updated: '14 Mar 2026', usedThisMonth: 268,
     appliesTo: ['LDV bakkie', 'Crew bus', 'Panel van'],
     meterLabel: 'Start km reading', goButMaxDays: 30, requiresSupervisor: true,
     declaration:
@@ -56,7 +56,8 @@ export const TEMPLATES = [
     id: 'TPL-002',
     name: 'Pre-use inspection — haul truck and heavy plant',
     code: 'SN-MIN-019', revision: 3, status: 'Published',
-    owner: 'Engineering department',
+    owner: 'Engineering department', updated: '02 Feb 2026', usedThisMonth: 154,
+    delayCapture: true,
     appliesTo: ['Haul truck', 'Excavator', 'Front-end loader'],
     meterLabel: 'Machine hours — start of shift', goButMaxDays: 14, requiresSupervisor: true,
     declaration:
@@ -74,6 +75,22 @@ export const TEMPLATES = [
       sec('Cab', 'Go But', ['Cleanliness of cab', 'Seats', 'Warning stickers (noise level)']),
     ],
     signoffs: ['Operator', 'Supervisor', 'Artisan'],
+  },
+  {
+    id: 'TPL-003',
+    name: 'Weekly deep check — light vehicle',
+    code: 'SN-MIN-441', revision: 1, status: 'Draft',
+    owner: 'Fleet operations', updated: '17 Jun 2026', usedThisMonth: 0,
+    appliesTo: ['LDV bakkie', 'Crew bus'],
+    meterLabel: 'Start km reading', goButMaxDays: 30, requiresSupervisor: true,
+    declaration: 'The weekly check is carried out on the first working day of the week, in addition to the daily pre-use inspection.',
+    note: 'Draft — not yet published, so it cannot be used to capture a sheet.',
+    sections: [
+      sec('Under the bonnet', 'No Go', ['Oil level', 'Coolant level', 'Brake fluid level', 'Battery terminals', 'Belt condition']),
+      sec('Running gear', 'No Go', ['Wheel nuts are secured', 'Tyre tread depth', 'Spare wheel and jack', 'Suspension leaks']),
+      sec('Cab', 'Go But', ['Cleanliness of cab', 'Seat adjustment', 'First aid kit sealed']),
+    ],
+    signoffs: ['Operator', 'Supervisor'],
   },
 ];
 
