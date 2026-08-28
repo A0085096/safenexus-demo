@@ -21,12 +21,12 @@ export const USERS = [
 ];
 
 export const FLEET = [
-  { plate: 'CA 123 GP', make: 'Toyota Hilux', year: 2022, co: 'Acme Mining Corp', driver: 'J. Swart', sup: 'P. Dlamini', lastInsp: 'Today 06:15', km: 69698, status: 'Assigned' },
-  { plate: 'JHB 456 GP', make: 'Ford Ranger', year: 2023, co: 'Acme Mining Corp', driver: 'L. Mokoena', sup: 'P. Dlamini', lastInsp: 'Today 07:00', km: 41230, status: 'Assigned' },
-  { plate: 'GP 789 DBN', make: 'Isuzu D-Max', year: 2021, co: 'Acme Mining Corp', driver: '—', sup: '—', lastInsp: '17 Jun', km: 88102, status: 'Available' },
-  { plate: 'WC 321 CT', make: 'Nissan Navara', year: 2022, co: 'Acme Mining Corp', driver: '—', sup: '—', lastInsp: '17 Jun (No-go)', km: 54772, status: 'Maintenance' },
-  { plate: 'DBN 001 NP', make: 'Toyota Land Cruiser', year: 2020, co: 'Grootegeluk Coal', driver: 'B. Pietersen', sup: 'V. Molefe', lastInsp: 'Today 05:50', km: 124300, status: 'Assigned' },
-  { plate: 'GP 112 ZL', make: 'Toyota Hilux', year: 2023, co: 'Zimele Logistics', driver: 'M. Dube', sup: 'C. Langa', lastInsp: '17 Jun', km: 18900, status: 'Assigned' },
+  { plate: 'CA 123 GP', fleetNo: 'AM-014', type: 'LDV bakkie', make: 'Toyota Hilux', year: 2022, co: 'Acme Mining Corp', driver: 'J. Swart', sup: 'P. Dlamini', lastInsp: 'Today 06:15', km: 69698, status: 'Assigned', cof: '30 Nov 2026', serviceDue: 75000, permit: 'Red permit area' },
+  { plate: 'JHB 456 GP', fleetNo: 'AM-021', type: 'LDV bakkie', make: 'Ford Ranger', year: 2023, co: 'Acme Mining Corp', driver: 'L. Mokoena', sup: 'P. Dlamini', lastInsp: 'Today 07:00', km: 41230, status: 'Assigned', cof: '14 Feb 2027', serviceDue: 45000, permit: '' },
+  { plate: 'GP 789 DBN', fleetNo: 'AM-008', type: 'LDV bakkie', make: 'Isuzu D-Max', year: 2021, co: 'Acme Mining Corp', driver: '—', sup: '—', lastInsp: '17 Jun', km: 88102, status: 'Available', cof: '02 Sep 2026', serviceDue: 90000, permit: '' },
+  { plate: 'WC 321 CT', fleetNo: 'AM-003', type: 'Crew bus', make: 'Nissan Navara', year: 2022, co: 'Acme Mining Corp', driver: '—', sup: '—', lastInsp: '17 Jun (No-go)', km: 54772, status: 'Maintenance', cof: '19 Jan 2027', serviceDue: 60000, permit: '' },
+  { plate: 'DBN 001 NP', fleetNo: 'GC-002', type: 'Haul truck', make: 'Toyota Land Cruiser', year: 2020, co: 'Grootegeluk Coal', driver: 'B. Pietersen', sup: 'V. Molefe', lastInsp: 'Today 05:50', km: 124300, status: 'Assigned', cof: '08 Aug 2026', serviceDue: 126000, permit: 'Red permit area' },
+  { plate: 'GP 112 ZL', fleetNo: 'ZL-011', type: 'LDV bakkie', make: 'Toyota Hilux', year: 2023, co: 'Zimele Logistics', driver: 'M. Dube', sup: 'C. Langa', lastInsp: '17 Jun', km: 18900, status: 'Assigned', cof: '21 Mar 2027', serviceDue: 25000, permit: '' },
 ];
 
 export const INSPECTIONS = [

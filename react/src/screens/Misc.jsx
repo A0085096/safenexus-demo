@@ -13,6 +13,7 @@ import {
   roleBadge, vehicleBadge, resultBadge, statusBadge,
 } from '../components/ui.jsx';
 import Sparkline from '../charts/Sparkline.jsx';
+import { useStore } from '../store.jsx';
 
 const passTone = (v) => (v >= 95 ? SERIES[1] : v >= 90 ? SERIES[2] : SERIES[4]);
 const ICONS = {
@@ -78,13 +79,17 @@ export function Hierarchy({ run }) {
 }
 
 /* ── compliance ───────────────────────────────────────────────── */
-export function Compliance({ run }) {
+export function Compliance({ run, goTab }) {
+  const { defects, vehicles, select } = useStore();
+  const open = defects.filter((d) => d.status === 'Open');
+  const noGo = open.filter((d) => d.severity === 'No Go');
+  const grounded = vehicles.filter((v) => v.status === 'Maintenance').length;
   return (
     <>
       <div className="grid-3">
-        {[['98.2%', 'Platform compliance rate', 'green', 'up', 'Up 1.3 pp on last month'],
+        {[['98.2%', 'Platform compliance rate', 'green', 'up', 'Up 0.1 pp on last month'],
           ['2', 'Companies below threshold', 'gold', 'warn', 'Below the 90% target'],
-          ['7', 'Open no-go defects', 'red', 'dn', 'Vehicles grounded']].map(([v, l, tone, dir, note]) => (
+          [String(noGo.length), 'Open no-go defects', 'red', 'dn', `${grounded} vehicle(s) grounded`]].map(([v, l, tone, dir, note]) => (
             <div className="tile" key={l}>
               <div className="tile-val" style={{ color: `var(--${tone})` }}>{v}</div>
               <div className="tile-lbl">{l}</div>
@@ -106,15 +111,18 @@ export function Compliance({ run }) {
               } />
           ))}
         </Panel>
-        <Panel title="Go-but items aging" note="30-day rule" flush
-          right={<button className="link" onClick={() => run('export')}>Export report</button>}>
-          {AGING_TOP.map((a) => (
-            <ListRow key={a.item} avatar={<Avatar tone={a.d > 30 ? 'red' : 'gold'} icon={CircleAlert} />}
-              title={a.item} sub={`${a.veh} · ${a.co}`}
+        <Panel title="Open defects" note={`${open.length} open · 30-day rule`} flush
+          right={<button className="link" onClick={() => goTab('inspections')}>Defect register</button>}>
+          {[...open].sort((a, b) => b.age - a.age).map((a) => (
+            <ListRow key={a.id} avatar={<Avatar tone={a.severity === 'No Go' ? 'red' : a.age > 30 ? 'red' : 'gold'} icon={CircleAlert} />}
+              title={a.item} sub={`${a.plate} · ${a.co}`}
+              onClick={() => run('openDefect:' + a.id)}
               right={
                 <>
-                  <div style={{ font: '600 12px var(--num)', color: a.d > 30 ? 'var(--red)' : 'var(--gold)' }}>{a.d} days</div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>30-day limit</div>
+                  <div style={{ font: '600 12px var(--num)', color: a.age > 30 ? 'var(--red)' : 'var(--gold)' }}>
+                    {a.severity === 'No Go' ? 'No Go' : `${a.age} days`}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.severity === 'No Go' ? 'grounded' : '30-day limit'}</div>
                 </>
               } />
           ))}

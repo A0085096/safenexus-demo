@@ -121,6 +121,23 @@ input[type=checkbox] { width: 13px; height: 13px; cursor: pointer; accent-color:
   border: none; cursor: pointer; flex-shrink: 0;
 }
 .winbtns { display: flex; gap: 2px; margin-left: 4px; }
+.acct-menu {
+  position: absolute; top: 32px; right: 0; z-index: 61; width: 262px; text-align: left;
+  background: #fff; border: 1px solid var(--stroke-strong); border-radius: 6px;
+  box-shadow: 0 8px 26px rgba(7, 30, 61, .22); color: var(--text); overflow: hidden;
+}
+.acct-hd { padding: 13px; display: flex; gap: 11px; align-items: center; border-bottom: 1px solid var(--stroke-soft); }
+.acct-av {
+  width: 40px; height: 40px; border-radius: 50%; background: var(--navy); color: #fff;
+  display: flex; align-items: center; justify-content: center; font: 700 15px var(--num); flex-shrink: 0;
+}
+.acct-menu button {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 13px;
+  border: none; background: transparent; cursor: pointer; font: 400 12.5px var(--ui);
+  color: var(--text); text-align: left;
+}
+.acct-menu button:hover { background: var(--hover); }
+.acct-menu button.danger { color: var(--red); }
 .winbtns i { font-size: 12px; padding: 4px 8px; }
 
 /* ── RIBBON ───────────────────────────────────────────────── */
@@ -210,6 +227,8 @@ input[type=checkbox] { width: 13px; height: 13px; cursor: pointer; accent-color:
 .splitter:hover { background: var(--brand); }
 
 .content { flex: 1; overflow-y: auto; min-width: 0; padding: 14px; background: var(--app); }
+.readpane { background: #fff; border-left: 1px solid var(--stroke); overflow-y: auto; flex-shrink: 0; }
+table.grid tbody tr.overdue td:first-child { box-shadow: inset 3px 0 0 var(--red); }
 .content.plain { background: #fff; padding: 0; }
 .screen { display: none; }
 .screen.active { display: block; }

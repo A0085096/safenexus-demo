@@ -4,8 +4,9 @@ import {
   BadgeCheck, Wrench, Clock, UserX, Car, CarFront, UserPlus, FileText,
 } from 'lucide-react';
 import {
-  MONTHLY, FLEET_MIX, ISO_DATA, ISO_MONTHS, AGING, AGING_TOP, PERF, KPIS, ATTENTION, AUDIT, INSPECTIONS,
+  MONTHLY, ISO_DATA, ISO_MONTHS, AGING, PERF, KPIS,
 } from '../data.js';
+import { useStore } from '../store.jsx';
 import { SERIES, OUTCOME, nf } from '../theme.js';
 import {
   Panel, ChartCard, Seg, Legend, Btn, Badge, Avatar, ListRow, SecHead, RichText,
@@ -150,11 +151,40 @@ function PerformanceReport({ run }) {
 
 /* ── screen ───────────────────────────────────────────────────── */
 export default function Dashboard({ run, goTab }) {
+  const { vehicles, inspections, defects, audit, users, companies, select } = useStore();
   const [period, setPeriod] = useState(6);
   const [isoView, setIsoView] = useState('iso');
   const months = MONTHLY.slice(MONTHLY.length - period);
-  const pending = INSPECTIONS.filter((i) => !i.signed || i.result === 'no-go').slice(0, 5);
-  const agingTotal = AGING.reduce((a, d) => a + d.v, 0);
+  const pending = inspections.filter((i) => !i.signed || i.result === 'no-go').slice(0, 5);
+
+  /* live counts — the dashboard moves when the modules change data */
+  const openDefects = defects.filter((d) => d.status === 'Open');
+  const noGoOpen = openDefects.filter((d) => d.severity === 'No Go');
+  const grounded = vehicles.filter((v) => v.status === 'Maintenance');
+  const fleetMix = [
+    { k: 'Assigned', v: 128 + vehicles.filter((v) => v.status === 'Assigned').length, c: OUTCOME.ok },
+    { k: 'Available', v: 41 + vehicles.filter((v) => v.status === 'Available').length, c: OUTCOME.go },
+    { k: 'Maintenance', v: 6 + grounded.length, c: OUTCOME.ng },
+  ];
+  const fleetTotal = fleetMix.reduce((a, d) => a + d.v, 0);
+  const kpis = KPIS.map((k) => (k.key === 'nogo'
+    ? { ...k, val: String(noGoOpen.length), note: `${grounded.length} vehicle(s) grounded here` }
+    : k.key === 'insp'
+      ? { ...k, val: nf(1241 + inspections.length), note: `${inspections.length} captured in this session` }
+      : k));
+  const attention = [
+    ...grounded.map((v) => ({
+      icon: 'alert', tone: 'red', n: `${v.plate} — grounded`,
+      s: `${v.make} · ${v.co}`, r: 'off road',
+    })),
+    ...openDefects.filter((d) => d.age > 25).map((d) => ({
+      icon: 'clock', tone: d.age > 30 ? 'red' : 'gold', n: `${d.item} — go-but aging`,
+      s: `${d.plate} · ${d.co}`, r: `${d.age} of 30 days`,
+    })),
+    { icon: 'cert', tone: 'red', n: 'P. Dlamini — COF expires', s: 'Supervisor · Acme Mining Corp', r: '6 days' },
+    { icon: 'user', tone: 'gold', n: '3 operators without a supervisor', s: 'Acme Mining Corp', r: 'unassigned' },
+  ].slice(0, 6);
+  const agingTotal = openDefects.length;
 
   const isoNote = { iso: 'isometric · height is volume', bars: 'grouped columns · same data', table: 'exact values' }[isoView];
 
@@ -162,9 +192,9 @@ export default function Dashboard({ run, goTab }) {
     <>
       <div className="cmdstrip solo">
         <div className="glance">
-          <span><b>12</b> companies</span>
-          <span><b>248</b> users</span>
-          <span><b>184</b> vehicles</span>
+          <span><b>{companies.length + 6}</b> companies</span>
+          <span><b>{240 + users.length}</b> users</span>
+          <span><b>{fleetTotal}</b> vehicles</span>
           <span><b>92.4%</b> average compliance</span>
         </div>
         <div className="count" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -174,7 +204,7 @@ export default function Dashboard({ run, goTab }) {
         </div>
       </div>
 
-      <div className="kpis">{KPIS.map((k) => <Kpi key={k.key} k={k} />)}</div>
+      <div className="kpis">{kpis.map((k) => <Kpi key={k.key} k={k} />)}</div>
 
       <div className="grid-2">
         <ChartCard title="Volume and outcome" note={`last ${period} months`}
@@ -184,22 +214,23 @@ export default function Dashboard({ run, goTab }) {
           <VolumeChart data={months} />
         </ChartCard>
 
-        <ChartCard title="Fleet status" note="184 vehicles"
+        <ChartCard title="Fleet status" note={`${fleetTotal} vehicles`}
           right={<button className="link" onClick={() => goTab('fleet')}>Manage fleet</button>}>
           <div className="donut-wrap">
-            <FleetDonut data={FLEET_MIX} />
+            <FleetDonut data={fleetMix} />
             <div className="donut-legend">
-              {FLEET_MIX.map((d) => (
+              {fleetMix.map((d) => (
                 <div className="dl" key={d.k}>
                   <span className="sw" style={{ background: d.c }} />
                   <span>{d.k}</span>
                   <span className="dv">{d.v}</span>
-                  <span className="dp">{(d.v / 184 * 100).toFixed(1)}%</span>
+                  <span className="dp">{(d.v / fleetTotal * 100).toFixed(1)}%</span>
                 </div>
               ))}
               <div className="dl" style={{ borderTop: '1px solid var(--stroke)', borderBottom: 'none', paddingTop: 7 }}>
                 <span style={{ color: 'var(--text3)' }}>In service</span>
-                <span className="dv">177</span><span className="dp">96.2%</span>
+                <span className="dv">{fleetTotal - fleetMix[2].v}</span>
+                <span className="dp">{((fleetTotal - fleetMix[2].v) / fleetTotal * 100).toFixed(1)}%</span>
               </div>
             </div>
           </div>
@@ -253,20 +284,21 @@ export default function Dashboard({ run, goTab }) {
         <div className="chart-card">
           <div className="chart-hd">
             <h2>Go-but defect aging</h2>
-            <span className="note">{agingTotal * 1 + 0 ? '87 open items · 30-day repair rule' : ''}</span>
+            <span className="note">{agingTotal} open items · 30-day repair rule</span>
             <div className="right"><button className="link" onClick={() => goTab('compliance')}>Work the list</button></div>
           </div>
           <div className="chart-body chart"><AgingChart data={AGING} total={87} /></div>
           <div style={{ padding: '0 12px 4px' }}><SecHead>Oldest open items</SecHead></div>
           <div className="panel-body flush">
-            {AGING_TOP.map((a) => (
-              <ListRow key={a.item}
-                avatar={<Avatar tone={a.d > 30 ? 'red' : 'gold'} icon={AlertTriangle} />}
-                title={a.item} sub={`${a.veh} · ${a.co}`}
+            {[...openDefects].sort((a, b) => b.age - a.age).slice(0, 4).map((a) => (
+              <ListRow key={a.id}
+                avatar={<Avatar tone={a.age > 30 ? 'red' : 'gold'} icon={AlertTriangle} />}
+                title={a.item} sub={`${a.plate} · ${a.co}`}
+                onClick={() => run('openDefect:' + a.id)}
                 right={
                   <>
-                    <div style={{ font: '600 12px var(--num)', color: a.d > 30 ? 'var(--red)' : 'var(--gold)' }}>{a.d} days</div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.d > 30 ? 'past the rule' : 'due soon'}</div>
+                    <div style={{ font: '600 12px var(--num)', color: a.age > 30 ? 'var(--red)' : 'var(--gold)' }}>{a.age} days</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.age > 30 ? 'past the rule' : a.severity === 'No Go' ? 'grounds the vehicle' : 'due soon'}</div>
                   </>
                 } />
             ))}
@@ -287,7 +319,7 @@ export default function Dashboard({ run, goTab }) {
             </thead>
             <tbody>
               {pending.map((i) => (
-                <tr key={i.ref}>
+                <tr key={i.ref} onClick={() => { select('inspection', i.ref); goTab('inspections'); }} style={{ cursor: 'pointer' }}>
                   <td className="mono">#{i.ref}</td>
                   <td className="mono">{i.vehicle}</td>
                   <td>{i.op}</td>
@@ -297,7 +329,7 @@ export default function Dashboard({ run, goTab }) {
                     {i.go + i.ng}
                   </td>
                   <td>{resultBadge(i.result)}</td>
-                  <td><Btn small onClick={() => run('signOff')}>Sign off</Btn></td>
+                  <td><Btn small onClick={() => { select('inspection', i.ref); run('signOff'); }}>Sign off</Btn></td>
                 </tr>
               ))}
             </tbody>
@@ -308,7 +340,7 @@ export default function Dashboard({ run, goTab }) {
       <div className="grid-2">
         <Panel title="Recent activity" flush
           right={<button className="link" onClick={() => goTab('audit')}>Full audit log</button>}>
-          {AUDIT.slice(0, 5).map((a, i) => {
+          {audit.slice(0, 5).map((a, i) => {
             const [Icon, tone] = AUDIT_ICON[a.type] || AUDIT_ICON.insp;
             return (
               <ListRow key={i} avatar={<Avatar tone={tone} icon={Icon} />}
@@ -320,7 +352,7 @@ export default function Dashboard({ run, goTab }) {
 
         <Panel title="Needs attention" note="vehicles and certificates" flush
           right={<button className="link" onClick={() => goTab('compliance')}>Compliance</button>}>
-          {ATTENTION.map((a) => {
+          {attention.map((a) => {
             const Icon = ATT_ICON[a.icon];
             return (
               <ListRow key={a.n} avatar={<Avatar tone={a.tone} icon={Icon} />}

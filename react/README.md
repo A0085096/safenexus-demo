@@ -14,6 +14,39 @@ npm run build      # → dist/
 npm run preview
 ```
 
+## Signing in
+
+The app opens on the sign-in screen. The demo account is
+**admin@acmecorp.co.za** / **safenexus**; any other credentials are
+rejected the way the real service would reject them. You can also walk
+the four-step company registration, and the forgot-password flow ends at
+a working reset screen. Nothing leaves the browser — the verification
+code is printed on screen instead of emailed.
+
+## What actually works
+
+State lives in one store (`src/store.jsx`), and every action that changes
+a record writes its own audit entry, so the trail cannot drift from the
+data:
+
+- **Pre-use inspections** — `Inspect` on a vehicle opens the form that
+  applies to its type. Conditional sections (red permit area, towing,
+  weekly) appear when ticked, the sheet cannot be submitted with items
+  unanswered, and the meter reading cannot go backwards. A **No Go**
+  item grounds the vehicle and raises a defect; a **Go But** item needs
+  the supervisor's concession, and without it the sheet counts as a
+  No Go. Submitting updates the vehicle, the defect register, the
+  dashboard and the audit log.
+- **Defect register** — the second view on the Inspections tab. Closing
+  the last open no-go on a vehicle returns it to service automatically;
+  go-but items carry the 30-day repair clock and can be extended.
+- **Vehicle management** — add, assign, unassign, take off road, return
+  to service, update the odometer and book a service, each with its own
+  dialog and its own guard: returning a grounded vehicle to service is
+  refused while a no-go defect is still open.
+- **Users and companies** — adding either writes through to the register,
+  and assigning a vehicle during user creation updates the fleet too.
+
 ## Layout
 
 ```
@@ -39,8 +72,17 @@ src/
     tooltip.jsx          one tooltip shape for every chart
   screens/
     Dashboard.jsx        KPI strip, charts, company performance report
-    Registers.jsx        companies, users, fleet, inspections, audit log
+    Registers.jsx        companies, users, fleet, inspections, defects, audit log
     Misc.jsx             hierarchy, compliance, company profile, reports, analytics, settings
+  auth/
+    AuthShell.jsx        sign in, register a company, forgot and reset password,
+                         email verification, lock screen
+  inspection/
+    templates.js         the inspection forms, as sections of items with severities
+    InspectionRunner.jsx the working sheet — capture, rules, submission
+  components/
+    panes.jsx            reading panes: vehicle, completed sheet, defect
+  store.jsx              the state every module mutates, plus the audit trail
 ```
 
 ## Colour

@@ -127,13 +127,17 @@ export const RichText = ({ text }) => (
 /* ── data grid ──────────────────────────────────────────────── */
 export function DataGrid({
   cols, rows, keyOf, toolbar, pageSize: initial = 20, totalLabel,
-  totals, emptyText = 'Nothing here yet. Clear the filter, or add a record from the ribbon.',
+  totals, selected, onSelect, rowClass,
+  emptyText = 'Nothing here yet. Clear the filter, or add a record from the ribbon.',
 }) {
   const [q, setQ] = useState('');
   const [sort, setSort] = useState({ k: null, d: 1 });
   const [pageSize, setPageSize] = useState(initial);
   const [page, setPage] = useState(0);
-  const [sel, setSel] = useState(null);
+  const [ownSel, setOwnSel] = useState(null);
+  /* selection is controlled when the screen owns a reading pane */
+  const sel = selected !== undefined ? selected : ownSel;
+  const pick = (k, r) => (onSelect ? onSelect(k, r) : setOwnSel(k));
 
   const filtered = useMemo(() => {
     if (!q.trim()) return rows;
@@ -185,7 +189,10 @@ export function DataGrid({
               {view.map((r) => {
                 const k = keyOf(r);
                 return (
-                  <tr key={k} className={sel === k ? 'sel' : ''} onClick={() => setSel(k)} tabIndex={0}>
+                  <tr key={k} tabIndex={0}
+                    className={[sel === k && 'sel', rowClass?.(r)].filter(Boolean).join(' ')}
+                    onClick={() => pick(k, r)}
+                    onKeyDown={(e) => e.key === 'Enter' && pick(k, r)}>
                     {cols.map((c) => (
                       <td key={c.key} className={[c.num && 'num', c.mono && 'mono'].filter(Boolean).join(' ')} style={c.style}>
                         {c.render(r)}
@@ -225,23 +232,47 @@ export function DataGrid({
 }
 
 /* ── dialog ─────────────────────────────────────────────────── */
-export function Dialog({ title, note, fields, submit, onSubmit, onClose }) {
+/* Fields are descriptors; the dialog owns their values and hands the
+   whole set to onSubmit, so a dialog can actually change data. */
+export function Dialog({ title, note, fields, submit, onSubmit, onClose, width }) {
+  const flat = fields.flat();
+  const [v, setV] = useState(() =>
+    Object.fromEntries(flat.map((f) => [f.k, f.value ?? (f.options ? f.options[0] : '')])));
+  const [err, setErr] = useState('');
+  const set = (k) => (val) => setV((s) => ({ ...s, [k]: val }));
+
+  const go = () => {
+    const missing = flat.find((f) => f.required && !String(v[f.k] ?? '').trim());
+    if (missing) return setErr(`${missing.l} is required.`);
+    const bad = flat.find((f) => f.validate && f.validate(v[f.k], v));
+    if (bad) return setErr(bad.validate(v[bad.k], v));
+    setErr('');
+    onSubmit(v);
+  };
+
   return (
     <div className="overlay open" onClick={(e) => e.target.classList.contains('overlay') && onClose()}>
-      <div className="dlg">
+      <div className="dlg" style={width ? { width } : undefined}>
         <div className="dlg-hd">{title}<button onClick={onClose}><X size={16} /></button></div>
         <div className="dlg-body">
           {note && <div className="dlg-note">{note}</div>}
+          {err && <div className="auth-err">{err}</div>}
           {fields.map((row, i) => (
             <div key={i} className={row.length > 1 ? 'row-2' : ''}>
               {row.map((f) => (
-                <div className="field" key={f.l}>
-                  <div className="field-lbl">{f.l}</div>
+                <div className="field" key={f.k}>
+                  <div className="field-lbl">{f.l}{f.required ? ' *' : ''}</div>
                   {f.options
-                    ? <select className="inp" defaultValue={f.options[0]}>{f.options.map((o) => <option key={o}>{o}</option>)}</select>
-                    : f.area
-                      ? <textarea className="inp" rows={2} placeholder={f.p} />
-                      : <input className="inp" type={f.type || 'text'} placeholder={f.p} />}
+                    ? (
+                      <select className="inp" value={v[f.k]} onChange={(e) => set(f.k)(e.target.value)}>
+                        {f.options.map((o) => <option key={o}>{o}</option>)}
+                      </select>
+                    ) : f.area
+                      ? <textarea className="inp" rows={f.rows || 2} value={v[f.k]} placeholder={f.p}
+                          onChange={(e) => set(f.k)(e.target.value)} />
+                      : <input className="inp" type={f.type || 'text'} value={v[f.k]} placeholder={f.p}
+                          onChange={(e) => set(f.k)(e.target.value)} />}
+                  {f.hint && <div className="field-hint">{f.hint}</div>}
                 </div>
               ))}
             </div>
@@ -249,7 +280,7 @@ export function Dialog({ title, note, fields, submit, onSubmit, onClose }) {
         </div>
         <div className="dlg-foot">
           <Btn onClick={onClose}>Cancel</Btn>
-          <Btn primary onClick={onSubmit}>{submit}</Btn>
+          <Btn primary onClick={go}>{submit}</Btn>
         </div>
       </div>
     </div>
