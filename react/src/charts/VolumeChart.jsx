@@ -3,6 +3,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LabelList,
 } from 'recharts';
 import { OUTCOME, nf } from '../theme.js';
+import { passRate } from '../data.js';
 import { rechartsTip } from './tooltip.jsx';
 
 /* Volume split by outcome. One axis, one unit (inspections), stacked
@@ -17,7 +18,7 @@ export default function VolumeChart({ data }) {
         { c: OUTCOME.go, k: 'Go-but', v: d.go },
         { c: OUTCOME.ng, k: 'No-go', v: d.ng },
       ],
-      foot: `${nf(d.total)} inspections · ${(d.ok / d.total * 100).toFixed(1)}% pass`,
+      foot: `${nf(d.total)} inspections · ${passRate(d).toFixed(1)}% pass`,
     };
   });
 

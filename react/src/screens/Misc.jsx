@@ -411,7 +411,7 @@ export function Analytics() {
     <>
       <div className="kpis">
         {[['1 247', 'Total inspections', 'This month', 'up'],
-          ['98.2%', 'Pass rate', 'Up 1.3 pp', 'up'],
+          ['98.2%', 'Pass rate', 'Not grounded · up 0.1 pp', 'up'],
           ['87', 'Go-but items open', '23 aging past 20 days', 'warn'],
           ['7', 'No-go defects', 'Vehicles grounded', 'dn']].map(([v, l, note, dir]) => (
             <div className="kpi" key={l}>

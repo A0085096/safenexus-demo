@@ -73,7 +73,7 @@ export const MONTHLY = [
   { m: 'Mar', y: 26, total: 870, ok: 748, go: 105, ng: 17 },
   { m: 'Apr', y: 26, total: 1050, ok: 906, go: 125, ng: 19 },
   { m: 'May', y: 26, total: 980, ok: 843, go: 119, ng: 18 },
-  { m: 'Jun', y: 26, total: 1247, ok: 1054, go: 168, ng: 25 },
+  { m: 'Jun', y: 26, total: 1247, ok: 1057, go: 168, ng: 22 },
 ];
 
 export const FLEET_MIX = [
@@ -114,9 +114,17 @@ export const PERF = [
   { co: 'Khumalo Agri', plan: 'Starter', users: 8, vehicles: 11, insp: 74, pass: 84.3, ng: 1, trend: [86.9, 86.1, 85.4, 85.0, 84.6, 84.3] },
 ];
 
+/* A vehicle passes unless it is grounded, so go-but counts as a pass.
+   Everything that quotes a pass rate derives it from here. */
+export const passRate = (d) => (d.ok + d.go) / d.total * 100;
+const PASS_SERIES = MONTHLY.slice(6).map(passRate);
+const PASS_NOW = PASS_SERIES[PASS_SERIES.length - 1];
+const PASS_PREV = PASS_SERIES[PASS_SERIES.length - 2];
+const PASS_DELTA = (PASS_NOW >= PASS_PREV ? '+' : '−') + Math.abs(PASS_NOW - PASS_PREV).toFixed(1) + ' pp';
+
 export const KPIS = [
   { key: 'insp', icon: 'clipboard', lbl: 'Inspections captured', val: '1 247', unit: 'this month', delta: '+27.2%', dir: 'up', note: 'vs 980 in May', series: MONTHLY.slice(6).map((m) => m.total), tone: SERIES[0] },
-  { key: 'pass', icon: 'check', lbl: 'Pass rate', val: '98.2', unit: '%', delta: '+1.3 pp', dir: 'up', note: 'target 95%', series: [96.4, 96.9, 96.6, 97.3, 96.9, 98.2], tone: SERIES[1] },
+  { key: 'pass', icon: 'check', lbl: 'Pass rate', val: PASS_NOW.toFixed(1), unit: '%', delta: PASS_DELTA, dir: PASS_DELTA[0] === '+' ? 'up' : 'dn', note: 'not grounded · target 95%', series: PASS_SERIES, tone: SERIES[1] },
   { key: 'avail', icon: 'truck', lbl: 'Fleet availability', val: '96.2', unit: '%', delta: '−0.8 pp', dir: 'dn', note: '7 of 184 in maintenance', series: [97.8, 97.3, 97.6, 97.0, 97.0, 96.2], tone: SERIES[2] },
   { key: 'nogo', icon: 'alert', lbl: 'Open no-go defects', val: '7', unit: 'vehicles grounded', delta: '+2', dir: 'warn', note: 'oldest open 4 days', series: [4, 5, 5, 6, 5, 7], tone: SERIES[4] },
 ];
