@@ -1,0 +1,150 @@
+import {
+  RefreshCw, CalendarPlus, Building2, Gauge, Bell, Users, Truck, ClipboardCheck, ShieldCheck,
+  History, Printer, Download, Mail, Share2, BuildingIcon, Pencil, IdCard, XCircle, Award, LayoutGrid,
+  Receipt, CreditCard, FilterX, UserPlus, Lock, UserX, Car, Network, CarFront, UsersRound, BadgeCheck,
+  CalendarClock, Upload, Fuel, Wrench, AlertTriangle, RotateCcw, Eye, CircleAlert, CheckSquare,
+  ArrowUp, MessageSquare, X, CalendarDays, Repeat, FileCheck2, Search, Filter, Calendar, User,
+  FileText, Table2, SlidersHorizontal, Palette, Globe, Plug, KeyRound, Smartphone, Database,
+  PanelLeft, Rows3, Columns3, ChevronsUp, Maximize, Settings, Info, FilePlus, Boxes, ShieldAlert,
+  Clock, TrendingUp, PieChart, BarChart3, Percent,
+} from 'lucide-react';
+
+export const TABS = [
+  { key: 'dashboard', label: 'Dashboard' }, { key: 'companies', label: 'Companies' },
+  { key: 'users', label: 'Users' }, { key: 'fleet', label: 'Fleet' },
+  { key: 'inspections', label: 'Inspections' }, { key: 'hierarchy', label: 'Hierarchy' },
+  { key: 'compliance', label: 'Compliance' }, { key: 'audit', label: 'Audit log' },
+  { key: 'profile', label: 'Company profile' }, { key: 'reports', label: 'Reports' },
+  { key: 'analytics', label: 'Analytics' }, { key: 'settings', label: 'Settings' },
+  { key: 'view', label: 'View' },
+];
+
+export const CTX = {
+  companies: ['Company tools', 'Acme Mining Corp'],
+  users: ['User tools', 'J. Swart'],
+  fleet: ['Vehicle tools', 'CA 123 GP'],
+  inspections: ['Inspection tools', '#2120352'],
+  profile: ['Company tools', 'Acme Mining Corp'],
+  compliance: ['Safety tools', 'COF register'],
+};
+
+export const RIBBON = {
+  dashboard: [
+    { label: 'Period', lg: [[RefreshCw, 'Refresh\ndata', 'refresh'], [CalendarPlus, 'Change\nperiod', 'period']], sm: [[Building2, 'Company roll-up', 'goto:companies'], [Gauge, 'Targets', 'targets'], [Bell, 'Alert rules', 'alerts']] },
+    { label: 'Go to', lg: [[Users, 'Users', 'goto:users'], [Truck, 'Fleet', 'goto:fleet']], sm: [[ClipboardCheck, 'Inspections', 'goto:inspections'], [ShieldCheck, 'Compliance', 'goto:compliance'], [History, 'Audit log', 'goto:audit']] },
+    { label: 'Share', lg: [[Printer, 'Print\nboard', 'print']], sm: [[Download, 'Export CSV', 'export'], [Mail, 'Email board', 'email'], [Share2, 'Send to company', 'email']] },
+  ],
+  companies: [
+    { label: 'Register', lg: [[FilePlus, 'Register\ncompany', 'dlg:company'], [Pencil, 'Edit\ncompany', 'editCompany']], sm: [[IdCard, 'Open profile', 'goto:profile'], [Users, 'Manage team', 'goto:users'], [XCircle, 'Suspend company', 'suspend']] },
+    { label: 'Subscription', lg: [[Award, 'Change\nplan', 'upgrade']], sm: [[LayoutGrid, 'Modules', 'goto:profile'], [Receipt, 'Billing history', 'billing'], [CreditCard, 'Payment method', 'billing']] },
+    { label: 'Output', lg: [[Printer, 'Print\nregister', 'print']], sm: [[Download, 'Export CSV', 'export'], [FilterX, 'Clear filters', 'clearFilters']] },
+  ],
+  users: [
+    { label: 'People', lg: [[UserPlus, 'New\nuser', 'dlg:user'], [Pencil, 'Edit\nuser', 'editUser']], sm: [[Lock, 'Reset password', 'resetPassword'], [ShieldCheck, 'Enforce 2FA', 'enforceMfa'], [UserX, 'Disable user', 'disableUser']] },
+    { label: 'Assignment', lg: [[Car, 'Assign\nvehicle', 'assignVehicle'], [Network, 'Change\nsupervisor', 'assignSupervisor']], sm: [[CarFront, 'Unassign vehicle', 'unassignVehicle'], [UsersRound, 'Bulk assign', 'bulkAssign'], [Network, 'Open hierarchy', 'goto:hierarchy']] },
+    { label: 'Certificates', lg: [[BadgeCheck, 'COF\nregister', 'goto:compliance']], sm: [[CalendarClock, 'Expiry reminders', 'alerts'], [Upload, 'Upload certificate', 'upload']] },
+    { label: 'Output', lg: [[Printer, 'Print\nlist', 'print']], sm: [[Download, 'Export CSV', 'export'], [Mail, 'Email selected', 'email']] },
+  ],
+  fleet: [
+    { label: 'Vehicles', lg: [[Truck, 'New\nvehicle', 'dlg:vehicle'], [Car, 'Assign to\noperator', 'assignVehicle']], sm: [[Pencil, 'Edit vehicle', 'editVehicle'], [Fuel, 'Log fuel', 'logFuel'], [Gauge, 'Update odometer', 'logOdo']] },
+    { label: 'Maintenance', lg: [[Wrench, 'Book\nservice', 'bookService'], [AlertTriangle, 'Ground\nvehicle', 'ground']], sm: [[ClipboardCheck, 'Service due list', 'serviceDue'], [FileCheck2, 'Licence renewals', 'licences'], [RotateCcw, 'Return to service', 'returnService']] },
+    { label: 'Inspection', lg: [[ClipboardCheck, 'Pre-use\ncheck', 'goto:inspections']], sm: [[Eye, 'Inspection history', 'goto:inspections'], [CircleAlert, 'Raise defect', 'raiseDefect'], [Printer, 'Print sheet', 'print']] },
+    { label: 'Analyse', lg: [[BarChart3, 'Fleet\nreport', 'goto:reports']], sm: [[Download, 'Export CSV', 'export'], [Printer, 'Print', 'print']] },
+  ],
+  inspections: [
+    { label: 'Review', lg: [[CheckSquare, 'Sign\noff', 'signOff'], [Eye, 'Open\ninspection', 'openInspection']], sm: [[MessageSquare, 'Add note', 'addNote'], [ArrowUp, 'Escalate', 'escalate'], [X, 'Reject capture', 'reject']] },
+    { label: 'Defects', lg: [[AlertTriangle, 'No-go\ndefects', 'goto:compliance'], [Clock, 'Go-but\naging', 'goto:compliance']], sm: [[Wrench, 'Book repair', 'bookService'], [CheckSquare, 'Close defect', 'closeDefect'], [CarFront, 'Ground vehicle', 'ground']] },
+    { label: 'Schedule', lg: [[CalendarDays, 'Shift\nplan', 'shiftPlan']], sm: [[Bell, 'Missed inspection alerts', 'alerts'], [Repeat, 'Recurring checks', 'recurring']] },
+    { label: 'Output', lg: [[Printer, 'Print\nregister', 'print']], sm: [[Download, 'Export CSV', 'export'], [Mail, 'Email report', 'email']] },
+  ],
+  hierarchy: [
+    { label: 'Structure', lg: [[Network, 'Assign\nsupervisor', 'assignSupervisor'], [UserPlus, 'New\nuser', 'dlg:user']], sm: [[Users, 'Move under', 'moveUnder'], [UserX, 'Detach user', 'detach'], [RefreshCw, 'Rebuild tree', 'refresh']] },
+    { label: 'Gaps', lg: [[CircleAlert, 'Unassigned\nitems', 'unassigned']], sm: [[Car, 'Assign vehicle', 'assignVehicle'], [UsersRound, 'Bulk assign', 'bulkAssign']] },
+    { label: 'Output', lg: [[Printer, 'Print\nchart', 'print']], sm: [[Download, 'Export CSV', 'export']] },
+  ],
+  compliance: [
+    { label: 'Certificates', lg: [[BadgeCheck, 'COF\nregister', 'cofRegister'], [Upload, 'Upload\ncertificate', 'upload']], sm: [[Bell, 'Expiry reminders', 'alerts'], [Mail, 'Notify operator', 'email'], [CalendarPlus, 'Book renewal', 'bookRenewal']] },
+    { label: 'Defects', lg: [[ShieldAlert, 'No-go\nregister', 'noGoRegister'], [Clock, 'Go-but\naging', 'goButAging']], sm: [[Wrench, 'Book repair', 'bookService'], [CheckSquare, 'Close defect', 'closeDefect'], [RotateCcw, 'Return to service', 'returnService']] },
+    { label: 'Assurance', lg: [[ShieldCheck, 'Compliance\nreport', 'goto:reports']], sm: [[History, 'Audit trail', 'goto:audit'], [Download, 'Export CSV', 'export'], [Printer, 'Print', 'print']] },
+  ],
+  audit: [
+    { label: 'Trail', lg: [[Search, 'Search\ntrail', 'searchAudit'], [Filter, 'Filter\nactions', 'filterAudit']], sm: [[Calendar, 'Date range', 'dateRange'], [User, 'By user', 'byUser'], [FilterX, 'Clear filters', 'clearFilters']] },
+    { label: 'Governance', lg: [[FileText, 'Retention\npolicy', 'retention']], sm: [[Lock, 'Verify integrity', 'verify'], [Download, 'Export audit', 'export'], [Printer, 'Print', 'print']] },
+  ],
+  profile: [
+    { label: 'Company', lg: [[Pencil, 'Edit\nprofile', 'editCompany'], [IdCard, 'Contact\ndetails', 'editCompany']], sm: [[UserPlus, 'Add user', 'dlg:user'], [Truck, 'Add vehicle', 'dlg:vehicle'], [Upload, 'Upload documents', 'upload']] },
+    { label: 'Subscription', lg: [[Award, 'Change\nplan', 'upgrade'], [LayoutGrid, 'Manage\nmodules', 'modules']], sm: [[Receipt, 'Billing and invoices', 'billing'], [CreditCard, 'Payment method', 'billing'], [Download, 'Download invoice', 'export']] },
+    { label: 'Output', lg: [[Printer, 'Print\nprofile', 'print']], sm: [[Download, 'Export CSV', 'export'], [Mail, 'Email profile', 'email']] },
+  ],
+  reports: [
+    { label: 'Operations', lg: [[ClipboardCheck, 'Inspection\nreport', 'report:Inspection report'], [Truck, 'Fleet status\nreport', 'report:Fleet status report']], sm: [[Users, 'User activity', 'report:User activity report'], [Network, 'Hierarchy report', 'report:Hierarchy report']] },
+    { label: 'Safety', lg: [[ShieldCheck, 'Compliance\nreport', 'report:Compliance report'], [AlertTriangle, 'Defect\nhistory', 'report:Defect history']], sm: [[BadgeCheck, 'COF expiry', 'report:COF expiry report'], [Clock, 'Go-but aging', 'report:Go-but aging report']] },
+    { label: 'Output', lg: [[Printer, 'Print\nreport', 'print']], sm: [[Download, 'Export CSV', 'export'], [Mail, 'Email report', 'email'], [Repeat, 'Schedule report', 'schedule']] },
+  ],
+  analytics: [
+    { label: 'Views', lg: [[BarChart3, 'Results\nbreakdown', 'refresh'], [TrendingUp, 'Trend\nanalysis', 'refresh']], sm: [[Percent, 'Pass rate', 'refresh'], [Clock, 'Aging profile', 'refresh'], [PieChart, 'By company', 'refresh']] },
+    { label: 'Period', lg: [[CalendarPlus, 'Change\nperiod', 'period']], sm: [[RefreshCw, 'Refresh data', 'refresh'], [FilterX, 'Clear filters', 'clearFilters']] },
+    { label: 'Output', lg: [[Printer, 'Print\ncharts', 'print']], sm: [[Download, 'Export CSV', 'export'], [Mail, 'Email analysis', 'email']] },
+  ],
+  settings: [
+    { label: 'Platform', lg: [[SlidersHorizontal, 'General\noptions', 'refresh'], [Palette, 'Branding', 'branding']], sm: [[Globe, 'Localisation', 'refresh'], [Mail, 'Email templates', 'templates'], [Plug, 'Integrations', 'integrations']] },
+    { label: 'Security', lg: [[ShieldCheck, 'Access\npolicy', 'refresh'], [KeyRound, 'Roles and\npermissions', 'roles']], sm: [[Lock, 'Password policy', 'refresh'], [Smartphone, 'Two-factor', 'enforceMfa'], [History, 'Login audit', 'goto:audit']] },
+    { label: 'Data', lg: [[Database, 'Backups', 'backups']], sm: [[Download, 'Export data', 'export'], [Upload, 'Import data', 'import'], [FileText, 'Retention policy', 'retention']] },
+  ],
+  view: [
+    { label: 'Layout', lg: [[PanelLeft, 'Navigation\npane', 'toggleNav'], [Rows3, 'Row\ndensity', 'density']], sm: [[Columns3, 'Choose columns', 'columns'], [ChevronsUp, 'Collapse ribbon', 'collapse'], [Maximize, 'Full screen', 'fullscreen']] },
+    { label: 'Data', lg: [[RefreshCw, 'Refresh', 'refresh']], sm: [[FilterX, 'Clear filters', 'clearFilters'], [Download, 'Export CSV', 'export'], [Printer, 'Print', 'print']] },
+    { label: 'Window', lg: [[Settings, 'Options', 'goto:settings']], sm: [[Bell, 'Notifications', 'alerts'], [Info, 'About SafeNexus', 'about']] },
+  ],
+};
+
+export const JUMPS = [
+  ['Awaiting sign-off', ClipboardCheck, 'goto:inspections'],
+  ['Grounded vehicles', AlertTriangle, 'goto:fleet'],
+  ['COF expiring', BadgeCheck, 'goto:compliance'],
+  ['Unassigned operators', UserX, 'goto:hierarchy'],
+  ['Audit trail', History, 'goto:audit'],
+];
+
+export const MESSAGES = {
+  refresh: 'Data refreshed from SAFENEXUS-SQL01.', save: 'Workspace saved.',
+  undo: 'Last action undone.', redo: 'Action reapplied.',
+  print: 'Sent to the print queue.', export: 'Export written to CSV.',
+  email: 'Draft opened in the mail client.', period: 'Period changed to June 2026.',
+  targets: 'Compliance target held at 90%.', alerts: 'Alert rules opened.',
+  signOff: 'Sign-off recorded against the selected inspection.',
+  openInspection: 'Inspection #2120352 opened.', addNote: 'Note added to the inspection.',
+  escalate: 'Escalated to the safety officer.', reject: 'Capture rejected and returned to the operator.',
+  assignVehicle: 'Vehicle assignment recorded.', unassignVehicle: 'Vehicle returned to the pool.',
+  assignSupervisor: 'Supervisor assignment recorded.', bulkAssign: 'Bulk assignment queued for 8 operators.',
+  moveUnder: 'User moved in the hierarchy.', detach: 'User detached from the hierarchy.',
+  unassigned: '3 operators and 8 vehicles are unassigned.',
+  editUser: 'Editing the selected user.', editVehicle: 'Editing the selected vehicle.',
+  editCompany: 'Editing the company profile.', resetPassword: 'Password reset link emailed.',
+  enforceMfa: 'Two-factor authentication enforced for administrators.',
+  disableUser: 'User disabled and sessions revoked.', suspend: 'Company suspended pending review.',
+  deleteCompany: 'Deletion requires a second administrator to approve.',
+  upgrade: 'Enterprise upgrade quote generated.', modules: 'Module manager opened.',
+  billing: 'Billing and invoices opened.', bookService: 'Service booked with the workshop.',
+  serviceDue: '4 vehicles are due for a service.', licences: '2 licence renewals fall due this month.',
+  returnService: 'Vehicle returned to service after inspection.',
+  ground: 'Vehicle grounded and removed from the roster.',
+  raiseDefect: 'Defect raised against the vehicle.', closeDefect: 'Defect closed and signed off.',
+  logFuel: 'Fuel entry captured.', logOdo: 'Odometer reading updated.',
+  shiftPlan: 'Shift plan opened.', recurring: 'Recurring pre-use checks configured.',
+  cofRegister: 'COF register opened — 14 expiring within 90 days.',
+  noGoRegister: '7 open no-go defects across the platform.',
+  goButAging: '23 go-but items are older than 20 days.',
+  upload: 'Document uploaded and queued for verification.', bookRenewal: 'COF renewal booked.',
+  searchAudit: 'Audit search opened.', filterAudit: 'Audit filter applied.',
+  dateRange: 'Date range set to the last 7 days.', byUser: 'Filtered by user.',
+  verify: 'Audit chain verified — no gaps found.', retention: 'Retention held at 7 years, append-only.',
+  clearFilters: 'Filters cleared.', columns: 'Column chooser opened.',
+  fullscreen: 'Full screen toggled.', saveSettings: 'Settings saved.',
+  branding: 'Branding options opened.', templates: 'Email templates opened.',
+  integrations: 'Integration catalogue opened.', roles: 'Roles and permissions opened.',
+  backups: 'Last backup completed 18 Jun 2026 at 02:00.', import: 'Import wizard opened.',
+  account: 'Signed in as Kobus van der Merwe (Administrator).',
+  about: 'SafeNexus ERP 2026.6 · build 4812 · SAFENEXUS-SQL01.',
+  schedule: 'Report scheduled for the first of each month.',
+};

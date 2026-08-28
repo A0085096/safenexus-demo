@@ -1,0 +1,22 @@
+{
+  "name": "safenexus-erp",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "SafeNexus ERP — fleet safety administration platform (React)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-react": "^0.550.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "recharts": "^3.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.0",
+    "vite": "^7.1.0"
+  }
+}

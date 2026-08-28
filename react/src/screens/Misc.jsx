@@ -1,0 +1,503 @@
+import React, { useState } from 'react';
+import {
+  AlertTriangle, UserPlus, Truck, ClipboardCheck, ShieldCheck, Users as UsersIcon, Wrench,
+  BarChart3, MapPin, FileText, BadgeCheck, Pencil, Download, Rocket, Trash2, Check,
+  Bell, Lock, FileCheck2, Receipt, ChevronRight, CircleAlert,
+} from 'lucide-react';
+import {
+  HIERARCHY, COF, AGING_TOP, CATEGORIES, MODULES, REPORTS, RECENT_REPORTS, USERS, FLEET, INSPECTIONS, PERF,
+} from '../data.js';
+import { SERIES, SEQ, nf } from '../theme.js';
+import {
+  Panel, ChartCard, Btn, Badge, Avatar, ListRow, SecHead, KV, Legend,
+  roleBadge, vehicleBadge, resultBadge, statusBadge,
+} from '../components/ui.jsx';
+import Sparkline from '../charts/Sparkline.jsx';
+
+const passTone = (v) => (v >= 95 ? SERIES[1] : v >= 90 ? SERIES[2] : SERIES[4]);
+const ICONS = {
+  truck: Truck, clipboard: ClipboardCheck, shield: ShieldCheck, users: UsersIcon, tool: Wrench,
+  chart: BarChart3, pin: MapPin, invoice: FileText, alert: AlertTriangle, cert: BadgeCheck,
+};
+
+/* ── hierarchy ────────────────────────────────────────────────── */
+export function Hierarchy({ run }) {
+  return (
+    <div className="grid-2">
+      <div>
+        <div className="cmdstrip solo">
+          <Btn small active>Acme Mining Corp</Btn>
+          <Btn small>Grootegeluk Coal</Btn>
+          <Btn small>Zimele Logistics</Btn>
+        </div>
+        <Panel title="Organisation hierarchy" note="19 people" flush
+          right={<button className="link" onClick={() => run('export')}>Export</button>}>
+          {HIERARCHY.map((t) => (
+            <div className="hier" key={t.name}>
+              <div className="rail" style={{
+                width: t.indent * 18,
+                borderLeft: t.indent ? '1px solid var(--stroke-strong)' : 'none',
+                marginLeft: t.indent ? 8 : 0,
+              }} />
+              <Avatar init={t.init} tone={t.tone} />
+              <div className="ri" style={{ flex: 1 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600 }}>{t.name}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--text3)' }}>{t.sub}</div>
+              </div>
+              {roleBadge(t.role)}
+            </div>
+          ))}
+        </Panel>
+      </div>
+      <div>
+        <Panel title="Role distribution">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {[['1', 'Administrator', 'purple'], ['3', 'Safety officers', 'green'],
+              ['6', 'Supervisors', 'brand-dark'], ['9', 'Operators', 'gold']].map(([v, l, tone]) => (
+                <div key={l} style={{
+                  background: tone === 'brand-dark' ? 'var(--sel)' : `var(--${tone}-bg)`,
+                  borderRadius: 3, padding: 11, textAlign: 'center',
+                }}>
+                  <div style={{ font: '600 20px var(--num)', color: `var(--${tone})` }}>{v}</div>
+                  <div style={{ fontSize: 11.5, color: `var(--${tone})` }}>{l}</div>
+                </div>
+              ))}
+          </div>
+        </Panel>
+        <Panel title="Unassigned items" flush right={<Badge tone="gold">2 open</Badge>}>
+          <ListRow avatar={<Avatar tone="gold" icon={UserPlus} />}
+            title="3 operators without a supervisor" sub="Acme Mining Corp"
+            right={<Btn small onClick={() => run('assignSupervisor')}>Assign</Btn>} />
+          <ListRow avatar={<Avatar tone="gold" icon={Truck} />}
+            title="8 vehicles unassigned" sub="Platform-wide"
+            right={<Btn small onClick={() => run('assignVehicle')}>Assign</Btn>} />
+        </Panel>
+      </div>
+    </div>
+  );
+}
+
+/* ── compliance ───────────────────────────────────────────────── */
+export function Compliance({ run }) {
+  return (
+    <>
+      <div className="grid-3">
+        {[['98.2%', 'Platform compliance rate', 'green', 'up', 'Up 1.3 pp on last month'],
+          ['2', 'Companies below threshold', 'gold', 'warn', 'Below the 90% target'],
+          ['7', 'Open no-go defects', 'red', 'dn', 'Vehicles grounded']].map(([v, l, tone, dir, note]) => (
+            <div className="tile" key={l}>
+              <div className="tile-val" style={{ color: `var(--${tone})` }}>{v}</div>
+              <div className="tile-lbl">{l}</div>
+              <div className={'tile-trend t-' + (dir === 'warn' ? 'warn' : dir)}>{note}</div>
+            </div>
+          ))}
+      </div>
+      <div className="grid-2">
+        <Panel title="COF expiry alerts" flush right={<Badge tone="gold">14 expiring soon</Badge>}>
+          {COF.map((r) => (
+            <ListRow key={r.name}
+              avatar={<Avatar init={r.name.split(' ').map((n) => n[0]).join('')} tone={r.days < 30 ? 'red' : 'gold'} />}
+              title={r.name} sub={r.co}
+              right={
+                <>
+                  <div style={{ font: '600 12px var(--num)', color: r.days < 30 ? 'var(--red)' : 'var(--gold)' }}>{r.exp}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>{r.days} days</div>
+                </>
+              } />
+          ))}
+        </Panel>
+        <Panel title="Go-but items aging" note="30-day rule" flush
+          right={<button className="link" onClick={() => run('export')}>Export report</button>}>
+          {AGING_TOP.map((a) => (
+            <ListRow key={a.item} avatar={<Avatar tone={a.d > 30 ? 'red' : 'gold'} icon={CircleAlert} />}
+              title={a.item} sub={`${a.veh} · ${a.co}`}
+              right={
+                <>
+                  <div style={{ font: '600 12px var(--num)', color: a.d > 30 ? 'var(--red)' : 'var(--gold)' }}>{a.d} days</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>30-day limit</div>
+                </>
+              } />
+          ))}
+        </Panel>
+      </div>
+    </>
+  );
+}
+
+/* ── company profile ──────────────────────────────────────────── */
+const TABS = ['Overview', 'Team', 'Fleet', 'Inspections', 'Modules', 'Settings'];
+
+export function CompanyProfile({ run, openDialog }) {
+  const [tab, setTab] = useState(0);
+  const team = USERS.filter((u) => u.co === 'Acme Mining Corp');
+  const fleet = FLEET.filter((v) => v.co === 'Acme Mining Corp');
+  const insp = INSPECTIONS.filter((i) => i.co === 'Acme Mining Corp');
+
+  return (
+    <>
+      <div className="dochead">
+        <div className="mark">
+          <svg width="34" height="34" viewBox="0 0 90 90">
+            <polygon points="8,80 36,10 52,10 36,46" fill="#fff" opacity=".9" />
+            <polygon points="82,80 52,46 52,10 95,80" fill="#93C5FD" opacity=".95" />
+            <polygon points="36,46 52,10 44,28" fill="#CFE4FA" />
+          </svg>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 21, fontWeight: 600, letterSpacing: '-.3px' }}>Acme Mining Corp</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text3)', marginTop: 2 }}>
+            Trading as Acme Corp · Registration 2018/123456/07
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 9, flexWrap: 'wrap' }}>
+            <Badge tone="blue">Mining</Badge><Badge tone="green">Active</Badge>
+            <Badge tone="purple">Pro plan</Badge><Badge tone="grey">51–200 employees</Badge>
+          </div>
+          <div className="strip">
+            <div><div className="v">18</div><div className="l">Users</div></div>
+            <div><div className="v">24</div><div className="l">Vehicles</div></div>
+            <div><div className="v">98.2%</div><div className="l">Compliance</div></div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <Btn icon={Pencil} onClick={() => run('editCompany')}>Edit</Btn>
+          <Btn primary icon={Download} onClick={() => run('export')}>Export</Btn>
+        </div>
+      </div>
+
+      <div style={{ background: '#fff', border: '1px solid var(--stroke)', borderRadius: '0 0 4px 4px', marginBottom: 14 }}>
+        <div className="doctabs">
+          {TABS.map((t, i) => (
+            <button key={t} className={'doctab' + (tab === i ? ' on' : '')} onClick={() => setTab(i)}>{t}</button>
+          ))}
+        </div>
+
+        {tab === 0 && (
+          <div style={{ padding: '16px 18px', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 24 }}>
+            <div>
+              <SecHead>Company information</SecHead>
+              <KV k="Registration no." v="2018/123456/07" />
+              <KV k="VAT number" v="4890123456" />
+              <KV k="Company type" v="Private company (Pty) Ltd" />
+              <KV k="Operating region" v="Limpopo · Gauteng" />
+              <KV k="Registered" v="12 Mar 2024" />
+            </div>
+            <div>
+              <SecHead>Contact details</SecHead>
+              <KV k="Physical address" v="123 Mine Road, Lephalale, Limpopo, 0555" />
+              <KV k="Phone" v="+27 14 763 0100" />
+              <KV k="Email" v={<span style={{ color: 'var(--brand-dark)' }}>info@acmecorp.co.za</span>} />
+              <KV k="Website" v={<span style={{ color: 'var(--brand-dark)' }}>www.acmecorp.co.za</span>} />
+            </div>
+            <div>
+              <SecHead>Administrator</SecHead>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <Avatar init="KM" tone="purple" large />
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600 }}>Kobus van der Merwe</div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>Fleet Manager</div>
+                  <div style={{ fontSize: 12, color: 'var(--brand-dark)' }}>admin@acmecorp.co.za</div>
+                </div>
+              </div>
+              <SecHead>Statistics</SecHead>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div style={{ background: 'var(--pane)', border: '1px solid var(--stroke)', borderRadius: 3, padding: 9, textAlign: 'center' }}>
+                  <div style={{ font: '600 17px var(--num)' }}>142</div>
+                  <div style={{ fontSize: 10.5, color: 'var(--text3)' }}>Inspections / month</div>
+                </div>
+                <div style={{ background: 'var(--green-bg)', borderRadius: 3, padding: 9, textAlign: 'center' }}>
+                  <div style={{ font: '600 17px var(--num)', color: 'var(--green)' }}>0</div>
+                  <div style={{ fontSize: 10.5, color: 'var(--green)' }}>Open defects</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 1 && (
+          <>
+            <div className="cmdstrip" style={{ borderLeft: 'none', borderRight: 'none', borderRadius: 0 }}>
+              <Badge tone="purple">Administrator ×1</Badge><Badge tone="green">Safety officer ×3</Badge>
+              <Badge tone="blue">Supervisor ×6</Badge><Badge tone="gold">Operator ×9</Badge>
+              <span className="count"><Btn small primary icon={UserPlus} onClick={() => openDialog('user')}>Add user</Btn></span>
+            </div>
+            <div className="gridwrap">
+              <table className="grid">
+                <thead><tr><th>User</th><th>Role</th><th>Reports to</th><th>Vehicle</th><th>Status</th><th>Last active</th><th /></tr></thead>
+                <tbody>
+                  {team.map((u) => (
+                    <tr key={u.name}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                          <Avatar init={u.init} tone={u.tone} />
+                          <span style={{ fontWeight: 600 }}>{u.name}</span>
+                        </div>
+                      </td>
+                      <td>{roleBadge(u.role)}</td>
+                      <td style={{ color: 'var(--text2)' }}>{u.reports}</td>
+                      <td className="mono">{u.vehicle}</td>
+                      <td>{statusBadge(u.status)}</td>
+                      <td style={{ color: 'var(--text3)' }}>Today</td>
+                      <td><Btn small onClick={() => run('editUser')}>Edit</Btn></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {tab === 2 && (
+          <>
+            <div className="cmdstrip" style={{ borderLeft: 'none', borderRight: 'none', borderRadius: 0 }}>
+              <span style={{ fontSize: 12.5, color: 'var(--text2)' }}>24 vehicles registered to this company</span>
+              <span className="count"><Btn small primary icon={Truck} onClick={() => openDialog('vehicle')}>Add vehicle</Btn></span>
+            </div>
+            <div className="gridwrap">
+              <table className="grid">
+                <thead><tr><th>Plate</th><th>Make and model</th><th className="num">Year</th><th>Assigned to</th><th>Supervisor</th><th>Last inspection</th><th>Status</th><th /></tr></thead>
+                <tbody>
+                  {fleet.map((v) => (
+                    <tr key={v.plate}>
+                      <td className="mono">{v.plate}</td><td>{v.make}</td><td className="num">{v.year}</td>
+                      <td>{v.driver}</td><td style={{ color: 'var(--text2)' }}>{v.sup}</td>
+                      <td style={{ color: 'var(--text2)' }}>{v.lastInsp}</td>
+                      <td>{vehicleBadge(v.status)}</td>
+                      <td><Btn small onClick={() => run('assignVehicle')}>Assign</Btn></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {tab === 3 && (
+          <div className="gridwrap">
+            <table className="grid">
+              <thead><tr><th>Ref</th><th>Date</th><th>Vehicle</th><th>Operator</th><th>Result</th><th>Sign-off</th></tr></thead>
+              <tbody>
+                {insp.map((i) => (
+                  <tr key={i.ref}>
+                    <td className="mono">#{i.ref}</td>
+                    <td style={{ color: 'var(--text2)' }}>{i.date}</td>
+                    <td className="mono">{i.vehicle}</td><td>{i.op}</td>
+                    <td>{resultBadge(i.result)}</td>
+                    <td>{i.signed ? <Badge tone="green">Signed</Badge> : <Badge tone="gold">Pending</Badge>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {tab === 4 && (
+          <div style={{ padding: '16px 18px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 9, marginBottom: 16 }}>
+              {MODULES.map((m) => {
+                const Icon = ICONS[m.icon];
+                return (
+                  <div className={'modcard' + (m.on ? ' on' : '')} key={m.name} onClick={() => run('modules')}>
+                    <div className="mi" style={{ background: m.on ? 'var(--sel)' : 'var(--stroke-soft)' }}>
+                      <Icon size={17} strokeWidth={1.7} color={m.on ? 'var(--brand)' : 'var(--text3)'} />
+                    </div>
+                    <div className="mn">{m.name}</div>
+                    <div className="md">{m.desc}</div>
+                    <div style={{ marginTop: 8 }}>
+                      {m.on ? <Badge tone="green">Active</Badge> : <Badge tone="grey">Inactive</Badge>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ background: 'var(--pane)', border: '1px solid var(--stroke)', borderRadius: 4, padding: '12px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>Pro plan · R 2 499 per month</span>
+                <Badge tone="green">Active</Badge>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>Renews 18 Jul 2026 · 3 of 8 modules active</div>
+              <Btn primary icon={Rocket} onClick={() => run('upgrade')}>Upgrade to Enterprise</Btn>
+            </div>
+          </div>
+        )}
+
+        {tab === 5 && (
+          <div style={{ padding: '16px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+            <div>
+              <SecHead>General settings</SecHead>
+              <div style={{ border: '1px solid var(--stroke)', borderRadius: 4, overflow: 'hidden' }}>
+                {[[Pencil, 'Edit company profile', <ChevronRight size={14} color="var(--text3)" key="c" />],
+                  [Bell, 'Notifications', <Badge tone="green" key="b">On</Badge>],
+                  [Lock, 'Security and access', <ChevronRight size={14} color="var(--text3)" key="c2" />],
+                  [FileCheck2, 'Compliance documents', <ChevronRight size={14} color="var(--text3)" key="c3" />],
+                  [Receipt, 'Billing and invoices', <ChevronRight size={14} color="var(--text3)" key="c4" />]].map(([I, l, r]) => (
+                    <ListRow key={l} avatar={<I size={16} strokeWidth={1.7} color="var(--text2)" />} title={l} right={r} />
+                  ))}
+              </div>
+            </div>
+            <div>
+              <SecHead>Danger zone</SecHead>
+              <div style={{ background: 'var(--red-bg)', border: '1px solid #F3B9BF', borderRadius: 4, padding: '12px 14px' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--red)', marginBottom: 4 }}>Delete company account</div>
+                <div style={{ fontSize: 12, color: '#7A1620', marginBottom: 12, lineHeight: 1.5 }}>
+                  Permanently removes all data, users and fleet records for this company. This cannot be undone.
+                </div>
+                <Btn danger icon={Trash2} onClick={() => run('deleteCompany')}>Delete account</Btn>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ── reports ──────────────────────────────────────────────────── */
+export function Reports({ run }) {
+  return (
+    <>
+      <div className="infobar">
+        <span>Reports run against the company selected in the navigation pane and the current period.
+          Output is PDF unless you export to CSV from the ribbon.</span>
+      </div>
+      <div className="grid-3">
+        {REPORTS.map((r) => {
+          const Icon = ICONS[r.icon];
+          const bg = r.tone === 'blue' ? 'var(--sel)' : `var(--${r.tone}-bg)`;
+          const fg = r.tone === 'blue' ? 'var(--brand)' : `var(--${r.tone})`;
+          return (
+            <div className="chart-card" style={{ marginBottom: 0, cursor: 'pointer' }} key={r.name}
+              onClick={() => run('report:' + r.name)}>
+              <div className="chart-body">
+                <div className="tile-ico" style={{ background: bg, marginBottom: 9 }}>
+                  <Icon size={15} strokeWidth={1.8} color={fg} />
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{r.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3, lineHeight: 1.45 }}>{r.desc}</div>
+              </div>
+              <div style={{ padding: '8px 12px', borderTop: '1px solid var(--stroke-soft)', background: 'var(--pane)', fontSize: 12, color: 'var(--brand-dark)' }}>
+                Generate PDF →
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <Panel title="Recently generated" note="last 7 days" flush>
+        <div className="gridwrap">
+          <table className="grid">
+            <thead><tr><th>Report</th><th>Scope</th><th>Requested by</th><th>Generated</th><th>Format</th><th /></tr></thead>
+            <tbody>
+              {RECENT_REPORTS.map((r) => (
+                <tr key={r.name + r.at}>
+                  <td style={{ fontWeight: 600 }}>{r.name}</td>
+                  <td style={{ color: 'var(--text2)' }}>{r.scope}</td>
+                  <td>{r.by}</td>
+                  <td style={{ color: 'var(--text3)' }}>{r.at}</td>
+                  <td><Badge tone="grey">{r.fmt}</Badge></td>
+                  <td><Btn small icon={Download} onClick={() => run('export')}>Download</Btn></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+    </>
+  );
+}
+
+/* ── analytics ────────────────────────────────────────────────── */
+export function Analytics() {
+  const maxCat = Math.max(...CATEGORIES.map((c) => c.v));
+  return (
+    <>
+      <div className="kpis">
+        {[['1 247', 'Total inspections', 'This month', 'up'],
+          ['98.2%', 'Pass rate', 'Up 1.3 pp', 'up'],
+          ['87', 'Go-but items open', '23 aging past 20 days', 'warn'],
+          ['7', 'No-go defects', 'Vehicles grounded', 'dn']].map(([v, l, note, dir]) => (
+            <div className="kpi" key={l}>
+              <div className="kpi-lbl">{l}</div>
+              <div className="kpi-row"><span className="kpi-val">{v}</span></div>
+              <div className="kpi-foot"><span className={'delta ' + dir}>{note}</span></div>
+            </div>
+          ))}
+      </div>
+      <div className="infobar">
+        <span>Top performer is <strong>Acme Mining Corp</strong> at 98.2%. The most common go-but item across
+          the platform is <strong>windows and wipers</strong> at 34%. Inspections peak on Monday mornings,
+          the first shift of the week.</span>
+      </div>
+      <div className="grid-2">
+        <ChartCard title="Pass rate by company" note="marker at the 90% target">
+          {PERF.map((d) => (
+            <div key={d.co} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
+              <div style={{ width: 132, fontSize: 12.5, flexShrink: 0 }}>{d.co}</div>
+              <div className="track" style={{ flex: 1 }}>
+                <div className="fill" style={{ width: d.pass + '%', background: passTone(d.pass) }} />
+                <div className="thresh" style={{ left: '90%' }} />
+              </div>
+              <div style={{ font: '600 12px var(--num)', width: 46, textAlign: 'right', color: passTone(d.pass) }}>{d.pass}%</div>
+              <Sparkline values={d.trend} color={passTone(d.pass)} w={54} h={20} />
+            </div>
+          ))}
+        </ChartCard>
+        <ChartCard title="Go-but items by category" note="platform-wide">
+          {CATEGORIES.map((c, i) => (
+            <div key={c.k} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0' }}>
+              <div style={{ width: 150, fontSize: 12.5, flexShrink: 0 }}>{c.k}</div>
+              <div className="meter" style={{ flex: 1 }}>
+                <div style={{ width: (c.v / maxCat * 100) + '%', background: SEQ[Math.min(4, 4 - i)] || SEQ[1] }} />
+              </div>
+              <div style={{ font: '600 12px var(--num)', width: 38, textAlign: 'right' }}>{c.v}%</div>
+            </div>
+          ))}
+        </ChartCard>
+      </div>
+    </>
+  );
+}
+
+/* ── settings ─────────────────────────────────────────────────── */
+function Toggle({ on, onChange }) {
+  return <button className={'toggle' + (on ? ' on' : '')} onClick={() => onChange(!on)}><span /></button>;
+}
+
+export function Settings({ run }) {
+  const [flags, setFlags] = useState({ mfa: true, audit: true, ground: true });
+  const set = (k) => (v) => setFlags((f) => ({ ...f, [k]: v }));
+  return (
+    <div className="grid-2">
+      <Panel title="Platform settings">
+        <div className="field"><div className="field-lbl">Platform name</div><input className="inp" defaultValue="SafeNexus ERP" /></div>
+        <div className="field"><div className="field-lbl">Support email</div><input className="inp" type="email" defaultValue="support@safenexus.co.za" /></div>
+        <div className="row-2">
+          <div className="field"><div className="field-lbl">Default timezone</div>
+            <select className="inp"><option>Africa/Johannesburg (SAST)</option><option>Africa/Windhoek (CAT)</option></select>
+          </div>
+          <div className="field"><div className="field-lbl">Date format</div>
+            <select className="inp"><option>DD/MM/YYYY</option><option>MM/DD/YYYY</option><option>YYYY-MM-DD</option></select>
+          </div>
+        </div>
+        <Btn primary icon={Check} onClick={() => run('saveSettings')}>Save settings</Btn>
+      </Panel>
+      <Panel title="Security and access">
+        <div className="row-2">
+          <div className="field"><div className="field-lbl">Password policy</div>
+            <select className="inp"><option>Strong (8+ characters, number, symbol)</option><option>Standard (6+ characters)</option></select>
+          </div>
+          <div className="field"><div className="field-lbl">Session timeout</div>
+            <select className="inp"><option>8 hours</option><option>4 hours</option><option>1 hour</option></select>
+          </div>
+        </div>
+        {[['mfa', 'Two-factor authentication', 'Require 2FA on all administrator accounts'],
+          ['audit', 'Login audit logging', 'Record every login attempt in the audit trail'],
+          ['ground', 'Auto-ground on no-go', 'Take a vehicle out of service the moment a no-go defect is captured']].map(([k, t, s]) => (
+            <div className="lrow" key={k} style={{ cursor: 'default', paddingLeft: 0, paddingRight: 0 }}>
+              <div className="ri"><div className="n">{t}</div><div className="s">{s}</div></div>
+              <Toggle on={flags[k]} onChange={set(k)} />
+            </div>
+          ))}
+        <Btn primary icon={Check} onClick={() => run('saveSettings')}>Save settings</Btn>
+      </Panel>
+    </div>
+  );
+}

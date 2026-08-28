@@ -576,7 +576,9 @@
     .legend .sw.line { height: 3px; border-radius: 2px; }
 
     /* svg chart chrome */
-    .chart svg { display: block; width: 100%; overflow: visible; }
+    /* only a chart's own plot stretches — inline sparklines keep their size */
+    .chart > svg { display: block; width: 100%; overflow: visible; }
+    .kpi-spark svg, .trendcell svg, .meter + svg { flex: none; width: auto; }
     .chart .gridline { stroke: var(--grid); stroke-width: 1; }
     .chart .axis-lbl { font: 400 10.5px var(--num); fill: var(--text3); }
     .chart .val-lbl { font: 600 10.5px var(--num); fill: var(--text2); }
@@ -621,7 +623,9 @@
       font: 600 12px var(--num); color: var(--brand-dark); height: 32px;
     }
     .cellbar { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
-    .cellbar .track { position: relative; width: 78px; height: 8px; background: var(--stroke-soft); border-radius: 2px; overflow: hidden; }
+    .cellbar .track, .track { position: relative; width: 78px; height: 8px; background: var(--stroke-soft); border-radius: 2px; }
+    .cellbar .fill, .fill { position: absolute; inset: 0 auto 0 0; border-radius: 2px; }
+    .cellbar .thresh, .thresh { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--text3); }
     .cellbar .fill { position: absolute; inset: 0 auto 0 0; border-radius: 2px; }
     .cellbar .thresh { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--text3); }
     .cellbar .pct { font: 600 12px var(--num); width: 42px; text-align: right; }
@@ -2026,11 +2030,12 @@
       var acos = ['Acme Mining', 'Grootegeluk', 'Zimele Log.', 'BHP Const.', 'Khumalo Agri', 'Matome Trans.'];
       var arates = [98.2, 96.7, 88.4, 92.1, 84.3, 94.8];
       set('analytics-bars', acos.map(function (c, i) {
-        var tone = arates[i] >= 95 ? 'green' : arates[i] >= 90 ? 'gold' : 'red';
-        return '<div style="display:flex;align-items:center;gap:10px;padding:4px 0">' +
+        var toneHex = arates[i] >= 95 ? C.c2 : arates[i] >= 90 ? C.c3 : C.c5;
+        return '<div style="display:flex;align-items:center;gap:10px;padding:5px 0">' +
           '<div style="width:104px;font-size:12px;color:var(--text2);text-align:right;flex-shrink:0">' + c + '</div>' +
-          '<div class="meter" style="flex:1"><div class="' + tone + '" style="width:' + arates[i] + '%"></div></div>' +
-          '<div style="font:600 12px var(--num);width:42px">' + arates[i] + '%</div></div>';
+          '<div class="track" style="flex:1"><div class="fill" style="width:' + arates[i] + '%;background:' + toneHex + '"></div>' +
+          '<div class="thresh" style="left:90%"></div></div>' +
+          '<div style="font:600 12px var(--num);width:42px;color:' + toneHex + '">' + arates[i] + '%</div></div>';
       }).join(''));
 
       /* go-but categories */
