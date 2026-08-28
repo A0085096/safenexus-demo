@@ -7,7 +7,7 @@ import { siteName } from '../data.js';
 import { SERIES } from '../theme.js';
 import { DataGrid, Btn, Badge, Seg, Panel } from '../components/ui.jsx';
 import { Kpis, Breakdown, Expiry } from '../components/erpUi.jsx';
-import { until, fmtDate, DOC_TYPES } from '../erp/seed.js';
+import { until, fmtDate } from '../erp/seed.js';
 
 /* ══════════════════════════════════════════════════════════════
    Documents.

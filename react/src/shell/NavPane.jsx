@@ -3,7 +3,7 @@ import { Search, X, ChevronRight, LogOut } from 'lucide-react';
 import { SITES } from '../data.js';
 import { JUMPS } from './ribbon.js';
 import { useStore } from '../store.jsx';
-import { until, invDue, invState } from '../erp/seed.js';
+import { until, invState } from '../erp/seed.js';
 
 /* The workspace scope lives here: which company you are looking at,
    and the queues worth jumping to, each carrying its live count. */

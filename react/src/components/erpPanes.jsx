@@ -1,16 +1,16 @@
 import React from 'react';
 import {
   Route, Fuel as FuelIcon, CircleDot, Package, ShoppingCart, ShieldAlert, Receipt, Files,
-  Truck, User, Wrench, CheckCircle2, XCircle, Play, Printer, Mail, Ruler, Trash2, Send,
-  PackageCheck, PackageMinus, Banknote, FileCheck2, AlertTriangle, MapPin, Clock, Coins,
+  Truck, Wrench, CheckCircle2, XCircle, Play, Printer, Mail, Ruler, Trash2, Send,
+  PackageCheck, PackageMinus, Banknote, FileCheck2, AlertTriangle, Clock,
   SlidersHorizontal, BadgeCheck, Download, Radio,
 } from 'lucide-react';
 import { Btn, Badge, SecHead, KV } from './ui.jsx';
 import { Expiry, Money, Signed } from './erpUi.jsx';
 import { siteName } from '../data.js';
 import {
-  R, num, fmtDate, fmtShort, until, jobMargin, poTotal, stockValue,
-  invNet, invTotal, invPaid, invDue, invState,
+  R, num, fmtDate, fmtShort, until, jobMargin, poTotal, stockValue, invNet, invTotal,
+  invPaid, invDue, invState,
 } from '../erp/seed.js';
 
 const Empty = ({ icon: Icon, text }) => (
@@ -101,7 +101,7 @@ export function JobPane({ job, run }) {
 /* ══════════════════════════════════════════════════════════════
    Fuel transaction
    ══════════════════════════════════════════════════════════════ */
-export function FuelPane({ tx, run }) {
+export function FuelPane({ tx, settings, run }) {
   if (!tx) return <Empty icon={FuelIcon} text="Select a transaction to check it." />;
   const f = tx;
   return (
@@ -132,7 +132,7 @@ export function FuelPane({ tx, run }) {
       <KV k="Distance since the last fill" v={num(f.since)} />
       <KV k="Achieved" v={`${f.consumption} ${f.unit}`} />
       <KV k="Against target" v={f.variance
-        ? <span style={{ fontWeight: 600, color: Math.abs(f.variance) > 12 ? 'var(--red)' : 'var(--text)' }}>
+        ? <span style={{ fontWeight: 600, color: Math.abs(f.variance) > settings.fuelVariancePct ? 'var(--red)' : 'var(--text)' }}>
             {f.variance > 0 ? '+' : ''}{f.variance}%
           </span>
         : '—'} />
@@ -153,9 +153,10 @@ export function FuelPane({ tx, run }) {
 /* ══════════════════════════════════════════════════════════════
    Tyre
    ══════════════════════════════════════════════════════════════ */
-export function TyrePane({ tyre, run }) {
+export function TyrePane({ tyre, settings, run }) {
   if (!tyre) return <Empty icon={CircleDot} text="Select a tyre to manage it." />;
   const t = tyre;
+  const limit = settings.minTreadMm;
   return (
     <div style={{ padding: 14 }}>
       <Head eyebrow={`${t.brand} · ${t.size}`} title={t.serial}
@@ -165,11 +166,11 @@ export function TyrePane({ tyre, run }) {
           {t.retreads > 0 && <Badge tone="purple">retread ×{t.retreads}</Badge>}
         </>} />
 
-      {t.tread < 3 && t.status !== 'Scrapped' && (
+      {t.tread < limit && t.status !== 'Scrapped' && (
         <div className="auth-err" style={{ marginTop: 12 }}>
           <AlertTriangle size={15} />
           <span>
-            {t.tread} mm is below the 3 mm legal tread depth. {t.vehicle} may not be operated on it, and the
+            {t.tread} mm is below the {limit} mm legal tread depth. {t.vehicle} may not be operated on it, and the
             pre-use sheet will fail on wheel condition until it is replaced.
           </span>
         </div>
@@ -183,7 +184,7 @@ export function TyrePane({ tyre, run }) {
       <KV k="Fitted" v={`${fmtDate(t.fittedOn)} at ${num(t.fittedAt)}`} />
 
       <SecHead>Condition</SecHead>
-      <KV k="Tread depth" v={<span style={{ fontWeight: 600, color: t.tread < 3 ? 'var(--red)' : t.tread < 5 ? 'var(--gold)' : 'var(--green)' }}>{t.tread} mm</span>} />
+      <KV k="Tread depth" v={<span style={{ fontWeight: 600, color: t.tread < limit ? 'var(--red)' : t.tread < limit + 2 ? 'var(--gold)' : 'var(--green)' }}>{t.tread} mm</span>} />
       <KV k="Pressure" v={`${t.pressure} kPa`} />
       <KV k="Distance run" v={num(t.run)} />
 
@@ -261,7 +262,7 @@ export function PartPane({ part, run }) {
 /* ══════════════════════════════════════════════════════════════
    Purchase order
    ══════════════════════════════════════════════════════════════ */
-export function POPane({ po, run }) {
+export function POPane({ po, settings, run }) {
   if (!po) return <Empty icon={ShoppingCart} text="Select a purchase order to work it." />;
   const p = po;
   const net = p.lines.reduce((a, l) => a + l.qty * l.price, 0);
@@ -297,7 +298,11 @@ export function POPane({ po, run }) {
       <KV k="Total" v={<Money v={poTotal(p)} bold />} />
 
       <Acts>
-        {p.status === 'Draft' && <Btn small primary icon={CheckCircle2} onClick={() => run('poStatus:Awaiting approval')}>Submit for approval</Btn>}
+        {p.status === 'Draft' && (
+          <Btn small primary icon={CheckCircle2} onClick={() => run('poStatus:Awaiting approval')}>
+            {poTotal(p) > settings.poApprovalLimit ? 'Submit for approval' : 'Approve'}
+          </Btn>
+        )}
         {p.status === 'Awaiting approval' && <Btn small primary icon={Send} onClick={() => run('poStatus:Sent')}>Approve and send</Btn>}
         {(p.status === 'Sent' || p.status === 'Part received') && <Btn small primary icon={PackageCheck} onClick={() => run('poStatus:Received')}>Receive into stock</Btn>}
         <Btn small icon={Printer} onClick={() => run('print')}>Print</Btn>

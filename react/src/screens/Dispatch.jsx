@@ -1,14 +1,17 @@
 import React, { useMemo } from 'react';
 import {
-  Route, Plus, Truck, Banknote, Percent, Clock, FileCheck2, Play, CheckCircle2, XCircle, MapPin,
+  Route, Plus, Truck, Banknote, Percent, Clock, FileCheck2, Play, CheckCircle2, XCircle,
+  MapPin,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
-import { siteName } from '../data.js';
-import { SERIES, OUTCOME } from '../theme.js';
-import { DataGrid, Btn, Badge, Seg, Panel, ChartCard } from '../components/ui.jsx';
+
+import { SERIES } from '../theme.js';
+import {
+  DataGrid, Btn, Badge, Seg, Panel,
+} from '../components/ui.jsx';
 import { Kpis, Money, Signed, Breakdown, Bar } from '../components/erpUi.jsx';
 import {
-  jobMargin, jobRpk, R, num, fmtShort, TODAY, shift, between, until, CUSTOMERS,
+  jobMargin, R, num, fmtShort, shift, between,
 } from '../erp/seed.js';
 
 export const jobTone = (s) => ({

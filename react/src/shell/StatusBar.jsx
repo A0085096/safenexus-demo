@@ -1,7 +1,7 @@
 import React from 'react';
 import { Rows3 } from 'lucide-react';
 import { useStore } from '../store.jsx';
-import { invState, until } from '../erp/seed.js';
+import { invState } from '../erp/seed.js';
 
 /* Counts come from the store, so the bar moves with the work.
    It carries what is outstanding rather than what exists — a bar

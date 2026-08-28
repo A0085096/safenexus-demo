@@ -1,18 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import {
   ClipboardCheck, ShieldCheck, Truck, Users as UsersIcon, AlertTriangle, BadgeCheck,
-  Download, Printer, ArrowLeft, FileText, Wrench, FileJson, Columns3,
-  PlayCircle, PauseCircle, Mail, Route, Fuel, CircleDot, Coins, Package,
-  Receipt, ShieldAlert, Files,
+  Download, Printer, ArrowLeft, Wrench, FileJson, Columns3, PlayCircle, PauseCircle, Mail,
+  Route, Fuel, CircleDot, Coins, Package, Receipt, ShieldAlert, Files,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
-import { SERIES, nf } from '../theme.js';
-import { Panel, Btn, Badge, Seg, SecHead } from '../components/ui.jsx';
+import { nf } from '../theme.js';
+import { Panel, Btn, Badge, Seg } from '../components/ui.jsx';
 import Sparkline from '../charts/Sparkline.jsx';
-import { SITE_PERF, siteName, TENANT } from '../data.js';
+import { SITE_PERF, siteName } from '../data.js';
 import {
-  R, num, until, fmtDate, jobMargin, woCost, vehSpend, vehCpk, meterUnit,
-  stockValue, poTotal, invTotal, invPaid, invDue, invState,
+  R, num, until, fmtDate, jobMargin, woCost, vehSpend, vehCpk, stockValue, invTotal,
+  invPaid, invDue, invState,
 } from '../erp/seed.js';
 
 const ICONS = {

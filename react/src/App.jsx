@@ -42,9 +42,9 @@ import Documents from './screens/Documents.jsx';
 import Contracts from './screens/Contracts.jsx';
 import Admin from './screens/Admin.jsx';
 import {
-  R, num, shift, fmtDate, fmtShort, until, poTotal, invTotal, invDue, woCost, vtype,
-  LANES, CARGO, CUSTOMERS, SUPPLIERS, FUEL_SITES, TYRE_BRANDS, TYRE_POS_HEAVY, TYRE_POS_PLANT,
-  INCIDENT_TYPES, DOC_TYPES, COST_HEADS, WO_TYPES, PART_CATS, FINANCIERS, jobMargin,
+  R, R2, num, shift, fmtDate, until, poTotal, invTotal, invDue, woCost, LANES, CARGO,
+  CUSTOMERS, SUPPLIERS, FUEL_SITES, TYRE_BRANDS, TYRE_POS_HEAVY, TYRE_POS_PLANT,
+  INCIDENT_TYPES, DOC_TYPES, COST_HEADS, PART_CATS,
 } from './erp/seed.js';
 
 const ME = {
@@ -358,7 +358,6 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         dispatch({ type: 'REVISE_TEMPLATE', id: t.id, by: me.name });
         return flash(`Revision ${t.revision + 1} of ${t.name} opened as a draft.`, { tone: 'info', title: 'New revision' });
       }
-
 
       /* ══════════════════════════════════════════════════════
          Dispatch
@@ -882,7 +881,7 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         [{ k: 'tons', l: 'Load, tons', type: 'number', value: '30' },
          { k: 'rate', l: 'Rate per kilometre', type: 'number', value: '26.40',
            validate: (v) => (+v >= store.settings.rateFloor ? ''
-             : `Below the ${R(store.settings.rateFloor)} floor — this needs an approval before it can be planned.`) }],
+             : `Below the ${R2(store.settings.rateFloor)} per kilometre floor — this needs an approval before it can be planned.`) }],
         [{ k: 'priority', l: 'Priority', options: ['Standard', 'Urgent'] }],
       ],
       onSubmit: (v) => {
@@ -1415,10 +1414,10 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
               )}
               {tab === 'workshop' && <WorkOrderPane wo={store.workOrder} defects={defects} run={run} />}
               {tab === 'dispatch' && <JobPane job={job} run={run} />}
-              {tab === 'fuel' && <FuelPane tx={fuelTx} run={run} />}
-              {tab === 'tyres' && <TyrePane tyre={tyre} run={run} />}
+              {tab === 'fuel' && <FuelPane tx={fuelTx} settings={store.settings} run={run} />}
+              {tab === 'tyres' && <TyrePane tyre={tyre} settings={store.settings} run={run} />}
               {tab === 'parts' && <PartPane part={part} run={run} />}
-              {tab === 'procurement' && <POPane po={po} run={run} />}
+              {tab === 'procurement' && <POPane po={po} settings={store.settings} run={run} />}
               {tab === 'incidents' && (
                 <IncidentPane incident={incident} run={run}
                   onAction={(ref, index) => dispatch({ type: 'INCIDENT_ACTION', ref, index, by: me.name })} />

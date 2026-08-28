@@ -2,15 +2,14 @@ import React from 'react';
 import {
   ClipboardCheck, Truck, AlertTriangle, CheckCircle2, XCircle, Wrench, Car, CarFront,
   Gauge, FileText, Printer, CircleAlert, RotateCcw, Users, Pencil, KeyRound, PauseCircle,
-  PlayCircle, Trash2, GraduationCap, Mail, Phone, Coins, Radio, Landmark, CircleDot,
-  Route, Fuel, BadgeCheck, ShieldAlert,
+  PlayCircle, Trash2, Coins, CircleDot, Fuel,
 } from 'lucide-react';
 import { Btn, Badge, SecHead, KV, Avatar, resultBadge, vehicleBadge, roleBadge, statusBadge } from './ui.jsx';
 import { Expiry, Money } from './erpUi.jsx';
 import { allItems } from '../inspection/templates.js';
 import { nf } from '../theme.js';
 import {
-  R, num, until, fmtDate, vehSpend, vehCpk, meterUnit,
+  R, num, until, vehSpend, vehCpk, meterUnit,
 } from '../erp/seed.js';
 
 const Empty = ({ icon: Icon, text }) => (

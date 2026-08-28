@@ -1,14 +1,14 @@
 import React, { useMemo } from 'react';
 import {
-  ShieldCheck, Truck, User, AlertTriangle, BadgeCheck, CalendarClock, CircleAlert,
-  Wrench, Clock, Upload, CalendarPlus, Mail,
+  ShieldCheck, Truck, User, AlertTriangle, BadgeCheck, CircleAlert, Wrench, Clock, Upload,
+  CalendarPlus, Mail,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
 import { siteName } from '../data.js';
 import { SERIES } from '../theme.js';
 import { DataGrid, Btn, Badge, Seg, Panel } from '../components/ui.jsx';
-import { Kpis, Expiry, Breakdown, Bar, dayTone } from '../components/erpUi.jsx';
-import { until, fmtDate, num, meterUnit } from '../erp/seed.js';
+import { Kpis, Expiry, Breakdown } from '../components/erpUi.jsx';
+import { until, num, meterUnit } from '../erp/seed.js';
 
 /* ══════════════════════════════════════════════════════════════
    Compliance.

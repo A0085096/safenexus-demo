@@ -1,20 +1,30 @@
 # SafeNexus ERP — React
 
 A fleet management ERP for a single mining tenant, as a Vite + React
-application. It began as the pre-use inspection platform in
-[`../safenexus.html`](../safenexus.html) — same Office-style desktop
-shell, same SafeNexus palette — and has grown into the whole operation
-around those inspections: the haulage jobs the fleet runs, the diesel it
+application. It began as a pre-use inspection platform — same
+Office-style desktop shell, same SafeNexus palette — and has grown into
+the whole operation around those inspections: the haulage jobs the fleet runs, the diesel it
 burns, the tyres and parts it consumes, the workshop that repairs it,
 the incidents that damage it, the contracts that finance it and the
 invoices that pay for it.
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
-npm run build      # → dist/
+npm run dev            # http://localhost:5173
+npm run build          # → dist/
 npm run preview
+npm run build:single   # → ../safenexus.html, one file, no server
 ```
+
+### The single-file build
+
+`../safenexus.html` is the whole application in one file — open it
+straight off a disk, no server and no toolchain. It is **generated**,
+not maintained: `npm run build:single` builds the app as a single
+classic script (a module will not load from a `file://` URL, CORS
+having no meaning for an opaque origin) and inlines the CSS and JS into
+the index shell. Edit the source and regenerate; never edit that file,
+or the two copies drift apart.
 
 ## Signing in
 

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import {
-  Radio, Activity, Zap, MapPin, CheckCircle2, Gauge, Signal, TrendingUp, Timer,
+  Radio, Zap, MapPin, CheckCircle2, Gauge, Signal, TrendingUp, Timer,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
 import { siteName } from '../data.js';

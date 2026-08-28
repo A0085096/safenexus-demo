@@ -7,7 +7,7 @@ import { siteName } from '../data.js';
 import { SERIES } from '../theme.js';
 import { DataGrid, Btn, Badge, Seg, Panel } from '../components/ui.jsx';
 import { Kpis, Money, Breakdown, Bar } from '../components/erpUi.jsx';
-import { R, num, fmtShort, INCIDENT_TYPES } from '../erp/seed.js';
+import { R, num, fmtShort } from '../erp/seed.js';
 
 const sevTone = (s) => ({ Critical: 'red', Major: 'gold', Moderate: 'blue', Minor: 'grey' }[s] || 'grey');
 const statusTone = (s) => ({ Open: 'red', Investigating: 'gold', Closed: 'green' }[s] || 'grey');

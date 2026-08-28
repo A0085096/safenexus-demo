@@ -1,13 +1,15 @@
 import React, { useMemo } from 'react';
 import {
-  Package, Plus, PackageMinus, PackagePlus, AlertTriangle, Boxes, ShoppingCart, SlidersHorizontal,
+  Package, Plus, PackageMinus, AlertTriangle, Boxes, ShoppingCart, SlidersHorizontal,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
 import { siteName } from '../data.js';
 import { SERIES } from '../theme.js';
 import { DataGrid, Btn, Badge, Seg, Panel } from '../components/ui.jsx';
 import { Kpis, Money, Breakdown, Bar } from '../components/erpUi.jsx';
-import { R, num, fmtShort, stockValue, stockTone, PART_CATS } from '../erp/seed.js';
+import {
+  R, num, fmtShort, stockValue, PART_CATS,
+} from '../erp/seed.js';
 
 /* ══════════════════════════════════════════════════════════════
    Parts and stores.

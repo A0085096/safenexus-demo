@@ -1,19 +1,16 @@
 import React, { useState } from 'react';
 import {
-  UserPlus, Plus, ClipboardCheck, AlertTriangle, FileCheck2, Car, Truck, Wrench,
-  Gauge, Coins, ShieldCheck, Route, Radio,
+  UserPlus, Plus, ClipboardCheck, AlertTriangle, FileCheck2, Car, Truck, Wrench, Gauge,
+  Coins, ShieldCheck, Radio,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
-import { nf, targetTone, SERIES } from '../theme.js';
+import { nf, SERIES } from '../theme.js';
 import { siteName } from '../data.js';
 import {
-  DataGrid, Btn, Badge, Avatar, RichText, Seg,
-  statusBadge, roleBadge, planBadge, vehicleBadge, resultBadge,
+  DataGrid, Btn, Badge, Avatar, Seg, statusBadge, roleBadge, vehicleBadge, resultBadge,
 } from '../components/ui.jsx';
-import { Kpis, Money, Expiry, Bar } from '../components/erpUi.jsx';
+import { Kpis, Expiry, Bar } from '../components/erpUi.jsx';
 import { R, num, until, vehSpend, vehCpk, meterUnit } from '../erp/seed.js';
-
-
 
 const Person = ({ init, tone, name, sub }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>

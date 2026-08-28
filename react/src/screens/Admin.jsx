@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import {
-  Server, Plug, UserCog, CheckSquare, RefreshCw, CheckCircle2, XCircle, Play,
-  AlertTriangle, Clock, Database, KeyRound,
+  Server, Plug, UserCog, CheckSquare, CheckCircle2, XCircle, Play, AlertTriangle, Clock,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
 import { SERIES } from '../theme.js';
-import { DataGrid, Btn, Badge, Seg, Panel, KV } from '../components/ui.jsx';
+import {
+  DataGrid, Btn, Badge, Seg, Panel,
+} from '../components/ui.jsx';
 import { Kpis, Money, Breakdown } from '../components/erpUi.jsx';
 import { R, num, MODULES } from '../erp/seed.js';
 

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import {
-  CircleDot, Plus, Trash2, Ruler, AlertTriangle, Coins, Repeat,
+  CircleDot, Plus, Trash2, Ruler, AlertTriangle, Coins,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
 import { siteName } from '../data.js';

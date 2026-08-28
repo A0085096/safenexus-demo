@@ -1,13 +1,14 @@
 import React, { useMemo } from 'react';
 import {
-  Fuel as FuelIcon, Plus, AlertTriangle, CheckCircle2, Gauge, Droplets, TrendingDown, Receipt,
+  Fuel as FuelIcon, Plus, AlertTriangle, CheckCircle2, Gauge, Droplets, TrendingDown,
+  Receipt,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
 import { siteName } from '../data.js';
 import { SERIES } from '../theme.js';
 import { DataGrid, Btn, Badge, Seg, Panel } from '../components/ui.jsx';
 import { Kpis, Money, Breakdown, Bar } from '../components/erpUi.jsx';
-import { R, num, fmtShort, vtype } from '../erp/seed.js';
+import { R, num, fmtShort } from '../erp/seed.js';
 
 /* ══════════════════════════════════════════════════════════════
    Fuel.

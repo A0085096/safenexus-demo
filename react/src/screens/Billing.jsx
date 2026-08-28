@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import {
-  Receipt, Plus, Banknote, Clock, Printer, Mail, CircleDollarSign, Users,
+  Receipt, Plus, Banknote, Clock, Printer, Mail, CircleDollarSign,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
 import { siteName } from '../data.js';

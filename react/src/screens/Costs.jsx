@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
 import {
-  Coins, Wallet, TrendingUp, Fuel, Wrench, CircleDot, Landmark, Scale, Pencil,
+  Coins, Wallet, TrendingUp, Fuel, Wrench, Landmark, Scale, Pencil,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
 import { siteName } from '../data.js';
-import { SERIES, SEQ } from '../theme.js';
+import { SERIES } from '../theme.js';
 import { DataGrid, Btn, Badge, Seg, Panel } from '../components/ui.jsx';
 import { Kpis, Money, Signed, Breakdown, Bar } from '../components/erpUi.jsx';
 import {
@@ -48,7 +48,6 @@ export default function Costs({ run, openDialog }) {
     });
     return Object.fromEntries(Object.entries(by).map(([k, c]) => [k, c.meter ? c.spend / c.meter : 0]));
   }, [vehicles]);
-
 
   const kpis = (
     <Kpis items={[

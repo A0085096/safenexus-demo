@@ -1,13 +1,13 @@
 import React, { useMemo } from 'react';
 import {
-  Wrench, Truck, Eye, CheckCircle2, Package, Clock, Coins, CalendarClock,
-  CheckSquare, Play, AlertTriangle, PackageMinus, Timer,
+  Wrench, Truck, CheckCircle2, Package, Clock, Coins, CalendarClock, CheckSquare,
+  AlertTriangle, PackageMinus, Timer,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
 import { siteName } from '../data.js';
 import { SERIES } from '../theme.js';
 import { DataGrid, Btn, Badge, Seg, Panel } from '../components/ui.jsx';
-import { Kpis, Money, Breakdown, Bar } from '../components/erpUi.jsx';
+import { Kpis, Money, Breakdown } from '../components/erpUi.jsx';
 import { R, num, woCost, meterUnit, WO_TYPES } from '../erp/seed.js';
 
 const tone = (s) => ({

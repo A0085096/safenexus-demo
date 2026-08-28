@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import {
   ClipboardCheck, CircleCheck, Truck, AlertTriangle, Box, BarChart3, Table2, RefreshCw,
-  BadgeCheck, Wrench, Clock, UserX, Car, CarFront, UserPlus, FileText,
-  Route, Coins, Fuel, Percent, ShieldAlert, Receipt, Package, CircleDot, Banknote,
+  BadgeCheck, Wrench, Clock, UserX, Car, CarFront, UserPlus, FileText, Route, Coins, Fuel,
+  ShieldAlert, Receipt, Package, CircleDot, Banknote,
 } from 'lucide-react';
 import {
   MONTHLY, SITE_SERIES, SITE_MONTHS, SITE_PERF, KPIS, siteName,
 } from '../data.js';
 import { useStore } from '../store.jsx';
 import { SERIES, SEQ, OUTCOME, nf, targetTone, targetLabel } from '../theme.js';
-import { Kpis, Money, Signed, Breakdown } from '../components/erpUi.jsx';
+import { Kpis, Breakdown } from '../components/erpUi.jsx';
 import {
-  R, num, until, vehSpend, vehCpk, woCost, jobMargin, invDue, invState, stockValue,
+  R, num, until, vehSpend, vehCpk, jobMargin, invDue, invState,
 } from '../erp/seed.js';
 import {
   Panel, ChartCard, Seg, Legend, Btn, Badge, Avatar, ListRow, SecHead, RichText,
@@ -33,8 +33,6 @@ const AUDIT_ICON = {
   assign: [Car, 'green'], unassign: [CarFront, 'gold'], user: [UserPlus, 'purple'],
   insp: [ClipboardCheck, 'blue'], warn: [AlertTriangle, 'red'],
 };
-
-
 
 /* ── KPI tile ─────────────────────────────────────────────────── */
 function Kpi({ k }) {
