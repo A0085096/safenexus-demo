@@ -72,8 +72,35 @@ mock-up, and every action writes its own audit entry.
 - **Operators** — the people register read the way a fleet reads it:
   what they may legally operate, how well they operate it, their hours
   against the 60-hour ceiling and their behaviour score.
-- **Inspections** — the original module, unchanged: sheets, defects and
-  the form register, with the go-but concession clock.
+- **Inspections** — the original module: sheets, defects and the form
+  register, with the go-but concession clock.
+- **Form designer** — the form is the safety case, so this is the most
+  consequential screen on the platform. Three modes: **Design** edits the
+  sections, their severities, their conditions and their checks;
+  **Paper preview** renders exactly what prints for the clipboard in the
+  yard — black masthead, hand-filled header boxes, the NO GO / GO-BUT
+  legend, the operator's declaration and the colour bands that carry the
+  meaning; **Settings** holds the rules the runner enforces, what the form
+  applies to, the sign-off chain and the declaration. A published form is
+  read-only: editing one in place would silently rewrite what every past
+  sheet meant, so a change opens a new revision and the captured sheets
+  keep the one they were signed on.
+- **Shifts** — one row per machine per shift: meter at each end, hours
+  scheduled, worked and lost, and a delay code against every lost hour.
+  Availability and utilisation fall out of those numbers rather than being
+  entered, and a breakdown code is a work order waiting to be raised.
+- **Roster** — people down, days across, one letter per shift. Click a
+  cell to inspect it, double-click to cycle it. The board does not refuse
+  an illegal shift; it flags it and says why — a lapsed certificate, a
+  night running straight into a day, or a week over the hours ceiling —
+  because a planner needs the whole conflict before resolving it. Seven
+  shift patterns generate a roster; coverage shows the days nobody is on.
+- **Timesheets** — built from the roster rather than keyed again, which is
+  the whole argument for having both in one system: the hours somebody is
+  paid for are the hours they were rostered. Normal time to forty-five
+  hours, overtime at time and a half beyond it and on Sundays, a night
+  allowance per hour, standby at a fraction. A week over the ceiling
+  cannot be approved.
 - **Workshop** — job cards with labour hours, parts issued and what the
   job actually cost, plus a service planner that forecasts from each
   machine's own running rate rather than a fleet average.
@@ -137,6 +164,10 @@ The demo is worth clicking because the guards are real:
 - A supplier invoice in query cannot be paid.
 - An incident cannot be closed with investigation actions outstanding.
 - A part cannot be issued in a quantity the bin does not hold.
+- A published inspection form cannot be edited — only revised.
+- A week of timesheets cannot be approved while anyone on it is over sixty
+  hours, because approving it turns a rostering mistake into a payroll
+  record.
 - A meter reading cannot go backwards — a fill that says otherwise is
   captured as an exception rather than rejected, because the fill
   happened either way and somebody has to explain it.
@@ -179,7 +210,12 @@ src/
   charts/                recharts wrappers, one hand-rolled isometric field, one tooltip shape
   screens/               one file per module
   auth/AuthShell.jsx     sign in, register, forgot and reset password, lock screen
-  inspection/            the forms and the working sheet
+  erp/workforce.js       shift definitions, roster patterns, delay codes, timesheet maths
+  inspection/
+    templates.js         the forms, as sections of items with severities
+    FormDesigner.jsx     design, paper preview and settings
+    FormPreview.jsx      the sheet as it prints for the clipboard
+    InspectionRunner.jsx the working sheet — capture, rules, submission
   store.jsx              the state every module mutates, plus the audit trail
 ```
 

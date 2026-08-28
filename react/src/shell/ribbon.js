@@ -3,13 +3,14 @@ import {
   History, Printer, Download, Mail, Share2, Pencil, IdCard, XCircle, Award, LayoutGrid,
   Receipt, CreditCard, FilterX, UserPlus, Lock, UserX, Car, Network, CarFront, UsersRound,
   BadgeCheck, CalendarClock, Upload, Wrench, AlertTriangle, RotateCcw, Eye, CircleAlert,
-  CheckSquare, ArrowUp, MessageSquare, X, CalendarDays, Repeat, FileCheck2, Search, Filter,
+  CheckSquare, X, CalendarDays, Repeat, FileCheck2, Search, Filter,
   Calendar, User, FileText, SlidersHorizontal, Palette, Globe, Plug, KeyRound, Smartphone,
   Database, PanelLeft, Rows3, Columns3, ChevronsUp, Maximize, Settings, Info, Clock,
   TrendingUp, PieChart, BarChart3, Percent, Trash2, Files, Play, Package, CheckCircle2,
   Route, MapPin, Fuel, CircleDot, Ruler, Coins, Wallet, Scale, ShoppingCart, PackageCheck,
   PackageMinus, Send, Banknote, CircleDollarSign, ShieldAlert, HeartPulse, Radio,
-  Signal, Zap, Landmark, Timer, Server, UserCog, Boxes, FileWarning, ClipboardList, Undo2,
+  Signal, Zap, Landmark, Timer, Server, UserCog, Boxes, Undo2,
+  Layers, PenTool, ArrowLeftRight, Moon, Activity, ChevronsUpDown, Plus,
 } from 'lucide-react';
 
 /* ══════════════════════════════════════════════════════════════
@@ -23,6 +24,10 @@ export const TABS = [
   { key: 'users', label: 'Operators' },
   { key: 'dispatch', label: 'Dispatch' },
   { key: 'inspections', label: 'Inspections' },
+  { key: 'designer', label: 'Form designer' },
+  { key: 'shifts', label: 'Shifts' },
+  { key: 'roster', label: 'Roster' },
+  { key: 'timesheets', label: 'Timesheets' },
   { key: 'workshop', label: 'Workshop' },
   { key: 'parts', label: 'Parts' },
   { key: 'tyres', label: 'Tyres' },
@@ -47,6 +52,10 @@ export const TABS = [
 
 export const CTX = {
   inspections: ['Inspection tools', 'Pre-use sheets'],
+  designer: ['Form tools', 'Form designer'],
+  shifts: ['Shift tools', 'Shift log'],
+  roster: ['Roster tools', 'Shift planning'],
+  timesheets: ['Payroll tools', 'Timesheets'],
   fleet: ['Vehicle tools', 'Fleet register'],
   workshop: ['Workshop tools', 'Job cards'],
   users: ['Operator tools', 'People'],
@@ -67,6 +76,28 @@ export const CTX = {
 };
 
 export const RIBBON = {
+  designer: [
+    { label: 'Form', lg: [[FileCheck2, 'New\nform', 'newForm'], [Files, 'Duplicate', 'duplicateForm']], sm: [[Play, 'Use this form', 'startInspection'], [CheckCircle2, 'Publish', 'publishForm'], [Repeat, 'New revision', 'reviseForm']] },
+    { label: 'Design', lg: [[Layers, 'Add a\nsection', 'addSection'], [Plus, 'Add a\ncheck', 'addItem']], sm: [[PenTool, 'Paper preview', 'designerView:paper'], [SlidersHorizontal, 'Form settings', 'designerView:settings'], [Trash2, 'Delete the draft', 'deleteForm']] },
+    { label: 'Register', lg: [[ClipboardCheck, 'Form\nregister', 'inspView:forms']], sm: [[History, 'Revision history', 'goto:audit'], [Eye, 'Sheets captured', 'inspView:sheets']] },
+    { label: 'Output', lg: [[Printer, 'Print the\nsheet', 'print']], sm: [[Download, 'Export CSV', 'export'], [Mail, 'Send for review', 'email']] },
+  ],
+  shifts: [
+    { label: 'Shift', lg: [[CalendarPlus, 'Log a\nshift', 'dlg:shift'], [Timer, 'Record a\ndelay', 'recordDelay']], sm: [[CheckCircle2, 'Sign off the shift', 'signShift'], [Gauge, 'Update the meter', 'logOdo'], [Truck, 'Open the machine', 'openShiftVehicle']] },
+    { label: 'Analysis', lg: [[AlertTriangle, 'Delay\nanalysis', 'shiftsView:delays'], [TrendingUp, 'Availability\ntrend', 'shiftsView:trend']], sm: [[Activity, 'Utilisation', 'shiftsView:trend'], [Wrench, 'Raise a work order', 'raiseWOFromShift'], [Coins, 'Cost per hour', 'goto:costs']] },
+    { label: 'Output', lg: [[Printer, 'Print the\nlog', 'print']], sm: [[Download, 'Export CSV', 'export'], [FileText, 'Shift report', 'report:Shift report']] },
+  ],
+  roster: [
+    { label: 'Roster', lg: [[CalendarDays, 'Generate\na roster', 'dlg:generateRoster'], [Repeat, 'Shift\npatterns', 'rosterView:patterns']], sm: [[ArrowLeftRight, 'Swap a shift', 'swapShift'], [CalendarPlus, 'Book leave', 'bookLeave'], [Trash2, 'Clear the roster', 'dlg:clearRoster']] },
+    { label: 'Cover', lg: [[Users, 'Coverage\nand gaps', 'rosterView:coverage'], [AlertTriangle, 'Conflicts', 'rosterConflicts']], sm: [[UserPlus, 'New operator', 'dlg:user'], [Truck, 'Allocate a machine', 'assignUserVehicle'], [Award, 'Book training', 'bookTraining']] },
+    { label: 'Records', lg: [[Timer, 'Timesheets', 'goto:timesheets']], sm: [[ClipboardCheck, 'Shift log', 'goto:shifts'], [BadgeCheck, 'Certificates', 'complianceView:operators']] },
+    { label: 'Output', lg: [[Printer, 'Print the\nroster', 'print']], sm: [[Download, 'Export CSV', 'export'], [Mail, 'Publish to the crews', 'email']] },
+  ],
+  timesheets: [
+    { label: 'Week', lg: [[CheckCircle2, 'Approve\nthe week', 'approveWeek'], [Undo2, 'Reopen\nthe week', 'reopenWeek']], sm: [[ChevronsUpDown, 'How it is calculated', 'timesheetsView:rates'], [CalendarDays, 'Open the roster', 'goto:roster'], [Users, 'Open the person', 'openTimesheetPerson']] },
+    { label: 'Payroll', lg: [[Banknote, 'Send to\npayroll', 'sendPayroll']], sm: [[Moon, 'Night allowance', 'timesheetsView:rates'], [Clock, 'Overtime', 'timesheetsView:rates'], [SlidersHorizontal, 'Rates and rules', 'goto:settings']] },
+    { label: 'Output', lg: [[Printer, 'Print the\nsheet', 'print']], sm: [[Download, 'Export CSV', 'export'], [FileText, 'Payroll report', 'report:Payroll report']] },
+  ],
   dispatch: [
     { label: 'Jobs', lg: [[Route, 'Plan a\njob', 'dlg:planJob'], [Play, 'Dispatch', 'jobStatus:In transit']], sm: [[CheckCircle2, 'Mark delivered', 'jobStatus:Delivered'], [X, 'Cancel the job', 'jobStatus:Cancelled'], [FileCheck2, 'Capture the POD', 'recordPod']] },
     { label: 'Planning', lg: [[MapPin, 'Plan\nboard', 'dispatchView:board'], [Percent, 'Lane\nprofitability', 'dispatchView:lanes']], sm: [[Truck, 'Open the vehicle', 'openJobVehicle'], [User, 'Open the operator', 'openJobDriver'], [Radio, 'Track it', 'goto:telematics']] },
@@ -137,7 +168,7 @@ export const RIBBON = {
   inspections: [
     { label: 'Capture', lg: [[ClipboardCheck, 'Start\ninspection', 'startInspection'], [FileCheck2, 'Choose\nform', 'inspView:forms']], sm: [[CheckSquare, 'Sign off', 'signOff'], [Eye, 'Open sheet', 'openInspection'], [X, 'Return to operator', 'rejectInspection']] },
     { label: 'Defects', lg: [[AlertTriangle, 'Defect\nregister', 'inspView:defects'], [Clock, 'Lapsed\nconcessions', 'lapsedConcessions']], sm: [[CheckSquare, 'Sign concession', 'signConcession'], [Wrench, 'Raise work order', 'raiseWO'], [CheckCircle2, 'Close defect', 'closeDefect']] },
-    { label: 'Forms', lg: [[FileCheck2, 'Form\nregister', 'inspView:forms']], sm: [[Repeat, 'New revision', 'reviseForm'], [CheckCircle2, 'Publish form', 'publishForm'], [Files, 'Duplicate', 'duplicateForm']] },
+    { label: 'Forms', lg: [[Layers, 'Form\ndesigner', 'goto:designer'], [FileCheck2, 'Form\nregister', 'inspView:forms']], sm: [[Repeat, 'New revision', 'reviseForm'], [CheckCircle2, 'Publish form', 'publishForm'], [Files, 'Duplicate', 'duplicateForm']] },
     { label: 'Output', lg: [[Printer, 'Print\nsheet', 'print']], sm: [[Download, 'Export CSV', 'export'], [Mail, 'Email the sheet', 'email']] },
   ],
   fleet: [
@@ -157,7 +188,8 @@ export const RIBBON = {
     { label: 'People', lg: [[UserPlus, 'New\nuser', 'dlg:user'], [Pencil, 'Edit\nuser', 'editUser']], sm: [[IdCard, 'Open record', 'openUser'], [KeyRound, 'Reset password', 'resetPassword'], [ShieldCheck, 'Enforce 2FA', 'enforceMfa']] },
     { label: 'Lifecycle', lg: [[UserX, 'Suspend\nuser', 'suspendUser'], [Trash2, 'Delete\nuser', 'deleteUser']], sm: [[BadgeCheck, 'Reactivate', 'reactivateUser'], [Network, 'Change supervisor', 'editUser'], [Mail, 'Resend invitation', 'resendInvite']] },
     { label: 'Assignment', lg: [[Car, 'Assign\nvehicle', 'assignUserVehicle'], [CarFront, 'Unassign\nvehicle', 'unassignUserVehicle']], sm: [[UsersRound, 'Bulk assign', 'bulkAssign'], [Network, 'Open hierarchy', 'goto:hierarchy'], [Truck, 'Open the vehicle', 'openUserVehicle']] },
-    { label: 'Performance', lg: [[Gauge, 'Behaviour\nscore', 'goto:telematics'], [Route, 'Jobs run', 'goto:dispatch']], sm: [[Timer, 'Hours this week', 'usersView:hours'], [ClipboardCheck, 'Inspection history', 'goto:inspections'], [ShieldAlert, 'Incidents', 'goto:incidents']] },
+    { label: 'Performance', lg: [[Gauge, 'Behaviour\nscore', 'goto:telematics'], [Route, 'Jobs run', 'goto:dispatch']], sm: [[Timer, 'Hours this week', 'goto:timesheets'], [ClipboardCheck, 'Inspection history', 'goto:inspections'], [ShieldAlert, 'Incidents', 'goto:incidents']] },
+    { label: 'Workforce', lg: [[CalendarDays, 'Roster', 'goto:roster'], [Timer, 'Timesheets', 'goto:timesheets']], sm: [[Clock, 'Shift log', 'goto:shifts'], [CalendarPlus, 'Book leave', 'bookLeave'], [Award, 'Book training', 'bookTraining']] },
     { label: 'Certificates', lg: [[BadgeCheck, 'COF\nregister', 'goto:compliance']], sm: [[CalendarClock, 'Expiry reminders', 'alerts'], [Files, 'Documents held', 'goto:documents'], [Upload, 'Upload certificate', 'upload']] },
     { label: 'Output', lg: [[Printer, 'Print\nlist', 'print']], sm: [[Download, 'Export CSV', 'export'], [Mail, 'Email selected', 'email']] },
   ],
@@ -214,6 +246,8 @@ export const JUMPS = [
   ['Certificates expiring', Files, 'documentsView:expiring'],
   ['Open incidents', ShieldAlert, 'goto:incidents'],
   ['Overdue invoices', Receipt, 'goto:billing'],
+  ['Shifts to sign off', Timer, 'goto:shifts'],
+  ['Roster conflicts', CalendarDays, 'rosterConflicts'],
   ['Awaiting approval', CheckSquare, 'adminView:approvals'],
   ['Audit trail', History, 'goto:audit'],
 ];
@@ -268,5 +302,7 @@ export const MESSAGES = {
   licences: 'Licence renewals due this month are listed.',
   resendInvite: 'Invitation resent.',
   changeSupervisor: 'Supervisor changed.',
+  bookTraining: 'Training booked — the roster shows it as a T shift.',
+  sendPayroll: 'Timesheet file written for payroll.',
   upload: 'Certificate uploaded and queued for verification.',
 };

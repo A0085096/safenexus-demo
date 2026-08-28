@@ -2,10 +2,16 @@ import React, { createContext, useContext, useMemo, useReducer, useState, useCal
 import { TENANT, USERS, FLEET, INSPECTIONS, DEFECTS, WORK_ORDERS, AUDIT } from './data.js';
 import { TEMPLATES } from './inspection/templates.js';
 import { buildErp, invTotal, invPaid, poTotal, R, num, fmtDate, shift } from './erp/seed.js';
+import {
+  buildShifts, buildRoster, rosterKey, SHIFT_DEFS, timesheetFor, mondayOf, TODAY_ISO,
+} from './erp/workforce.js';
 
 /* The ERP data set is assembled once, in dependency order, from the
    hand-written core in data.js. Everything below mutates it. */
 const ERP = buildErp({ fleet: FLEET, users: USERS, workOrders: WORK_ORDERS });
+/* the workforce reads the fleet and the people the ERP just built */
+const SHIFT_LOG = buildShifts(ERP.vehicles, ERP.people);
+const ROSTER = buildRoster(ERP.people);
 
 /* ══════════════════════════════════════════════════════════════
    One store for everything the modules mutate. Every action that
@@ -93,6 +99,12 @@ const initial = {
   integrations: ERP.integrations,
   roles: ERP.roles,
   approvals: ERP.approvals,
+
+  /* ── the workforce ───────────────────────────────────────── */
+  shifts: SHIFT_LOG,
+  roster: ROSTER,
+  /* weeks whose timesheets have been approved, keyed by Monday */
+  approvedWeeks: [],
   audit: AUDIT.map((a, i) => ({
     ...a,
     id: 'AUD-' + (3990 + i),
@@ -239,6 +251,151 @@ function reducer(state, a) {
       return audit(s, 'assign', `**${a.by}** moved work order **${a.ref}** to ${a.status.toLowerCase()} — ${w?.vehicle}`,
         'Workshop', { entity: a.ref, actor: a.by });
     }
+    /* ══════════════════════════════════════════════════════════
+       The form designer.
+
+       A form is the safety case in a document, so every edit to one
+       is audited the same way a defect or a work order is — and a
+       published form cannot be edited in place. Changing anything on
+       a published form would silently change what past sheets meant,
+       so the designer opens a new revision instead and the completed
+       sheets keep the revision they were captured on.
+       ══════════════════════════════════════════════════════════════ */
+    case 'PATCH_TEMPLATE': {
+      const t = state.templates.find((x) => x.id === a.id);
+      const s = {
+        ...state,
+        templates: state.templates.map((x) => (x.id === a.id ? { ...x, ...a.patch, updated: today() } : x)),
+      };
+      return a.silent ? s : audit(s, 'user',
+        `**${a.by}** changed ${a.what} on **${t?.code}** Rev ${t?.revision}`,
+        'Inspection form', { entity: a.id, actor: a.by });
+    }
+    case 'ADD_TEMPLATE': {
+      const s = { ...state, templates: [...state.templates, a.template] };
+      return audit(s, 'user',
+        `**${a.by}** created **${a.template.code}** — ${a.template.name}, opened as a draft`,
+        'Inspection form', { entity: a.template.id, actor: a.by });
+    }
+    case 'DUPLICATE_TEMPLATE': {
+      const t = state.templates.find((x) => x.id === a.id);
+      if (!t) return state;
+      const copy = {
+        ...t,
+        id: a.newId,
+        name: `${t.name} (copy)`,
+        code: `${t.code}-C`,
+        status: 'Draft',
+        revision: 1,
+        usedThisMonth: 0,
+        updated: today(),
+        sections: t.sections.map((sec, i) => ({
+          ...sec,
+          id: `${a.newId}S${i}`,
+          items: sec.items.map((it, j) => ({ ...it, id: `${a.newId}S${i}I${j}` })),
+        })),
+      };
+      const s = { ...state, templates: [...state.templates, copy] };
+      return audit(s, 'user', `**${a.by}** duplicated **${t.code}** as a draft`,
+        'Inspection form', { entity: a.newId, actor: a.by });
+    }
+    case 'DELETE_TEMPLATE': {
+      const t = state.templates.find((x) => x.id === a.id);
+      const s = { ...state, templates: state.templates.filter((x) => x.id !== a.id) };
+      return audit(s, 'user', `**${a.by}** deleted the draft form **${t?.code}** — ${t?.name}`,
+        'Inspection form', { entity: a.id, actor: a.by, severity: 'Warning' });
+    }
+    case 'ADD_SECTION': {
+      const t = state.templates.find((x) => x.id === a.id);
+      const s = {
+        ...state,
+        templates: state.templates.map((x) => (x.id === a.id
+          ? { ...x, updated: today(), sections: [...x.sections, a.section] } : x)),
+      };
+      return audit(s, 'user', `**${a.by}** added a section to **${t?.code}**`,
+        'Inspection form', { entity: a.id, actor: a.by });
+    }
+    case 'PATCH_SECTION': {
+      const t = state.templates.find((x) => x.id === a.id);
+      const sec = t?.sections.find((x) => x.id === a.sectionId);
+      const s = {
+        ...state,
+        templates: state.templates.map((x) => (x.id === a.id
+          ? { ...x, updated: today(), sections: x.sections.map((y) => (y.id === a.sectionId ? { ...y, ...a.patch } : y)) }
+          : x)),
+      };
+      /* only a severity change is worth a line in the trail: it is
+         the difference between grounding a machine and not */
+      return a.patch.severity && a.patch.severity !== sec?.severity
+        ? audit(s, 'warn',
+          `**${a.by}** changed **${sec?.title}** on ${t?.code} from ${sec?.severity} to ${a.patch.severity}`,
+          'Inspection form', { entity: a.id, actor: a.by, severity: 'Warning' })
+        : s;
+    }
+    case 'MOVE_SECTION': {
+      const t = state.templates.find((x) => x.id === a.id);
+      if (!t) return state;
+      const arr = [...t.sections];
+      const j = a.index + a.dir;
+      if (j < 0 || j >= arr.length) return state;
+      [arr[a.index], arr[j]] = [arr[j], arr[a.index]];
+      return {
+        ...state,
+        templates: state.templates.map((x) => (x.id === a.id ? { ...x, sections: arr, updated: today() } : x)),
+      };
+    }
+    case 'DELETE_SECTION': {
+      const t = state.templates.find((x) => x.id === a.id);
+      const sec = t?.sections.find((x) => x.id === a.sectionId);
+      const s = {
+        ...state,
+        templates: state.templates.map((x) => (x.id === a.id
+          ? { ...x, updated: today(), sections: x.sections.filter((y) => y.id !== a.sectionId) } : x)),
+      };
+      return audit(s, 'warn',
+        `**${a.by}** removed **${sec?.title}** (${sec?.items.length || 0} checks) from ${t?.code}`,
+        'Inspection form', { entity: a.id, actor: a.by, severity: 'Warning' });
+    }
+    case 'ADD_ITEM':
+      return {
+        ...state,
+        templates: state.templates.map((x) => (x.id === a.id
+          ? {
+            ...x,
+            updated: today(),
+            sections: x.sections.map((y) => (y.id === a.sectionId
+              ? { ...y, items: [...y.items, { id: 'I' + Date.now() + y.items.length, label: 'New check item' }] }
+              : y)),
+          }
+          : x)),
+      };
+    case 'PATCH_ITEM':
+      return {
+        ...state,
+        templates: state.templates.map((x) => (x.id === a.id
+          ? {
+            ...x,
+            updated: today(),
+            sections: x.sections.map((y) => (y.id === a.sectionId
+              ? { ...y, items: y.items.map((i) => (i.id === a.itemId ? { ...i, label: a.label } : i)) }
+              : y)),
+          }
+          : x)),
+      };
+    case 'DELETE_ITEM':
+      return {
+        ...state,
+        templates: state.templates.map((x) => (x.id === a.id
+          ? {
+            ...x,
+            updated: today(),
+            sections: x.sections.map((y) => (y.id === a.sectionId
+              ? { ...y, items: y.items.filter((i) => i.id !== a.itemId) }
+              : y)),
+          }
+          : x)),
+      };
+
     case 'PUBLISH_TEMPLATE': {
       const s = {
         ...state,
@@ -651,6 +808,132 @@ function reducer(state, a) {
         'Scheduled job', { entity: a.name, actor: a.by });
     }
 
+    /* ══════════════════════════════════════════════════════════
+       Shifts — what actually happened on the machine.
+       ══════════════════════════════════════════════════════════ */
+    case 'LOG_SHIFT': {
+      let s = { ...state, shifts: [a.shift, ...state.shifts] };
+      /* the meter at the end of the shift is the meter, full stop —
+         it is read off the machine, not typed from memory */
+      if (a.shift.meterEnd) s = patchVehicle(s, a.shift.vehicle, { km: a.shift.meterEnd });
+      return audit(s, 'insp',
+        `**${a.by}** logged **${a.shift.ref}** — ${a.shift.vehicle} on ${a.shift.shift} shift, ${a.shift.worked} h worked, ${a.shift.lost} h lost`,
+        'Shift log', { entity: a.shift.ref, actor: a.by });
+    }
+    case 'SIGN_SHIFT': {
+      const sh = state.shifts.find((x) => x.ref === a.ref);
+      const s = { ...state, shifts: state.shifts.map((x) => (x.ref === a.ref ? { ...x, signedOff: true, signedBy: a.by } : x)) };
+      return audit(s, 'insp',
+        `**${a.by}** signed off **${a.ref}** — ${sh?.vehicle}, ${sh?.worked} h at ${sh?.availability}% availability`,
+        'Shift log', { entity: a.ref, actor: a.by });
+    }
+    case 'ADD_DELAY': {
+      const sh = state.shifts.find((x) => x.ref === a.ref);
+      if (!sh) return state;
+      const delays = [...sh.delays, a.delay];
+      const lost = +(delays.reduce((x, d) => x + d.minutes, 0) / 60).toFixed(1);
+      const worked = Math.max(0, +(sh.scheduled - lost).toFixed(1));
+      const s = {
+        ...state,
+        shifts: state.shifts.map((x) => (x.ref === a.ref ? {
+          ...x,
+          delays,
+          lost,
+          worked,
+          availability: Math.round(((x.scheduled - lost) / x.scheduled) * 100),
+          utilisation: Math.round((worked / Math.max(0.1, x.scheduled - lost)) * 100),
+        } : x)),
+      };
+      return audit(s, 'warn',
+        `**${a.by}** recorded ${a.delay.minutes} minutes lost on **${a.ref}** — ${a.delay.reason}`,
+        'Shift delay', { entity: a.ref, actor: a.by, severity: 'Warning' });
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       Roster — who is meant to be where.
+       ══════════════════════════════════════════════════════════ */
+    case 'SET_SHIFT': {
+      const s = { ...state, roster: { ...state.roster, [rosterKey(a.code, a.date)]: a.shift } };
+      return a.silent ? s : audit(s, 'assign',
+        `**${a.by}** put **${a.name}** on ${SHIFT_DEFS[a.shift]?.label.toLowerCase()} for ${fmtDate(a.date)}`,
+        'Roster', { entity: a.code, actor: a.by });
+    }
+    case 'SWAP_SHIFT': {
+      const first = state.roster[rosterKey(a.a, a.date)] || 'O';
+      const second = state.roster[rosterKey(a.b, a.date)] || 'O';
+      const s = {
+        ...state,
+        roster: { ...state.roster, [rosterKey(a.a, a.date)]: second, [rosterKey(a.b, a.date)]: first },
+      };
+      return audit(s, 'assign',
+        `**${a.by}** swapped the ${fmtDate(a.date)} shift between **${a.aName}** and **${a.bName}**`,
+        'Roster', { entity: a.a, actor: a.by });
+    }
+    case 'BOOK_LEAVE': {
+      const roster = { ...state.roster };
+      for (let i = 0; i < a.days; i += 1) {
+        const d = new Date(new Date(a.from + 'T00:00:00').getTime() + i * 86400000).toISOString().slice(0, 10);
+        roster[rosterKey(a.code, d)] = a.kind === 'Training' ? 'T' : 'L';
+      }
+      const s = { ...state, roster };
+      return audit(s, 'user',
+        `**${a.by}** booked ${a.days} day(s) of ${a.kind.toLowerCase()} for **${a.name}** from ${fmtDate(a.from)}`,
+        'Roster', { entity: a.code, actor: a.by });
+    }
+    case 'GENERATE_ROSTER': {
+      const roster = { ...state.roster };
+      let placed = 0;
+      a.crew.forEach((person, i) => {
+        const offset = i % a.pattern.cycle.length;
+        for (let k = 0; k < a.days; k += 1) {
+          const d = new Date(new Date(a.from + 'T00:00:00').getTime() + k * 86400000).toISOString().slice(0, 10);
+          /* leave already booked survives a regeneration — that is
+             somebody's holiday, not a gap in the pattern */
+          if (a.keepLeave && roster[rosterKey(person.code, d)] === 'L') continue;
+          roster[rosterKey(person.code, d)] = a.pattern.cycle[(k + offset) % a.pattern.cycle.length];
+          placed += 1;
+        }
+      });
+      const s = { ...state, roster };
+      return audit(s, 'user',
+        `**${a.by}** generated ${a.days} days of roster for ${a.crew.length} people on “${a.pattern.name}” — ${placed} shifts placed`,
+        'Roster', { entity: a.pattern.name, actor: a.by, severity: 'Warning' });
+    }
+    case 'CLEAR_ROSTER': {
+      const roster = { ...state.roster };
+      let cleared = 0;
+      a.crew.forEach((person) => {
+        for (let k = 0; k < a.days; k += 1) {
+          const d = new Date(new Date(a.from + 'T00:00:00').getTime() + k * 86400000).toISOString().slice(0, 10);
+          const key = rosterKey(person.code, d);
+          if (a.keepLeave && roster[key] === 'L') continue;
+          if (roster[key] && roster[key] !== 'O') cleared += 1;
+          roster[key] = 'O';
+        }
+      });
+      const s = { ...state, roster };
+      return audit(s, 'warn',
+        `**${a.by}** cleared ${cleared} rostered shift(s) across ${a.crew.length} people from ${fmtDate(a.from)}`,
+        'Roster', { entity: 'roster', actor: a.by, severity: 'Warning' });
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       Timesheets — what the roster adds up to.
+       ══════════════════════════════════════════════════════════ */
+    case 'APPROVE_WEEK': {
+      if (state.approvedWeeks.includes(a.week)) return state;
+      const s = { ...state, approvedWeeks: [...state.approvedWeeks, a.week] };
+      return audit(s, 'user',
+        `**${a.by}** approved the timesheets for the week of ${fmtDate(a.week)} — ${a.people} people, ${a.hours} hours, ${R(a.pay)}`,
+        'Timesheets', { entity: a.week, actor: a.by, severity: 'Warning' });
+    }
+    case 'REOPEN_WEEK': {
+      const s = { ...state, approvedWeeks: state.approvedWeeks.filter((w) => w !== a.week) };
+      return audit(s, 'warn',
+        `**${a.by}** reopened the timesheets for the week of ${fmtDate(a.week)}`,
+        'Timesheets', { entity: a.week, actor: a.by, severity: 'Warning' });
+    }
+
     case 'SET_SETTINGS': {
       const changed = Object.keys(a.patch).filter((k) => state.settings[k] !== a.patch[k]);
       const s = { ...state, settings: { ...state.settings, ...a.patch } };
@@ -683,6 +966,7 @@ export function StoreProvider({ children, me, flash }) {
     vehicle: null, user: null, inspection: null, defect: null, company: null,
     job: null, fuel: null, tyre: null, part: null, po: null, supplierInvoice: null,
     incident: null, invoice: null, document: null, workOrder: null,
+    shift: null, rosterCell: null,
   });
   const [inspView, setInspView] = useState('sheets');   /* 'sheets' | 'defects' | 'forms' — the reading pane follows it */
   /* screens that carry more than one register keep their own sub-view */
@@ -719,6 +1003,7 @@ export function StoreProvider({ children, me, flash }) {
     incident: state.incidents.find((x) => x.ref === selection.incident) || null,
     invoice: state.invoices.find((x) => x.ref === selection.invoice) || null,
     document: state.documents.find((x) => x.ref === selection.document) || null,
+    shiftRow: state.shifts.find((x) => x.ref === selection.shift) || null,
     set: (patch, section) => dispatch({ type: 'SET_SETTINGS', patch, section, by: me.name }),
     newRef: () => String(2120353 + state.inspections.length),
     newId: ref,

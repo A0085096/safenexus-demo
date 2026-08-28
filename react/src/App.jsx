@@ -11,11 +11,12 @@ import { Dialog } from './components/ui.jsx';
 import { VehiclePane, InspectionPane, DefectPane, UserPane, WorkOrderPane, FormPane } from './components/panes.jsx';
 import {
   JobPane, FuelPane, TyrePane, PartPane, POPane, IncidentPane, InvoicePane, DocumentPane,
+  ShiftPane,
 } from './components/erpPanes.jsx';
 import Toasts from './components/Toasts.jsx';
 import AuthShell, { LockScreen } from './auth/AuthShell.jsx';
 import InspectionRunner from './inspection/InspectionRunner.jsx';
-import { templateFor } from './inspection/templates.js';
+import { templateFor, blankTemplate } from './inspection/templates.js';
 import { StoreProvider, useStore } from './store.jsx';
 import { siteName, SITES } from './data.js';
 
@@ -41,11 +42,18 @@ import Incidents from './screens/Incidents.jsx';
 import Documents from './screens/Documents.jsx';
 import Contracts from './screens/Contracts.jsx';
 import Admin from './screens/Admin.jsx';
+import Shifts from './screens/Shifts.jsx';
+import RosterScreen from './screens/Roster.jsx';
+import Timesheets from './screens/Timesheets.jsx';
+import FormDesigner from './inspection/FormDesigner.jsx';
 import {
   R, R2, num, shift, fmtDate, until, poTotal, invTotal, invDue, woCost, LANES, CARGO,
   CUSTOMERS, SUPPLIERS, FUEL_SITES, TYRE_BRANDS, TYRE_POS_HEAVY, TYRE_POS_PLANT,
   INCIDENT_TYPES, DOC_TYPES, COST_HEADS, PART_CATS,
 } from './erp/seed.js';
+import {
+  SHIFT_DEFS, PATTERNS, DELAY_CODES, rosterKey, rosterConflicts, mondayOf, isoAdd, TODAY_ISO,
+} from './erp/workforce.js';
 
 const ME = {
   name: 'Kobus van der Merwe', initials: 'KM', role: 'Administrator',
@@ -56,6 +64,7 @@ const ME = {
 const PANE_TABS = {
   fleet: 1, inspections: 1, users: 1, workshop: 1, dispatch: 1, fuel: 1, tyres: 1,
   parts: 1, procurement: 1, incidents: 1, billing: 1, documents: 1, contracts: 1, costs: 1,
+  shifts: 1,
 };
 
 function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
@@ -633,6 +642,140 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         return flash('Rate cards are held per customer and lane — the floor is R 24.00 per kilometre.', { title: 'Rates' });
       case 'download':
         return flash('File downloaded.');
+
+
+      /* ══════════════════════════════════════════════════════
+         The form designer
+         ══════════════════════════════════════════════════════ */
+      case 'designerView': return goTab('designer');
+      case 'newForm': return setDialog('newForm');
+      case 'duplicateForm': {
+        const t = templates.find((x) => x.id === selection.template) || templates[0];
+        if (!need(t, 'a form')) return goTab('designer');
+        const newId = 'TPL-' + String(200 + templates.length);
+        dispatch({ type: 'DUPLICATE_TEMPLATE', id: t.id, newId, by: me.name });
+        select('template', newId);
+        goTab('designer');
+        return flash(`${t.code} duplicated as a draft. Edit it, then publish it.`, { title: 'Form duplicated' });
+      }
+      case 'deleteForm': {
+        const t = templates.find((x) => x.id === selection.template);
+        if (!need(t, 'a form')) return goTab('designer');
+        if (t.status === 'Published') {
+          return flash(`${t.code} is published. A published form is the record behind every sheet captured on it — it cannot be deleted.`,
+            { tone: 'warn', title: 'Published form' });
+        }
+        return setDialog('deleteForm');
+      }
+      case 'addSection': {
+        const t = templates.find((x) => x.id === selection.template) || templates[0];
+        if (!need(t, 'a form')) return goTab('designer');
+        if (t.status === 'Published') {
+          return flash(`${t.code} is published — open a new revision before changing it.`, { tone: 'warn' });
+        }
+        dispatch({
+          type: 'ADD_SECTION', id: t.id, by: me.name,
+          section: { id: 'S' + Date.now(), title: 'New section', severity: 'No Go', condition: null, items: [] },
+        });
+        goTab('designer');
+        return flash('Section added — name it and set its severity in the designer.');
+      }
+      case 'addItem': {
+        const t = templates.find((x) => x.id === selection.template) || templates[0];
+        if (!need(t, 'a form')) return goTab('designer');
+        if (t.status === 'Published') {
+          return flash(`${t.code} is published — open a new revision before changing it.`, { tone: 'warn' });
+        }
+        const last = t.sections[t.sections.length - 1];
+        if (!last) return flash('Add a section first — a check has to live in one.', { tone: 'warn' });
+        dispatch({ type: 'ADD_ITEM', id: t.id, sectionId: last.id });
+        goTab('designer');
+        return flash(`Check added to “${last.title}”.`);
+      }
+
+      /* ══════════════════════════════════════════════════════
+         Shifts
+         ══════════════════════════════════════════════════════ */
+      case 'shiftsView': store.setView('shifts', arg); return goTab('shifts');
+      case 'signShift': {
+        const sh = store.shiftRow;
+        if (!need(sh, 'a shift')) return goTab('shifts');
+        if (sh.signedOff) return flash(`${sh.ref} is already signed off.`, { tone: 'warn' });
+        dispatch({ type: 'SIGN_SHIFT', ref: sh.ref, by: me.name });
+        return flash(`${sh.ref} signed off — ${sh.worked} h worked at ${sh.availability}% availability.`, { title: 'Shift log' });
+      }
+      case 'recordDelay':
+        if (!need(store.shiftRow, 'a shift')) return goTab('shifts');
+        return setDialog('delay');
+      case 'openShiftVehicle':
+        if (!need(store.shiftRow, 'a shift')) return goTab('shifts');
+        select('vehicle', store.shiftRow.vehicle);
+        return goTab('fleet');
+      case 'raiseWOFromShift': {
+        const sh = store.shiftRow;
+        if (!need(sh, 'a shift')) return goTab('shifts');
+        const breakdowns = sh.delays.filter((d) => d.reason.startsWith('Breakdown'));
+        if (!breakdowns.length) {
+          return flash(`${sh.ref} lost no time to a breakdown — there is nothing for the workshop here.`, { tone: 'warn' });
+        }
+        const ref = 'WO-26-' + Math.floor(3500 + Math.random() * 200);
+        dispatch({
+          type: 'RAISE_WO_DIRECT', ref, vehicle: sh.vehicle, site: sh.site,
+          woType: 'Breakdown', assigned: 'On-site workshop',
+          note: `${breakdowns.map((d) => d.reason).join('; ')} on ${sh.ref} — ${breakdowns.reduce((a, d) => a + d.minutes, 0)} minutes lost.`,
+          by: me.name,
+        });
+        select('workOrder', ref);
+        return flash(`${ref} raised against ${sh.vehicle} from ${sh.ref}.`, {
+          title: 'Work order raised',
+          action: { label: 'Open it', onClick: () => goTab('workshop') },
+        });
+      }
+
+      /* ══════════════════════════════════════════════════════
+         Roster
+         ══════════════════════════════════════════════════════ */
+      case 'rosterView': store.setView('roster', arg); return goTab('roster');
+      case 'rosterConflicts': {
+        store.setView('roster', 'board');
+        goTab('roster');
+        const crew = users.filter((u) => u.role === 'Operator' || u.role === 'Supervisor');
+        const window14 = Array.from({ length: 14 }, (_, i) => isoAdd(mondayOf(TODAY_ISO), i));
+        const n = crew.reduce((a, p) => a
+          + window14.filter((d) => rosterConflicts(store.roster, p, d, store.settings).length).length, 0);
+        return flash(n
+          ? `${n} rostered shift(s) in the next fortnight have a conflict — a lapsed certificate, no rest between shifts, or a week over the ceiling.`
+          : 'No rostered shift in the next fortnight has a conflict.',
+        { tone: n ? 'warn' : 'ok', title: 'Roster' });
+      }
+      case 'swapShift': {
+        const cell = selection.rosterCell;
+        if (!need(cell?.date, 'a cell on the roster')) return goTab('roster');
+        return setDialog('swapShift');
+      }
+      case 'bookLeave': {
+        const cell = selection.rosterCell;
+        const who = cell?.code || users.find((u) => u.name === selection.user)?.code;
+        if (!need(who, 'someone on the roster')) return goTab('roster');
+        return setDialog('bookLeave');
+      }
+      case 'openRosterVehicle':
+        select('vehicle', arg);
+        return goTab('fleet');
+      case 'openRosterPerson':
+        select('user', arg);
+        return goTab('users');
+
+      /* ══════════════════════════════════════════════════════
+         Timesheets
+         ══════════════════════════════════════════════════════ */
+      case 'timesheetsView': store.setView('timesheets', arg); return goTab('timesheets');
+      case 'approveWeek':
+      case 'reopenWeek':
+        return goTab('timesheets');
+      case 'openTimesheetPerson':
+        if (arg) select('user', arg);
+        return goTab('users');
 
       /* session */
       case 'signOut': return setSignedOut(true);
@@ -1337,6 +1480,241 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
       },
     },
 
+
+    /* ══════════════════════════════════════════════════════════
+       The form designer
+       ══════════════════════════════════════════════════════════ */
+    newForm: {
+      title: 'New inspection form', submit: 'Create the draft',
+      note: 'A new form opens as a draft with one empty section. It cannot be used to capture a sheet until it is published, and publishing is one-way — after that a change means a new revision.',
+      fields: [
+        [{ k: 'name', l: 'Form name', p: 'Pre-use inspection — water tanker', required: true,
+          hint: 'Everything before an em dash prints as the masthead on the paper sheet.' }],
+        [{ k: 'code', l: 'Form number', p: 'SN-MIN-500', required: true },
+         { k: 'industry', l: 'Industry', options: ['Mining', 'Construction', 'Logistics', 'Agriculture', 'Utilities', 'Government'] }],
+        [{ k: 'basedOn', l: 'Start from', options: ['A blank form', ...templates.map((t) => `${t.code} — ${t.name}`)] }],
+      ],
+      onSubmit: (v) => {
+        const id = 'TPL-' + String(200 + templates.length);
+        const from = v.basedOn === 'A blank form'
+          ? null
+          : templates.find((t) => `${t.code} — ${t.name}` === v.basedOn);
+        const tpl = from
+          ? {
+            ...from,
+            id,
+            name: v.name,
+            code: v.code,
+            industry: v.industry,
+            status: 'Draft',
+            revision: 1,
+            usedThisMonth: 0,
+            sections: from.sections.map((sec, i) => ({
+              ...sec,
+              id: `${id}S${i}`,
+              items: sec.items.map((it, j) => ({ ...it, id: `${id}S${i}I${j}` })),
+            })),
+          }
+          : blankTemplate(id, v.name, v.code, v.industry);
+        dispatch({ type: 'ADD_TEMPLATE', template: tpl, by: me.name });
+        select('template', id);
+        goTab('designer');
+        flash(`${v.code} created as a draft${from ? `, copied from ${from.code}` : ''}.`, { title: 'Form created' });
+      },
+    },
+    deleteForm: (() => {
+      const t = templates.find((x) => x.id === selection.template);
+      return t && {
+        title: `Delete ${t.code}`, submit: 'Delete the draft',
+        note: `${t.name} — ${t.sections.length} sections, ${t.sections.reduce((a, x) => a + x.items.length, 0)} checks. It is a draft and has never been used to capture a sheet, so nothing points at it.`,
+        fields: [[{ k: 'confirm', l: `Type “${t.code}” to confirm`, required: true,
+          validate: (v) => (v.trim().toUpperCase() === t.code.toUpperCase() ? '' : 'That does not match the form number.') }]],
+        onSubmit: () => {
+          dispatch({ type: 'DELETE_TEMPLATE', id: t.id, by: me.name });
+          select('template', templates.find((x) => x.id !== t.id)?.id || null);
+          flash(`${t.code} deleted.`, { tone: 'warn', title: 'Draft removed' });
+        },
+      };
+    })(),
+
+    /* ══════════════════════════════════════════════════════════
+       Shifts
+       ══════════════════════════════════════════════════════════ */
+    shift: {
+      title: 'Log a shift', submit: 'Log it',
+      note: 'The meter reading at the end of the shift becomes the machine’s meter, so it is read off the machine rather than typed from memory. Availability and utilisation are calculated from the hours, not entered.',
+      fields: [
+        [{ k: 'plate', l: 'Machine', options: vehicles.filter((v) => v.cls === 'Plant' || v.cls === 'Heavy').map((v) => `${v.plate} — ${v.type}`) },
+         { k: 'shiftName', l: 'Shift', options: ['A', 'B', 'Night'] }],
+        [{ k: 'date', l: 'Date', type: 'date', required: true },
+         { k: 'operator', l: 'Operator', options: operators.length ? operators : ['—'] }],
+        [{ k: 'meterStart', l: 'Meter at the start', type: 'number', required: true },
+         { k: 'meterEnd', l: 'Meter at the end', type: 'number', required: true }],
+        [{ k: 'worked', l: 'Hours worked', type: 'number', value: '10.5', required: true,
+          validate: (v) => (+v >= 0 && +v <= 12 ? '' : 'A shift is twelve hours — worked time cannot exceed it.') },
+         { k: 'production', l: 'Production', type: 'number', value: '0' }],
+      ],
+      onSubmit: (v) => {
+        const plate = v.plate.split(' — ')[0];
+        const veh = vehicles.find((x) => x.plate === plate) || vehicles[0];
+        const worked = +v.worked || 0;
+        const lost = +(12 - worked).toFixed(1);
+        const ref = 'SHF-26-' + Math.floor(9200 + Math.random() * 300);
+        dispatch({
+          type: 'LOG_SHIFT', by: me.name,
+          shift: {
+            ref, date: v.date || shift(0), shift: v.shiftName,
+            vehicle: plate, fleetNo: veh.fleetNo, type: veh.type, meterType: veh.meterType,
+            site: veh.site, operator: v.operator,
+            operatorCode: users.find((u) => u.name === v.operator)?.code || '—',
+            supervisor: users.find((u) => u.name === v.operator)?.reports || '—',
+            meterStart: +v.meterStart, meterEnd: +v.meterEnd,
+            scheduled: 12, worked, lost, delays: [],
+            production: +v.production || 0,
+            unit: veh.cls === 'Heavy' ? 'Tonnes hauled' : 'Cubic metres moved',
+            availability: Math.round(((12 - lost) / 12) * 100),
+            utilisation: Math.round((worked / Math.max(0.1, 12 - lost)) * 100),
+            signedOff: false, notes: '',
+          },
+        });
+        select('shift', ref);
+        goTab('shifts');
+        flash(`${ref} logged — ${worked} h worked, ${lost} h lost. Record the delays so the lost time has a reason against it.`,
+          { title: 'Shift logged' });
+      },
+    },
+    delay: store.shiftRow && {
+      title: `Record a delay on ${store.shiftRow.ref}`, submit: 'Record it',
+      note: `${store.shiftRow.vehicle} on ${store.shiftRow.shift} shift. Hours lost without a code cannot be argued about at the morning meeting, which is the whole reason the code is compulsory.`,
+      fields: [
+        [{ k: 'code', l: 'Reason', options: DELAY_CODES.map(([c, l]) => `${c} — ${l}`) }],
+        [{ k: 'minutes', l: 'Minutes lost', type: 'number', value: '60', required: true,
+          validate: (v) => (+v > 0 ? '' : 'Enter the minutes lost.') }],
+        [{ k: 'reported', l: 'Time reported', p: '08:20' }, { k: 'repaired', l: 'Time repaired', p: '10:15' }],
+      ],
+      onSubmit: (v) => {
+        const [code, reason] = v.code.split(' — ');
+        dispatch({
+          type: 'ADD_DELAY', ref: store.shiftRow.ref, by: me.name,
+          delay: { code, reason, minutes: +v.minutes, reported: v.reported, repaired: v.repaired },
+        });
+        flash(`${v.minutes} minutes recorded against ${store.shiftRow.ref} — ${reason}.`,
+          { tone: 'warn', title: 'Delay recorded' });
+      },
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       Roster
+       ══════════════════════════════════════════════════════════ */
+    generateRoster: {
+      title: 'Generate a roster', submit: 'Generate',
+      note: 'The pattern is laid over the crew with each person offset by one, so the shifts interlock and the machine is never uncovered. Leave already booked is kept, and conflicts are flagged on the board afterwards rather than silently resolved.',
+      fields: [
+        [{ k: 'pattern', l: 'Shift pattern', options: PATTERNS.map((p) => p.name) }],
+        [{ k: 'siteName', l: 'Crew', options: ['All sites', ...siteOptions] },
+         { k: 'role', l: 'Who', options: ['Operators only', 'Operators and supervisors'] }],
+        [{ k: 'from', l: 'Starting', type: 'date', required: true },
+         { k: 'days', l: 'For how many days', options: ['14', '28', '7'] }],
+        [{ k: 'keepLeave', l: 'Keep booked leave', options: ['Yes', 'No'] }],
+      ],
+      onSubmit: (v) => {
+        const pattern = PATTERNS.find((p) => p.name === v.pattern) || PATTERNS[0];
+        const siteKey = v.siteName === 'All sites' ? null : (SITES.find((x) => x.name === v.siteName) || {}).key;
+        const crew = users.filter((u) => (
+          (v.role === 'Operators only' ? u.role === 'Operator' : u.role === 'Operator' || u.role === 'Supervisor')
+          && (!siteKey || u.site === siteKey)));
+        if (!crew.length) return flash('No one matches that crew.', { tone: 'warn' });
+        const from = v.from || mondayOf(TODAY_ISO);
+        const days = +v.days || 14;
+        dispatch({
+          type: 'GENERATE_ROSTER', by: me.name,
+          crew, pattern, from, days, keepLeave: v.keepLeave === 'Yes',
+        });
+        store.setView('roster', 'board');
+        goTab('roster');
+        /* say what it produced, and whether any of it is illegal */
+        const window = Array.from({ length: days }, (_, i) => isoAdd(from, i));
+        const bad = crew.reduce((a, p) => a + window.filter((d) => {
+          const next = { ...store.roster };
+          return rosterConflicts(next, p, d, store.settings).length;
+        }).length, 0);
+        return flash(
+          `${days} days rostered for ${crew.length} people on “${pattern.name}”.`
+          + (bad ? ` ${bad} shift(s) carry a conflict — check the red dots before publishing it to the crews.` : ''),
+          { tone: bad ? 'warn' : 'ok', title: 'Roster generated' },
+        );
+      },
+    },
+    swapShift: (() => {
+      const cell = selection.rosterCell;
+      const person = cell && users.find((u) => u.code === cell.code);
+      if (!person || !cell.date) return null;
+      const others = users.filter((u) => u.code !== person.code
+        && (u.role === 'Operator' || u.role === 'Supervisor') && u.site === person.site);
+      const mine = store.roster[rosterKey(person.code, cell.date)] || 'O';
+      return {
+        title: `Swap ${person.name}’s shift`, submit: 'Swap them',
+        note: `${fmtDate(cell.date)} — ${person.name} is on ${SHIFT_DEFS[mine].label.toLowerCase()}. Both people keep the other’s shift, and the swap is written to the audit trail with your name on it.`,
+        fields: [[{ k: 'other', l: 'Swap with', options: others.length ? others.map((u) => `${u.name} — ${SHIFT_DEFS[store.roster[rosterKey(u.code, cell.date)] || 'O'].label}`) : ['—'] }]],
+        onSubmit: (v) => {
+          const otherName = v.other.split(' — ')[0];
+          const other = users.find((u) => u.name === otherName);
+          if (!other) return flash('Nobody to swap with on that site.', { tone: 'warn' });
+          dispatch({
+            type: 'SWAP_SHIFT', by: me.name, date: cell.date,
+            a: person.code, aName: person.name, b: other.code, bName: other.name,
+          });
+          return flash(`${person.name} and ${other.name} have swapped their ${fmtDate(cell.date)} shift.`,
+            { title: 'Shift swapped' });
+        },
+      };
+    })(),
+    bookLeave: (() => {
+      const cell = selection.rosterCell;
+      const person = users.find((u) => u.code === cell?.code) || users.find((u) => u.name === selection.user);
+      return person && {
+        title: `Book time off for ${person.name}`, submit: 'Book it',
+        note: 'Booked leave survives a roster regeneration — it is somebody’s holiday, not a gap in the pattern.',
+        fields: [
+          [{ k: 'kind', l: 'Kind', options: ['Leave', 'Training'] },
+           { k: 'days', l: 'How many days', type: 'number', value: '5', required: true,
+             validate: (v) => (+v > 0 && +v <= 60 ? '' : 'Between one and sixty days.') }],
+          [{ k: 'from', l: 'Starting', type: 'date', required: true }],
+        ],
+        onSubmit: (v) => {
+          dispatch({
+            type: 'BOOK_LEAVE', by: me.name, code: person.code, name: person.name,
+            from: v.from || TODAY_ISO, days: +v.days, kind: v.kind,
+          });
+          flash(`${v.days} day(s) of ${v.kind.toLowerCase()} booked for ${person.name} from ${fmtDate(v.from || TODAY_ISO)}.`,
+            { title: 'Booked' });
+        },
+      };
+    })(),
+    clearRoster: {
+      title: 'Clear the roster', submit: 'Clear it',
+      note: 'This wipes rostered shifts across the window. Booked leave can be kept, because a holiday is not a rostering decision.',
+      fields: [
+        [{ k: 'siteName', l: 'Crew', options: ['All sites', ...siteOptions] }],
+        [{ k: 'from', l: 'From', type: 'date', required: true },
+         { k: 'days', l: 'For how many days', options: ['14', '7', '28'] }],
+        [{ k: 'keepLeave', l: 'Keep booked leave', options: ['Yes', 'No'] }],
+      ],
+      onSubmit: (v) => {
+        const siteKey = v.siteName === 'All sites' ? null : (SITES.find((x) => x.name === v.siteName) || {}).key;
+        const crew = users.filter((u) => (u.role === 'Operator' || u.role === 'Supervisor')
+          && (!siteKey || u.site === siteKey));
+        dispatch({
+          type: 'CLEAR_ROSTER', by: me.name, crew,
+          from: v.from || TODAY_ISO, days: +v.days || 14, keepLeave: v.keepLeave === 'Yes',
+        });
+        store.setView('roster', 'board');
+        goTab('roster');
+        flash(`Roster cleared for ${crew.length} people across ${v.days} days.`,
+          { tone: 'warn', title: 'Roster cleared' });
+      },
+    },
+
     reject: inspection && {
       title: `Return #${inspection.ref} to the operator`, submit: 'Return',
       note: 'The operator recaptures the sheet. The rejection and its reason stay on the record.',
@@ -1375,6 +1753,10 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
     documents: <Documents {...props} />,
     contracts: <Contracts {...props} />,
     admin: <Admin {...props} />,
+    designer: <FormDesigner {...props} />,
+    shifts: <Shifts {...props} />,
+    roster: <RosterScreen {...props} />,
+    timesheets: <Timesheets {...props} />,
     view: <Dashboard {...props} />,
   }[tab];
 
@@ -1402,7 +1784,7 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
       <div className="workspace">
         <NavPane hidden={navHidden} company={company} width={navWidth} setWidth={setNavWidth}
           setCompany={(k, name) => { setCompany(k); flash(`Scope set to ${name}.`); }} run={run} />
-        <div className="content" key={tab}>{screen}</div>
+        <div className={'content' + (tab === 'designer' ? ' flush' : '')} key={tab}>{screen}</div>
         {showPane && (
           <>
             <div className="splitter" title="Drag to resize" onMouseDown={paneDrag}
@@ -1424,6 +1806,7 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
               )}
               {tab === 'billing' && <InvoicePane invoice={invoice} run={run} />}
               {tab === 'documents' && <DocumentPane document={doc} run={run} />}
+              {tab === 'shifts' && <ShiftPane shift={store.shiftRow} run={run} />}
               {(tab === 'contracts' || tab === 'costs') && (
                 <VehiclePane vehicle={vehicle} defects={defects} inspections={inspections} run={run} />
               )}

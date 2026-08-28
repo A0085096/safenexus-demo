@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Route, Fuel as FuelIcon, CircleDot, Package, ShoppingCart, ShieldAlert, Receipt, Files,
-  Truck, Wrench, CheckCircle2, XCircle, Play, Printer, Mail, Ruler, Trash2, Send,
+  Truck, Wrench, CheckCircle2, XCircle, Play, Printer, Mail, Ruler, Trash2, Send, Timer,
   PackageCheck, PackageMinus, Banknote, FileCheck2, AlertTriangle, Clock,
   SlidersHorizontal, BadgeCheck, Download, Radio,
 } from 'lucide-react';
@@ -492,6 +492,83 @@ export function DocumentPane({ document: doc, run }) {
         <Btn small icon={Download} onClick={() => run('download')}>Download</Btn>
         <Btn small icon={Mail} onClick={() => run('email')}>Notify the holder</Btn>
         <Btn small icon={Printer} onClick={() => run('print')}>Print</Btn>
+      </Acts>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Shift
+   ══════════════════════════════════════════════════════════════ */
+export function ShiftPane({ shift: sh, run }) {
+  if (!sh) return <Empty icon={Timer} text="Select a shift to work it." />;
+  const breakdowns = sh.delays.filter((d) => d.reason.startsWith('Breakdown'));
+  const open = sh.delays.filter((d) => !d.repaired);
+
+  return (
+    <div style={{ padding: 14 }}>
+      <Head eyebrow={`${fmtDate(sh.date)} · ${sh.shift} shift`} title={sh.ref}
+        badges={<>
+          <Badge tone={sh.availability >= 85 ? 'green' : sh.availability >= 70 ? 'gold' : 'red'}>
+            {sh.availability}% available
+          </Badge>
+          {sh.signedOff ? <Badge tone="green">Signed off</Badge> : <Badge tone="gold">Awaiting sign-off</Badge>}
+          {breakdowns.length > 0 && <Badge tone="red">{breakdowns.length} breakdown{breakdowns.length === 1 ? '' : 's'}</Badge>}
+        </>} />
+
+      {open.length > 0 && (
+        <div className="auth-err" style={{ marginTop: 12 }}>
+          <AlertTriangle size={15} />
+          <span>
+            {open.length} delay{open.length === 1 ? '' : 's'} on this shift {open.length === 1 ? 'has' : 'have'} no
+            repaired time against {open.length === 1 ? 'it' : 'them'}. Until that is captured, the machine is
+            counted as still down.
+          </span>
+        </div>
+      )}
+
+      <SecHead>The shift</SecHead>
+      <KV k="Machine" v={<button className="link" style={{ fontFamily: 'var(--num)' }} onClick={() => run('openShiftVehicle')}>{sh.vehicle}</button>} />
+      <KV k="Fleet number" v={`${sh.fleetNo} · ${sh.type}`} />
+      <KV k="Operator" v={sh.operator} />
+      <KV k="Supervisor" v={sh.supervisor} />
+      <KV k="Site" v={siteName(sh.site)} />
+
+      <SecHead note="read off the machine at each end">Meter</SecHead>
+      <KV k="At the start" v={num(sh.meterStart)} />
+      <KV k="At the end" v={<b style={{ fontFamily: 'var(--num)' }}>{num(sh.meterEnd)}</b>} />
+      <KV k="Moved" v={`${num(sh.meterEnd - sh.meterStart)} ${sh.meterType === 'hours' ? 'hours' : 'km'}`} />
+
+      <SecHead note="availability and utilisation fall out of these">Hours</SecHead>
+      <KV k="Scheduled" v={`${sh.scheduled} h`} />
+      <KV k="Worked" v={<b style={{ fontFamily: 'var(--num)' }}>{sh.worked} h</b>} />
+      <KV k="Lost" v={<span style={{ fontWeight: 600, color: sh.lost > 2 ? 'var(--red)' : 'var(--text)' }}>{sh.lost} h</span>} />
+      <KV k="Availability" v={`${sh.availability}% — of scheduled time the machine was fit to work`} />
+      <KV k="Utilisation" v={`${sh.utilisation}% — of that time it actually worked`} />
+      <KV k="Production" v={`${num(sh.production)} · ${sh.unit.toLowerCase()}`} />
+
+      <SecHead note={sh.delays.length ? `${sh.lost} hours in total` : 'nothing lost'}>Delays</SecHead>
+      {sh.delays.length
+        ? sh.delays.map((d, i) => (
+          <div key={i} className="sheet-row" style={{ alignItems: 'flex-start' }}>
+            <Badge tone={d.reason.startsWith('Breakdown') ? 'red' : 'gold'}>{d.code}</Badge>
+            <span className="s" style={{ fontSize: 11.5 }}>
+              {d.reason}
+              <span style={{ display: 'block', color: 'var(--text3)', fontSize: 11 }}>
+                reported {d.reported || '—'} · repaired {d.repaired || <b style={{ color: 'var(--red)' }}>still down</b>}
+              </span>
+            </span>
+            <span style={{ fontFamily: 'var(--num)', fontWeight: 600 }}>{d.minutes} min</span>
+          </div>
+        ))
+        : <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>The machine ran the whole shift.</div>}
+
+      <Acts>
+        {!sh.signedOff && <Btn small primary icon={CheckCircle2} onClick={() => run('signShift')}>Sign off the shift</Btn>}
+        <Btn small icon={AlertTriangle} onClick={() => run('recordDelay')}>Record a delay</Btn>
+        {breakdowns.length > 0 && <Btn small icon={Wrench} onClick={() => run('raiseWOFromShift')}>Raise a work order</Btn>}
+        <Btn small icon={Truck} onClick={() => run('openShiftVehicle')}>Open the machine</Btn>
+        <Btn small icon={Printer} onClick={() => run('print')}>Print the log</Btn>
       </Acts>
     </div>
   );
