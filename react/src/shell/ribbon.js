@@ -7,6 +7,9 @@ import {
   Calendar, User, FileText, SlidersHorizontal, Palette, Globe, Plug, KeyRound, Smartphone,
   Database, PanelLeft, Rows3, Columns3, ChevronsUp, Maximize, Settings, Info, Clock,
   TrendingUp, PieChart, BarChart3, Percent, Trash2, Files, Play, Package, CheckCircle2,
+  Route, MapPin, Fuel, CircleDot, Ruler, Coins, Wallet, Scale, ShoppingCart, PackageCheck,
+  PackageMinus, Send, Banknote, CircleDollarSign, ShieldAlert, HeartPulse, Radio,
+  Signal, Zap, Landmark, Timer, Server, UserCog, Boxes, FileWarning, ClipboardList, Undo2,
 } from 'lucide-react';
 
 /* ══════════════════════════════════════════════════════════════
@@ -15,28 +18,120 @@ import {
    ══════════════════════════════════════════════════════════════ */
 
 export const TABS = [
-  { key: 'dashboard', label: 'Dashboard' }, { key: 'inspections', label: 'Inspections' },
-  { key: 'fleet', label: 'Fleet' }, { key: 'workshop', label: 'Workshop' },
-  { key: 'users', label: 'Users' }, { key: 'hierarchy', label: 'Hierarchy' },
-  { key: 'compliance', label: 'Compliance' }, { key: 'audit', label: 'Audit log' },
-  { key: 'reports', label: 'Reports' }, { key: 'analytics', label: 'Analytics' },
-  { key: 'profile', label: 'Company' }, { key: 'settings', label: 'Settings' },
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'fleet', label: 'Fleet' },
+  { key: 'users', label: 'Operators' },
+  { key: 'dispatch', label: 'Dispatch' },
+  { key: 'inspections', label: 'Inspections' },
+  { key: 'workshop', label: 'Workshop' },
+  { key: 'parts', label: 'Parts' },
+  { key: 'tyres', label: 'Tyres' },
+  { key: 'fuel', label: 'Fuel' },
+  { key: 'telematics', label: 'Telematics' },
+  { key: 'compliance', label: 'Compliance' },
+  { key: 'documents', label: 'Documents' },
+  { key: 'incidents', label: 'Incidents' },
+  { key: 'costs', label: 'Costs' },
+  { key: 'procurement', label: 'Procurement' },
+  { key: 'billing', label: 'Billing' },
+  { key: 'contracts', label: 'Contracts' },
+  { key: 'reports', label: 'Reports' },
+  { key: 'analytics', label: 'Analytics' },
+  { key: 'admin', label: 'Admin' },
+  { key: 'hierarchy', label: 'Hierarchy' },
+  { key: 'audit', label: 'Audit log' },
+  { key: 'profile', label: 'Company' },
+  { key: 'settings', label: 'Settings' },
   { key: 'view', label: 'View' },
 ];
 
 export const CTX = {
-  inspections: ['Inspection tools', '#2120352'],
-  fleet: ['Vehicle tools', 'CA 123 GP'],
-  workshop: ['Workshop tools', 'Work orders'],
-  users: ['User tools', 'Johan Swart'],
+  inspections: ['Inspection tools', 'Pre-use sheets'],
+  fleet: ['Vehicle tools', 'Fleet register'],
+  workshop: ['Workshop tools', 'Job cards'],
+  users: ['Operator tools', 'People'],
+  dispatch: ['Dispatch tools', 'Haulage jobs'],
+  parts: ['Stores tools', 'Inventory'],
+  tyres: ['Tyre tools', 'Tyre register'],
+  fuel: ['Fuel tools', 'Transactions'],
+  telematics: ['Telematics tools', 'Units and events'],
   compliance: ['Safety tools', 'Certificates'],
+  documents: ['Document tools', 'Register'],
+  incidents: ['Incident tools', 'Investigations'],
+  costs: ['Cost tools', 'Cost control'],
+  procurement: ['Procurement tools', 'Orders and invoices'],
+  billing: ['Billing tools', 'Customer invoices'],
+  contracts: ['Asset tools', 'Finance and leases'],
+  admin: ['Administration', 'Platform'],
   profile: ['Company tools', 'Acme Mining Corp'],
 };
 
 export const RIBBON = {
+  dispatch: [
+    { label: 'Jobs', lg: [[Route, 'Plan a\njob', 'dlg:planJob'], [Play, 'Dispatch', 'jobStatus:In transit']], sm: [[CheckCircle2, 'Mark delivered', 'jobStatus:Delivered'], [X, 'Cancel the job', 'jobStatus:Cancelled'], [FileCheck2, 'Capture the POD', 'recordPod']] },
+    { label: 'Planning', lg: [[MapPin, 'Plan\nboard', 'dispatchView:board'], [Percent, 'Lane\nprofitability', 'dispatchView:lanes']], sm: [[Truck, 'Open the vehicle', 'openJobVehicle'], [User, 'Open the operator', 'openJobDriver'], [Radio, 'Track it', 'goto:telematics']] },
+    { label: 'Revenue', lg: [[Receipt, 'Raise an\ninvoice', 'raiseInvoice']], sm: [[CircleDollarSign, 'Ready to bill', 'goto:billing'], [Banknote, 'Rate card', 'rateCard']] },
+    { label: 'Output', lg: [[Printer, 'Print\nthe run sheet', 'print']], sm: [[Download, 'Export CSV', 'export'], [BarChart3, 'Dispatch report', 'report:Dispatch report']] },
+  ],
+  parts: [
+    { label: 'Stores', lg: [[PackageMinus, 'Issue to a\njob card', 'issuePart'], [Package, 'New\nline', 'dlg:part']], sm: [[SlidersHorizontal, 'Adjust stock', 'adjustStock'], [Boxes, 'Movement and value', 'partsView:movement'], [AlertTriangle, 'Below reorder', 'partsView:reorder']] },
+    { label: 'Replenishment', lg: [[ShoppingCart, 'Raise an\norder', 'orderPart'], [PackageCheck, 'Receive', 'goto:procurement']], sm: [[Building2, 'Suppliers', 'goto:procurement'], [Repeat, 'Reorder proposal', 'reorderProposal']] },
+    { label: 'Output', lg: [[Printer, 'Print\nthe pick list', 'print']], sm: [[Download, 'Export CSV', 'export'], [FileText, 'Stock report', 'report:Stock report']] },
+  ],
+  tyres: [
+    { label: 'Register', lg: [[CircleDot, 'Fit a\ntyre', 'dlg:fitTyre'], [Ruler, 'Record\ntread', 'logTread']], sm: [[Trash2, 'Scrap the tyre', 'scrapTyre'], [AlertTriangle, 'Below the limit', 'tyresView:legal'], [Coins, 'Cost per kilometre', 'tyresView:cost']] },
+    { label: 'Vehicle', lg: [[Truck, 'Open the\nvehicle', 'openTyreVehicle']], sm: [[Wrench, 'Raise a work order', 'raiseWO'], [ClipboardCheck, 'Pre-use check', 'startInspection']] },
+    { label: 'Output', lg: [[Printer, 'Print\nthe card', 'print']], sm: [[Download, 'Export CSV', 'export'], [FileText, 'Tyre report', 'report:Tyre report']] },
+  ],
+  fuel: [
+    { label: 'Transactions', lg: [[Fuel, 'Capture\na fill', 'dlg:fuel'], [CheckCircle2, 'Verify', 'verifyFuel']], sm: [[AlertTriangle, 'Clear an exception', 'clearException'], [Gauge, 'Consumption', 'fuelView:consumption'], [Truck, 'Open the vehicle', 'openFuelVehicle']] },
+    { label: 'Control', lg: [[Percent, 'Variance\nthreshold', 'goto:settings']], sm: [[Plug, 'Card import', 'goto:admin'], [Coins, 'Diesel price', 'goto:settings'], [History, 'Audit the card', 'goto:audit']] },
+    { label: 'Output', lg: [[Printer, 'Print\nthe register', 'print']], sm: [[Download, 'Export CSV', 'export'], [FileText, 'Fuel report', 'report:Fuel report']] },
+  ],
+  telematics: [
+    { label: 'Events', lg: [[Zap, 'Open\nevents', 'telematicsView:events'], [CheckCircle2, 'Acknowledge\nall', 'ackAll']], sm: [[Gauge, 'Operator behaviour', 'telematicsView:behaviour'], [User, 'Open the operator', 'openEventDriver'], [Timer, 'Idling report', 'report:Idling report']] },
+    { label: 'Units', lg: [[Radio, 'Unit\nstatus', 'telematicsView:units'], [MapPin, 'Live\nmap', 'liveMap']], sm: [[Signal, 'Offline units', 'offlineUnits'], [Plug, 'Integration health', 'goto:admin'], [RefreshCw, 'Poll now', 'refresh']] },
+    { label: 'Output', lg: [[Printer, 'Print', 'print']], sm: [[Download, 'Export CSV', 'export']] },
+  ],
+  documents: [
+    { label: 'Register', lg: [[Upload, 'Upload a\ndocument', 'dlg:document'], [BadgeCheck, 'Verify', 'verifyDoc']], sm: [[CalendarClock, 'Expiring soon', 'documentsView:expiring'], [Files, 'By kind', 'documentsView:kinds'], [Download, 'Download the file', 'download']] },
+    { label: 'Renewals', lg: [[CalendarPlus, 'Book a\nrenewal', 'bookRenewal']], sm: [[Bell, 'Expiry reminders', 'alerts'], [Mail, 'Notify the holder', 'email'], [ShieldCheck, 'Compliance board', 'goto:compliance']] },
+    { label: 'Output', lg: [[Printer, 'Print\nthe register', 'print']], sm: [[Download, 'Export CSV', 'export'], [FileText, 'Document report', 'report:Document report']] },
+  ],
+  incidents: [
+    { label: 'Investigation', lg: [[ShieldAlert, 'Log an\nincident', 'dlg:incident'], [FileCheck2, 'Lodge a\nclaim', 'lodgeClaim']], sm: [[Play, 'Move to investigating', 'incidentStatus:Investigating'], [CheckCircle2, 'Close it', 'incidentStatus:Closed'], [BarChart3, 'Analysis', 'incidentsView:analysis']] },
+    { label: 'Consequence', lg: [[Wrench, 'Raise a\nwork order', 'raiseWOFromIncident'], [Truck, 'Ground the\nvehicle', 'groundFromIncident']], sm: [[User, 'Open the operator', 'openIncidentDriver'], [Gauge, 'Behaviour score', 'goto:telematics'], [HeartPulse, 'Injury report', 'report:Incident report']] },
+    { label: 'Output', lg: [[Printer, 'Print\nthe file', 'print']], sm: [[Download, 'Export CSV', 'export'], [Mail, 'Send to the insurer', 'email']] },
+  ],
+  costs: [
+    { label: 'Analysis', lg: [[Coins, 'Cost per\nvehicle', 'costsView:vehicles'], [Scale, 'Budget vs\nactual', 'costsView:budget']], sm: [[Landmark, 'By site and class', 'costsView:sites'], [TrendingUp, 'Replacement case', 'goto:contracts'], [Truck, 'Open the vehicle', 'openCostVehicle']] },
+    { label: 'Control', lg: [[Wallet, 'Set a\nbudget', 'dlg:budget']], sm: [[Fuel, 'Fuel spend', 'goto:fuel'], [Wrench, 'Workshop spend', 'goto:workshop'], [CircleDot, 'Tyre spend', 'goto:tyres']] },
+    { label: 'Output', lg: [[Printer, 'Print\nthe cost report', 'print']], sm: [[Download, 'Export CSV', 'export'], [FileText, 'Cost report', 'report:Cost report']] },
+  ],
+  procurement: [
+    { label: 'Orders', lg: [[ShoppingCart, 'Raise an\norder', 'dlg:po'], [Send, 'Send to\nsupplier', 'poStatus:Sent']], sm: [[PackageCheck, 'Receive into stock', 'poStatus:Received'], [CheckCircle2, 'Approve', 'poStatus:Sent'], [Package, 'Open the stores', 'goto:parts']] },
+    { label: 'Supplier invoices', lg: [[FileText, 'Supplier\ninvoices', 'procurementView:invoices'], [CheckCircle2, 'Approve', 'sinStatus:Approved']], sm: [[CircleAlert, 'Raise a query', 'sinStatus:Query'], [Banknote, 'Mark paid', 'sinStatus:Paid'], [Building2, 'Suppliers', 'procurementView:suppliers']] },
+    { label: 'Output', lg: [[Printer, 'Print\nthe order', 'print']], sm: [[Download, 'Export CSV', 'export'], [Mail, 'Email the supplier', 'email']] },
+  ],
+  billing: [
+    { label: 'Invoices', lg: [[Receipt, 'Raise an\ninvoice', 'dlg:invoice'], [Banknote, 'Receipt a\npayment', 'recordPayment']], sm: [[CircleDollarSign, 'Ready to bill', 'billingView:unbilled'], [Clock, 'Aging and customers', 'billingView:aging'], [Route, 'Open the job', 'openInvoiceJob']] },
+    { label: 'Collection', lg: [[Mail, 'Send a\nreminder', 'email']], sm: [[Printer, 'Print a statement', 'print'], [FileText, 'Debtors report', 'report:Debtors report']] },
+    { label: 'Output', lg: [[Printer, 'Print\nthe invoice', 'print']], sm: [[Download, 'Export CSV', 'export'], [Mail, 'Email the customer', 'email']] },
+  ],
+  contracts: [
+    { label: 'Assets', lg: [[Landmark, 'Contract\nregister', 'contractsView:register'], [TrendingUp, 'Replacement\ncase', 'contractsView:replacement']], sm: [[Building2, 'By financier', 'contractsView:financiers'], [Repeat, 'Renew or settle', 'renewContract'], [Truck, 'Open the vehicle', 'openContractVehicle']] },
+    { label: 'Finance', lg: [[CreditCard, 'Instalment\nschedule', 'schedule']], sm: [[Coins, 'Cost per vehicle', 'goto:costs'], [Plug, 'Financier feed', 'goto:admin']] },
+    { label: 'Output', lg: [[Printer, 'Print\nthe schedule', 'print']], sm: [[Download, 'Export CSV', 'export'], [FileText, 'Asset report', 'report:Asset register'] ] },
+  ],
+  admin: [
+    { label: 'Platform', lg: [[Server, 'Scheduled\njobs', 'adminView:jobs'], [Plug, 'Integrations', 'adminView:integrations']], sm: [[RefreshCw, 'Run a job now', 'runJob'], [Database, 'Backups', 'backups'], [History, 'Audit trail', 'goto:audit']] },
+    { label: 'Access', lg: [[UserCog, 'Roles and\npermissions', 'adminView:roles'], [CheckSquare, 'Approvals', 'adminView:approvals']], sm: [[CheckCircle2, 'Approve', 'approve:Approved'], [X, 'Decline', 'approve:Declined'], [Users, 'Open the people register', 'goto:users']] },
+    { label: 'Output', lg: [[Printer, 'Print', 'print']], sm: [[Download, 'Export CSV', 'export'], [Settings, 'Settings', 'goto:settings']] },
+  ],
   dashboard: [
     { label: 'Period', lg: [[RefreshCw, 'Refresh\ndata', 'refresh'], [CalendarPlus, 'Change\nperiod', 'period']], sm: [[Building2, 'Site roll-up', 'goto:analytics'], [Gauge, 'Targets', 'goto:settings'], [Bell, 'Alert rules', 'alerts']] },
-    { label: 'Go to', lg: [[ClipboardCheck, 'Inspections', 'goto:inspections'], [Truck, 'Fleet', 'goto:fleet']], sm: [[Wrench, 'Workshop', 'goto:workshop'], [Users, 'Users', 'goto:users'], [ShieldCheck, 'Compliance', 'goto:compliance']] },
+    { label: 'Operations', lg: [[Route, 'Dispatch', 'goto:dispatch'], [Truck, 'Fleet', 'goto:fleet']], sm: [[ClipboardCheck, 'Inspections', 'goto:inspections'], [Wrench, 'Workshop', 'goto:workshop'], [Users, 'Operators', 'goto:users']] },
+    { label: 'Cost and risk', lg: [[Coins, 'Costs', 'goto:costs'], [Fuel, 'Fuel', 'goto:fuel']], sm: [[ShieldAlert, 'Incidents', 'goto:incidents'], [ShieldCheck, 'Compliance', 'goto:compliance'], [Receipt, 'Billing', 'goto:billing']] },
     { label: 'Share', lg: [[Printer, 'Print\nboard', 'print']], sm: [[Download, 'Export CSV', 'export'], [Mail, 'Email board', 'email'], [Share2, 'Send to a site', 'email']] },
   ],
   inspections: [
@@ -48,19 +143,22 @@ export const RIBBON = {
   fleet: [
     { label: 'Vehicles', lg: [[Truck, 'New\nvehicle', 'dlg:vehicle'], [Car, 'Assign to\noperator', 'assignVehicle']], sm: [[Pencil, 'Edit vehicle', 'editVehicle'], [Gauge, 'Update odometer', 'logOdo'], [CarFront, 'Unassign', 'unassignVehicle']] },
     { label: 'Status', lg: [[XCircle, 'Take off\nroad', 'ground'], [RotateCcw, 'Return to\nservice', 'returnService']], sm: [[Wrench, 'Book a service', 'bookService'], [ClipboardCheck, 'Pre-use check', 'startInspection'], [CircleAlert, 'Open defects', 'inspView:defects']] },
-    { label: 'Compliance', lg: [[BadgeCheck, 'COF\nregister', 'goto:compliance']], sm: [[CalendarClock, 'Service due list', 'serviceDue'], [FileCheck2, 'Licence renewals', 'licences'], [Upload, 'Upload document', 'upload']] },
+    { label: 'Running costs', lg: [[Coins, 'Cost per\nkilometre', 'goto:costs'], [Fuel, 'Fuel\nhistory', 'goto:fuel']], sm: [[CircleDot, 'Tyres fitted', 'goto:tyres'], [Landmark, 'Finance contract', 'goto:contracts'], [Radio, 'Telematics unit', 'goto:telematics']] },
+    { label: 'Compliance', lg: [[BadgeCheck, 'COF\nregister', 'goto:compliance']], sm: [[CalendarClock, 'Service due list', 'serviceDue'], [Files, 'Documents held', 'goto:documents'], [Upload, 'Upload document', 'upload']] },
     { label: 'Output', lg: [[Printer, 'Print\ncard', 'print']], sm: [[Download, 'Export CSV', 'export'], [BarChart3, 'Fleet report', 'report:Fleet status report']] },
   ],
   workshop: [
     { label: 'Work orders', lg: [[Wrench, 'Raise work\norder', 'raiseWO'], [Play, 'Move to\nin progress', 'woStatus:In progress']], sm: [[Package, 'Awaiting parts', 'woStatus:Awaiting parts'], [CheckCircle2, 'Complete', 'woStatus:Completed'], [Eye, 'Open the defect', 'openWODefect']] },
-    { label: 'Vehicle', lg: [[Truck, 'Open the\nvehicle', 'openWOVehicle']], sm: [[RotateCcw, 'Return to service', 'returnService'], [ClipboardCheck, 'Re-inspect', 'startInspection']] },
+    { label: 'Job card', lg: [[CheckSquare, 'Authorise', 'authoriseWO'], [PackageMinus, 'Issue\nparts', 'issuePart']], sm: [[Clock, 'Book labour', 'bookLabour'], [ShoppingCart, 'Order parts', 'orderPart'], [Coins, 'Job cost', 'goto:costs']] },
+    { label: 'Vehicle', lg: [[Truck, 'Open the\nvehicle', 'openWOVehicle']], sm: [[RotateCcw, 'Return to service', 'returnService'], [ClipboardCheck, 'Re-inspect', 'startInspection'], [Wrench, 'Service planner', 'workshopView:planner']] },
     { label: 'Output', lg: [[Printer, 'Print\njob card', 'print']], sm: [[Download, 'Export CSV', 'export'], [FileText, 'Workshop report', 'report:Workshop report']] },
   ],
   users: [
     { label: 'People', lg: [[UserPlus, 'New\nuser', 'dlg:user'], [Pencil, 'Edit\nuser', 'editUser']], sm: [[IdCard, 'Open record', 'openUser'], [KeyRound, 'Reset password', 'resetPassword'], [ShieldCheck, 'Enforce 2FA', 'enforceMfa']] },
     { label: 'Lifecycle', lg: [[UserX, 'Suspend\nuser', 'suspendUser'], [Trash2, 'Delete\nuser', 'deleteUser']], sm: [[BadgeCheck, 'Reactivate', 'reactivateUser'], [Network, 'Change supervisor', 'editUser'], [Mail, 'Resend invitation', 'resendInvite']] },
     { label: 'Assignment', lg: [[Car, 'Assign\nvehicle', 'assignUserVehicle'], [CarFront, 'Unassign\nvehicle', 'unassignUserVehicle']], sm: [[UsersRound, 'Bulk assign', 'bulkAssign'], [Network, 'Open hierarchy', 'goto:hierarchy'], [Truck, 'Open the vehicle', 'openUserVehicle']] },
-    { label: 'Certificates', lg: [[BadgeCheck, 'COF\nregister', 'goto:compliance']], sm: [[CalendarClock, 'Expiry reminders', 'alerts'], [Upload, 'Upload certificate', 'upload']] },
+    { label: 'Performance', lg: [[Gauge, 'Behaviour\nscore', 'goto:telematics'], [Route, 'Jobs run', 'goto:dispatch']], sm: [[Timer, 'Hours this week', 'usersView:hours'], [ClipboardCheck, 'Inspection history', 'goto:inspections'], [ShieldAlert, 'Incidents', 'goto:incidents']] },
+    { label: 'Certificates', lg: [[BadgeCheck, 'COF\nregister', 'goto:compliance']], sm: [[CalendarClock, 'Expiry reminders', 'alerts'], [Files, 'Documents held', 'goto:documents'], [Upload, 'Upload certificate', 'upload']] },
     { label: 'Output', lg: [[Printer, 'Print\nlist', 'print']], sm: [[Download, 'Export CSV', 'export'], [Mail, 'Email selected', 'email']] },
   ],
   hierarchy: [
@@ -110,7 +208,13 @@ export const JUMPS = [
   ['Grounded vehicles', AlertTriangle, 'goto:fleet'],
   ['Lapsed concessions', Clock, 'lapsedConcessions'],
   ['Open work orders', Wrench, 'goto:workshop'],
-  ['Unassigned operators', UserX, 'goto:hierarchy'],
+  ['Fuel exceptions', Fuel, 'fuelView:exceptions'],
+  ['Tyres below the limit', CircleDot, 'tyresView:legal'],
+  ['Parts below reorder', Package, 'partsView:reorder'],
+  ['Certificates expiring', Files, 'documentsView:expiring'],
+  ['Open incidents', ShieldAlert, 'goto:incidents'],
+  ['Overdue invoices', Receipt, 'goto:billing'],
+  ['Awaiting approval', CheckSquare, 'adminView:approvals'],
   ['Audit trail', History, 'goto:audit'],
 ];
 

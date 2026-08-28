@@ -1,6 +1,11 @@
 import React, { createContext, useContext, useMemo, useReducer, useState, useCallback } from 'react';
 import { TENANT, USERS, FLEET, INSPECTIONS, DEFECTS, WORK_ORDERS, AUDIT } from './data.js';
 import { TEMPLATES } from './inspection/templates.js';
+import { buildErp, invTotal, invPaid, poTotal, R, num, fmtDate, shift } from './erp/seed.js';
+
+/* The ERP data set is assembled once, in dependency order, from the
+   hand-written core in data.js. Everything below mutates it. */
+const ERP = buildErp({ fleet: FLEET, users: USERS, workOrders: WORK_ORDERS });
 
 /* ══════════════════════════════════════════════════════════════
    One store for everything the modules mutate. Every action that
@@ -57,12 +62,29 @@ const patchVehicle = (state, plate, patch) => ({
 
 const initial = {
   tenant: TENANT,
-  users: USERS,
-  vehicles: FLEET,
+  users: ERP.people,
+  vehicles: ERP.vehicles,
   inspections: INSPECTIONS.map((i) => ({ ...i, sheet: null })),
   defects: DEFECTS,
-  workOrders: WORK_ORDERS,
+  workOrders: ERP.workOrders,
   templates: TEMPLATES,
+
+  /* ── the ERP modules ─────────────────────────────────────── */
+  jobs: ERP.jobs,
+  fuel: ERP.fuel,
+  tyres: ERP.tyres,
+  parts: ERP.parts,
+  incidents: ERP.incidents,
+  invoices: ERP.invoices,
+  purchaseOrders: ERP.purchaseOrders,
+  supplierInvoices: ERP.supplierInvoices,
+  documents: ERP.documents,
+  events: ERP.events,
+  budgets: ERP.budgets,
+  scheduledJobs: ERP.scheduledJobs,
+  integrations: ERP.integrations,
+  roles: ERP.roles,
+  approvals: ERP.approvals,
   audit: AUDIT.map((a, i) => ({
     ...a,
     id: 'AUD-' + (3990 + i),
@@ -170,6 +192,20 @@ function reducer(state, a) {
       return audit(s, 'assign', `**${a.by}** raised work order **${a.ref}** against **${a.id}** — ${d.item} on ${d.plate}`,
         'Work order raised', { entity: a.ref, actor: a.by });
     }
+    case 'RAISE_WO_DIRECT': {
+      /* a work order that comes from an incident or a tyre rather
+         than from a failed inspection — same record, no defect */
+      const wo = {
+        ref: a.ref, vehicle: a.vehicle, site: a.site, type: a.woType,
+        status: 'Awaiting authorisation', opened: today(), defect: null,
+        assigned: a.assigned, note: a.note, fleetNo: '—', priority: 'High',
+        meter: 0, labourHours: 0, labourRate: 465, parts: [],
+        technician: '—', downtimeDays: 0, fault: a.note, closed: null,
+      };
+      const s = { ...state, workOrders: [wo, ...state.workOrders] };
+      return audit(s, 'assign', `**${a.by}** raised work order **${a.ref}** against **${a.vehicle}** — ${a.note}`,
+        'Work order raised', { entity: a.ref, actor: a.by });
+    }
     case 'WO_STATUS': {
       const w = state.workOrders.find((x) => x.ref === a.ref);
       const s = { ...state, workOrders: state.workOrders.map((x) => (x.ref === a.ref ? { ...x, status: a.status } : x)) };
@@ -270,6 +306,323 @@ function reducer(state, a) {
       return audit(s, 'warn', `**${a.by}** extended the concession on **${a.id}** by ${a.days} days`, 'Concession extended');
     }
 
+    /* ══════════════════════════════════════════════════════════
+       Dispatch — the haulage jobs the fleet runs.
+       ══════════════════════════════════════════════════════════ */
+    case 'PLAN_JOB': {
+      const s = { ...state, jobs: [a.job, ...state.jobs] };
+      return audit(s, 'assign',
+        `**${a.by}** planned **${a.job.ref}** — ${a.job.origin} → ${a.job.destination}, ${num(a.job.distance)} km on ${a.job.vehicle}`,
+        'Dispatch', { entity: a.job.ref, actor: a.by });
+    }
+    case 'JOB_STATUS': {
+      const j = state.jobs.find((x) => x.ref === a.ref);
+      const s = {
+        ...state,
+        jobs: state.jobs.map((x) => (x.ref === a.ref
+          ? { ...x, status: a.status, ...(a.status === 'Delivered' ? { arrived: today() } : {}) }
+          : x)),
+      };
+      return audit(s, a.status === 'Cancelled' ? 'warn' : 'assign',
+        `**${a.by}** moved **${a.ref}** to ${a.status.toLowerCase()} — ${j?.customer}, ${j?.destination}`,
+        'Dispatch', { entity: a.ref, actor: a.by });
+    }
+    case 'RECORD_POD': {
+      const s = { ...state, jobs: state.jobs.map((x) => (x.ref === a.ref ? { ...x, pod: true } : x)) };
+      return audit(s, 'insp', `**${a.by}** captured the proof of delivery for **${a.ref}**`,
+        'Dispatch', { entity: a.ref, actor: a.by });
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       Fuel. A transaction the system cannot reconcile is an
+       exception until a person clears it, with a reason.
+       ══════════════════════════════════════════════════════════ */
+    case 'ADD_FUEL': {
+      let s = { ...state, fuel: [a.entry, ...state.fuel] };
+      if (a.entry.meter) s = patchVehicle(s, a.entry.vehicle, { km: a.entry.meter });
+      return audit(s, 'insp',
+        `**${a.by}** captured **${a.entry.ref}** — ${num(a.entry.litres)} L on ${a.entry.vehicle} at ${a.entry.station}, ${R(a.entry.amount)}`,
+        'Fuel', { entity: a.entry.ref, actor: a.by });
+    }
+    case 'VERIFY_FUEL': {
+      const f = state.fuel.find((x) => x.ref === a.ref);
+      const s = { ...state, fuel: state.fuel.map((x) => (x.ref === a.ref ? { ...x, status: 'Verified' } : x)) };
+      return audit(s, 'insp', `**${a.by}** verified fuel transaction **${a.ref}** — ${f?.litres} L on ${f?.vehicle}`,
+        'Fuel', { entity: a.ref, actor: a.by });
+    }
+    case 'CLEAR_EXCEPTION': {
+      const f = state.fuel.find((x) => x.ref === a.ref);
+      const s = {
+        ...state,
+        fuel: state.fuel.map((x) => (x.ref === a.ref
+          ? { ...x, exception: null, status: 'Verified', clearedReason: a.reason } : x)),
+      };
+      return audit(s, 'warn',
+        `**${a.by}** cleared the exception on **${a.ref}** — ${f?.exception} · ${a.reason}`,
+        'Fuel exception', { entity: a.ref, actor: a.by, severity: 'Warning' });
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       Tyres. A tyre below the legal tread may not run, so
+       scrapping one raises the defect that grounds the vehicle.
+       ══════════════════════════════════════════════════════════ */
+    case 'LOG_TREAD': {
+      const t = state.tyres.find((x) => x.serial === a.serial);
+      const status = a.tread < 3 ? 'Scrap' : a.tread < 5 ? 'Watch' : a.tread > 13 ? 'New' : 'Running';
+      const s = {
+        ...state,
+        tyres: state.tyres.map((x) => (x.serial === a.serial ? { ...x, tread: a.tread, status } : x)),
+      };
+      return audit(s, a.tread < 3 ? 'warn' : 'insp',
+        `**${a.by}** measured **${a.serial}** at ${a.tread} mm on ${t?.vehicle} ${t?.position}${a.tread < 3 ? ' — below the 3 mm legal limit' : ''}`,
+        'Tyre register', { entity: a.serial, actor: a.by, severity: a.tread < 3 ? 'Warning' : 'Information' });
+    }
+    case 'SCRAP_TYRE': {
+      const t = state.tyres.find((x) => x.serial === a.serial);
+      const s = {
+        ...state,
+        tyres: state.tyres.map((x) => (x.serial === a.serial
+          ? { ...x, status: 'Scrapped', scrapped: today(), scrapReason: a.reason } : x)),
+      };
+      return audit(s, 'warn',
+        `**${a.by}** scrapped **${a.serial}** off ${t?.vehicle} ${t?.position} at ${t?.tread} mm — ${a.reason}`,
+        'Tyre register', { entity: a.serial, actor: a.by, severity: 'Warning' });
+    }
+    case 'FIT_TYRE': {
+      const s = { ...state, tyres: [a.tyre, ...state.tyres] };
+      return audit(s, 'assign',
+        `**${a.by}** fitted **${a.tyre.serial}** (${a.tyre.brand}) to ${a.tyre.vehicle} ${a.tyre.position}`,
+        'Tyre register', { entity: a.tyre.serial, actor: a.by });
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       Stores. Issuing a part moves it out of stock and onto the
+       job card, so the workshop cost and the stock value cannot
+       disagree.
+       ══════════════════════════════════════════════════════════ */
+    case 'ISSUE_PART': {
+      const p = state.parts.find((x) => x.sku === a.sku);
+      if (!p || p.qty < a.qty) return state;
+      let s = {
+        ...state,
+        parts: state.parts.map((x) => (x.sku === a.sku
+          ? { ...x, qty: x.qty - a.qty, lastIssued: shift(0) } : x)),
+      };
+      if (a.workOrder) {
+        s = {
+          ...s,
+          workOrders: s.workOrders.map((w) => (w.ref === a.workOrder
+            ? { ...w, parts: [...(w.parts || []), { sku: p.sku, desc: p.desc, qty: a.qty, price: p.unitCost }] }
+            : w)),
+        };
+      }
+      return audit(s, 'assign',
+        `**${a.by}** issued ${a.qty} × **${p.desc}** (${p.sku})${a.workOrder ? ` to ${a.workOrder}` : ''} — ${R(a.qty * p.unitCost)}`,
+        'Stores', { entity: p.sku, actor: a.by });
+    }
+    case 'ADJUST_STOCK': {
+      const p = state.parts.find((x) => x.sku === a.sku);
+      const s = { ...state, parts: state.parts.map((x) => (x.sku === a.sku ? { ...x, qty: a.qty } : x)) };
+      return audit(s, 'warn',
+        `**${a.by}** adjusted **${p?.desc}** (${a.sku}) from ${p?.qty} to ${a.qty} — ${a.reason}`,
+        'Stock adjustment', { entity: a.sku, actor: a.by, severity: 'Warning' });
+    }
+    case 'ADD_PART': {
+      const s = { ...state, parts: [a.part, ...state.parts] };
+      return audit(s, 'user', `**${a.by}** added **${a.part.desc}** (${a.part.sku}) to the stores catalogue`,
+        'Stores', { entity: a.part.sku, actor: a.by });
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       Workshop depth — labour, parts and authorisation.
+       ══════════════════════════════════════════════════════════ */
+    case 'WO_LABOUR': {
+      const s = {
+        ...state,
+        workOrders: state.workOrders.map((w) => (w.ref === a.ref
+          ? { ...w, labourHours: +(w.labourHours + a.hours).toFixed(1) } : w)),
+      };
+      return audit(s, 'assign', `**${a.by}** booked ${a.hours} labour hours to **${a.ref}** — ${a.technician}`,
+        'Workshop', { entity: a.ref, actor: a.by });
+    }
+    case 'AUTHORISE_WO': {
+      const w = state.workOrders.find((x) => x.ref === a.ref);
+      const s = {
+        ...state,
+        workOrders: state.workOrders.map((x) => (x.ref === a.ref
+          ? { ...x, status: 'In progress', authorisedBy: a.by, authorised: today() } : x)),
+      };
+      return audit(s, 'assign', `**${a.by}** authorised **${a.ref}** — ${w?.type} on ${w?.vehicle}, ${R(a.cost)}`,
+        'Workshop authorisation', { entity: a.ref, actor: a.by, severity: 'Warning' });
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       Procurement. Receiving an order puts the stock away.
+       ══════════════════════════════════════════════════════════ */
+    case 'RAISE_PO': {
+      const s = { ...state, purchaseOrders: [a.po, ...state.purchaseOrders] };
+      return audit(s, 'assign',
+        `**${a.by}** raised **${a.po.ref}** on ${a.po.supplier} — ${a.po.lines.length} line(s), ${R(poTotal(a.po))}`,
+        'Procurement', { entity: a.po.ref, actor: a.by });
+    }
+    case 'PO_STATUS': {
+      const po = state.purchaseOrders.find((x) => x.ref === a.ref);
+      let s = {
+        ...state,
+        purchaseOrders: state.purchaseOrders.map((x) => (x.ref === a.ref ? { ...x, status: a.status } : x)),
+      };
+      /* a received order lands in the bin it was ordered into */
+      if (a.status === 'Received' && po) {
+        s = {
+          ...s,
+          parts: s.parts.map((p) => {
+            const line = po.lines.find((l) => l.sku === p.sku);
+            return line ? { ...p, qty: p.qty + line.qty, onOrder: Math.max(0, p.onOrder - line.qty) } : p;
+          }),
+        };
+      }
+      return audit(s, 'assign',
+        `**${a.by}** moved **${a.ref}** to ${a.status.toLowerCase()} — ${po?.supplier}`
+        + (a.status === 'Received' ? `, ${po?.lines.length} line(s) taken into stock` : ''),
+        'Procurement', { entity: a.ref, actor: a.by });
+    }
+    case 'SIN_STATUS': {
+      const inv = state.supplierInvoices.find((x) => x.ref === a.ref);
+      const s = {
+        ...state,
+        supplierInvoices: state.supplierInvoices.map((x) => (x.ref === a.ref ? { ...x, status: a.status } : x)),
+      };
+      return audit(s, a.status === 'Query' ? 'warn' : 'assign',
+        `**${a.by}** marked supplier invoice **${a.ref}** as ${a.status.toLowerCase()} — ${inv?.supplier}, ${R(inv?.amount)}`,
+        'Supplier invoice', { entity: a.ref, actor: a.by });
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       Incidents and claims.
+       ══════════════════════════════════════════════════════════ */
+    case 'ADD_INCIDENT': {
+      let s = { ...state, incidents: [a.incident, ...state.incidents] };
+      if (a.ground) s = patchVehicle(s, a.incident.vehicle, { status: 'Maintenance' });
+      s = audit(s, 'warn',
+        `**${a.by}** logged **${a.incident.ref}** — ${a.incident.type.toLowerCase()} on ${a.incident.vehicle}, ${a.incident.severity.toLowerCase()}`,
+        'Incident logged', { entity: a.incident.ref, actor: a.by, severity: a.incident.severity === 'Critical' ? 'Critical' : 'Warning' });
+      return s;
+    }
+    case 'INCIDENT_STATUS': {
+      const i = state.incidents.find((x) => x.ref === a.ref);
+      const s = {
+        ...state,
+        incidents: state.incidents.map((x) => (x.ref === a.ref ? { ...x, status: a.status } : x)),
+      };
+      return audit(s, 'assign', `**${a.by}** moved **${a.ref}** to ${a.status.toLowerCase()} — ${i?.type}`,
+        'Incident', { entity: a.ref, actor: a.by });
+    }
+    case 'INCIDENT_ACTION': {
+      const s = {
+        ...state,
+        incidents: state.incidents.map((x) => (x.ref === a.ref
+          ? { ...x, actions: x.actions.map((act, n) => (n === a.index ? { ...act, done: !act.done } : act)) }
+          : x)),
+      };
+      const i = state.incidents.find((x) => x.ref === a.ref);
+      return audit(s, 'insp',
+        `**${a.by}** ${i?.actions[a.index].done ? 'reopened' : 'completed'} “${i?.actions[a.index].text}” on **${a.ref}**`,
+        'Incident action', { entity: a.ref, actor: a.by });
+    }
+    case 'LODGE_CLAIM': {
+      const s = {
+        ...state,
+        incidents: state.incidents.map((x) => (x.ref === a.ref ? { ...x, claim: a.claim, lodged: today() } : x)),
+      };
+      return audit(s, 'assign', `**${a.by}** lodged claim **${a.claim}** against **${a.ref}** with ${a.insurer}`,
+        'Insurance claim', { entity: a.ref, actor: a.by });
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       Billing.
+       ══════════════════════════════════════════════════════════ */
+    case 'RAISE_INVOICE': {
+      let s = { ...state, invoices: [a.invoice, ...state.invoices] };
+      s = { ...s, jobs: s.jobs.map((j) => (a.invoice.jobs.includes(j.ref) ? { ...j, invoice: a.invoice.ref } : j)) };
+      return audit(s, 'assign',
+        `**${a.by}** raised **${a.invoice.ref}** to ${a.invoice.customer} — ${a.invoice.jobs.length} job(s), ${R(invTotal(a.invoice))}`,
+        'Billing', { entity: a.invoice.ref, actor: a.by });
+    }
+    case 'RECORD_PAYMENT': {
+      const inv = state.invoices.find((x) => x.ref === a.ref);
+      const s = {
+        ...state,
+        invoices: state.invoices.map((x) => (x.ref === a.ref
+          ? { ...x, payments: [...x.payments, a.payment] } : x)),
+      };
+      const outstanding = Math.max(0, Math.round(invTotal(inv) - invPaid(inv) - a.payment.amount));
+      return audit(s, 'assign',
+        `**${a.by}** receipted ${R(a.payment.amount)} against **${a.ref}** — ${inv?.customer}, ${outstanding ? `${R(outstanding)} still outstanding` : 'settled in full'}`,
+        'Billing', { entity: a.ref, actor: a.by });
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       Documents, telematics and approvals.
+       ══════════════════════════════════════════════════════════ */
+    case 'UPLOAD_DOC': {
+      const s = { ...state, documents: [a.doc, ...state.documents] };
+      return audit(s, 'user',
+        `**${a.by}** uploaded **${a.doc.kind}** for ${a.doc.subject}${a.doc.expires ? ` — expires ${fmtDate(a.doc.expires)}` : ''}`,
+        'Document register', { entity: a.doc.ref, actor: a.by });
+    }
+    case 'VERIFY_DOC': {
+      const d = state.documents.find((x) => x.ref === a.ref);
+      const s = {
+        ...state,
+        documents: state.documents.map((x) => (x.ref === a.ref ? { ...x, status: 'Verified' } : x)),
+      };
+      return audit(s, 'user', `**${a.by}** verified **${d?.kind}** for ${d?.subject}`,
+        'Document register', { entity: a.ref, actor: a.by });
+    }
+    case 'ACK_EVENT': {
+      const e = state.events.find((x) => x.id === a.id);
+      const s = { ...state, events: state.events.map((x) => (x.id === a.id ? { ...x, acknowledged: true } : x)) };
+      return audit(s, 'insp',
+        `**${a.by}** acknowledged **${e?.kind}** on ${e?.vehicle} — ${e?.value}`,
+        'Telematics', { entity: a.id, actor: a.by });
+    }
+    case 'DECIDE_APPROVAL': {
+      const ap = state.approvals.find((x) => x.ref === a.ref);
+      const s = {
+        ...state,
+        approvals: state.approvals.map((x) => (x.ref === a.ref
+          ? { ...x, status: a.decision, decidedBy: a.by, decided: today(), comment: a.comment } : x)),
+      };
+      return audit(s, a.decision === 'Declined' ? 'warn' : 'assign',
+        `**${a.by}** ${a.decision.toLowerCase()} **${a.ref}** — ${ap?.type}, ${R(ap?.amount)}`,
+        'Approval', { entity: a.ref, actor: a.by, severity: 'Warning' });
+    }
+    case 'SET_BUDGET': {
+      const s = { ...state, budgets: { ...state.budgets, [a.head]: a.amount } };
+      return audit(s, 'user',
+        `**${a.by}** set the ${a.label.toLowerCase()} budget to ${R(a.amount)} for the month`,
+        'Cost control', { entity: a.head, actor: a.by, severity: 'Warning' });
+    }
+    case 'SET_PERM': {
+      const s = {
+        ...state,
+        roles: state.roles.map((r) => (r.name === a.role
+          ? { ...r, perms: { ...r.perms, [a.module]: a.level } } : r)),
+      };
+      return audit(s, 'user',
+        `**${a.by}** set **${a.role}** access to ${a.module} at “${a.level}”`,
+        'Roles and permissions', { entity: a.role, actor: a.by, severity: 'Warning' });
+    }
+    case 'RUN_JOB': {
+      const s = {
+        ...state,
+        scheduledJobs: state.scheduledJobs.map((j) => (j.name === a.name
+          ? { ...j, last: 'Just now', status: 'Success' } : j)),
+      };
+      return audit(s, 'insp', `**${a.by}** ran **${a.name}** manually`,
+        'Scheduled job', { entity: a.name, actor: a.by });
+    }
+
     case 'SET_SETTINGS': {
       const changed = Object.keys(a.patch).filter((k) => state.settings[k] !== a.patch[k]);
       const s = { ...state, settings: { ...state.settings, ...a.patch } };
@@ -298,8 +651,15 @@ function reducer(state, a) {
 
 export function StoreProvider({ children, me, flash }) {
   const [state, dispatch] = useReducer(reducer, initial);
-  const [selection, setSelection] = useState({ vehicle: null, user: null, inspection: null, defect: null, company: null });
-  const [inspView, setInspView] = useState('sheets');   /* 'sheets' | 'defects' — the reading pane follows it */
+  const [selection, setSelection] = useState({
+    vehicle: null, user: null, inspection: null, defect: null, company: null,
+    job: null, fuel: null, tyre: null, part: null, po: null, supplierInvoice: null,
+    incident: null, invoice: null, document: null, workOrder: null,
+  });
+  const [inspView, setInspView] = useState('sheets');   /* 'sheets' | 'defects' | 'forms' — the reading pane follows it */
+  /* screens that carry more than one register keep their own sub-view */
+  const [subView, setSubView] = useState({});
+  const setView = useCallback((tab, v) => setSubView((s) => ({ ...s, [tab]: v })), []);
 
   const select = useCallback((kind, id) => setSelection((s) => ({ ...s, [kind]: id })), []);
 
@@ -312,15 +672,29 @@ export function StoreProvider({ children, me, flash }) {
     select,
     inspView,
     setInspView,
-    /* derived */
+    subView,
+    setView,
+    /* derived — one place, so a reading pane and its register can
+       never be looking at two different records */
     vehicle: state.vehicles.find((v) => v.plate === selection.vehicle) || null,
     inspection: state.inspections.find((i) => i.ref === selection.inspection) || null,
     openDefects: state.defects.filter((d) => d.status !== 'Closed'),
     workOrder: state.workOrders.find((w) => w.ref === selection.workOrder) || null,
+    user: state.users.find((u) => u.name === selection.user) || null,
+    defect: state.defects.find((d) => d.id === selection.defect) || null,
+    job: state.jobs.find((j) => j.ref === selection.job) || null,
+    fuelTx: state.fuel.find((f) => f.ref === selection.fuel) || null,
+    tyre: state.tyres.find((t) => t.serial === selection.tyre) || null,
+    part: state.parts.find((p) => p.sku === selection.part) || null,
+    po: state.purchaseOrders.find((x) => x.ref === selection.po) || null,
+    supplierInvoice: state.supplierInvoices.find((x) => x.ref === selection.supplierInvoice) || null,
+    incident: state.incidents.find((x) => x.ref === selection.incident) || null,
+    invoice: state.invoices.find((x) => x.ref === selection.invoice) || null,
+    document: state.documents.find((x) => x.ref === selection.document) || null,
     set: (patch, section) => dispatch({ type: 'SET_SETTINGS', patch, section, by: me.name }),
     newRef: () => String(2120353 + state.inspections.length),
     newId: ref,
-  }), [state, selection, select, inspView, me, flash]);
+  }), [state, selection, select, inspView, subView, setView, me, flash]);
 
   return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
 }
