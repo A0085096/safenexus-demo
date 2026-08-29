@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
 import {
   ClipboardCheck, CircleCheck, Truck, AlertTriangle, Box, BarChart3, Table2, RefreshCw,
-  BadgeCheck, Wrench, Clock, UserX, Car, CarFront, UserPlus, FileText,
+  BadgeCheck, Wrench, Clock, UserX, Car, CarFront, UserPlus, FileText, Route, Coins, Fuel,
+  ShieldAlert, Receipt, Package, CircleDot, Banknote,
 } from 'lucide-react';
 import {
-  MONTHLY, SITE_SERIES, SITE_MONTHS, AGING, SITE_PERF, KPIS, siteName,
+  MONTHLY, SITE_SERIES, SITE_MONTHS, SITE_PERF, KPIS, siteName,
 } from '../data.js';
 import { useStore } from '../store.jsx';
-import { SERIES, OUTCOME, nf, targetTone, targetLabel } from '../theme.js';
+import { SERIES, SEQ, OUTCOME, nf, targetTone, targetLabel } from '../theme.js';
+import { Kpis, Breakdown } from '../components/erpUi.jsx';
+import {
+  R, num, until, vehSpend, vehCpk, jobMargin, invDue, invState,
+} from '../erp/seed.js';
 import {
   Panel, ChartCard, Seg, Legend, Btn, Badge, Avatar, ListRow, SecHead, RichText,
   resultBadge,
@@ -20,13 +25,14 @@ import Iso3D from '../charts/Iso3D.jsx';
 import GroupedBars from '../charts/GroupedBars.jsx';
 
 const KPI_ICON = { clipboard: ClipboardCheck, check: CircleCheck, truck: Truck, alert: AlertTriangle };
-const ATT_ICON = { alert: AlertTriangle, cert: BadgeCheck, tool: Wrench, clock: Clock, user: UserX };
+const ATT_ICON = {
+  alert: AlertTriangle, cert: BadgeCheck, tool: Wrench, clock: Clock, user: UserX,
+  fuel: Fuel, tyre: CircleDot, part: Package, invoice: Receipt, incident: ShieldAlert,
+};
 const AUDIT_ICON = {
   assign: [Car, 'green'], unassign: [CarFront, 'gold'], user: [UserPlus, 'purple'],
   insp: [ClipboardCheck, 'blue'], warn: [AlertTriangle, 'red'],
 };
-
-
 
 /* ── KPI tile ─────────────────────────────────────────────────── */
 function Kpi({ k }) {
@@ -151,7 +157,10 @@ function PerformanceReport({ run, target }) {
 
 /* ── screen ───────────────────────────────────────────────────── */
 export default function Dashboard({ run, goTab }) {
-  const { vehicles, inspections, defects, audit, users, select, settings } = useStore();
+  const {
+    vehicles, inspections, defects, audit, users, select, settings,
+    jobs, fuel, tyres, parts, incidents, invoices, workOrders, approvals, budgets,
+  } = useStore();
   const [period, setPeriod] = useState(6);
   const [isoView, setIsoView] = useState('iso');
   const months = MONTHLY.slice(MONTHLY.length - period);
@@ -172,19 +181,98 @@ export default function Dashboard({ run, goTab }) {
     : k.key === 'avail'
       ? { ...k, val: (100 - grounded.length / vehicles.length * 100).toFixed(1), note: `${grounded.length} of ${vehicles.length} in maintenance` }
       : k));
+
+  /* ── the money, live from the modules ───────────────────────
+     Every figure below is summed from the same records the
+     registers page through, so a total here and a total in a grid
+     footer cannot disagree. */
+  const spend = vehicles.reduce((a, v) => a + vehSpend(v), 0);
+  const meterRun = vehicles.reduce((a, v) => a + (v.month?.meter || 0), 0);
+  const budgetTotal = Object.values(budgets).reduce((a, b) => a + b, 0);
+  const delivered = jobs.filter((j) => j.status === 'Delivered');
+  const revenue = delivered.reduce((a, j) => a + j.revenue, 0);
+  const jobMarginTotal = delivered.reduce((a, j) => a + jobMargin(j), 0);
+  const outstanding = invoices.reduce((a, i) => a + invDue(i), 0);
+  const overdueInv = invoices.filter((i) => invState(i) === 'Overdue');
+
+  /* ── the exception queue ────────────────────────────────────
+     Not a status board: a to-do list. Every row is something that
+     has stopped, lapsed or does not reconcile, and every one opens
+     the register that fixes it. */
+  const fuelExceptions = fuel.filter((f) => f.exception);
+  const illegalTyres = tyres.filter((t) => t.status !== 'Scrapped' && t.tread < 3);
+  const outOfStock = parts.filter((p) => p.qty === 0);
+  const openIncidents = incidents.filter((i) => i.status !== 'Closed');
+  const criticalIncidents = openIncidents.filter((i) => i.severity === 'Critical');
+  const lapsedCof = vehicles.filter((v) => until(v.cofExpiry) < 0);
+  const lapsedPeople = users.filter((u) => [u.licenceExpiry, u.prdpExpiry, u.medicalExpiry]
+    .filter(Boolean).some((d) => until(d) < 0));
+  const pendingApprovals = approvals.filter((a) => a.status === 'Pending');
+
   const attention = [
-    ...grounded.map((v) => ({
+    ...criticalIncidents.map((i) => ({
+      icon: 'incident', tone: 'red', n: `${i.ref} — ${i.type.toLowerCase()}`,
+      s: `${i.vehicle} · ${siteName(i.site)}`, r: i.severity.toLowerCase(),
+      go: () => run('goto:incidents'),
+    })),
+    ...grounded.slice(0, 3).map((v) => ({
       icon: 'alert', tone: 'red', n: `${v.plate} — grounded`,
       s: `${v.make} · ${siteName(v.site)}`, r: 'off road',
+      go: () => { select('vehicle', v.plate); goTab('fleet'); },
     })),
-    ...openDefects.filter((d) => d.status === 'Overdue').map((d) => ({
+    ...openDefects.filter((d) => d.status === 'Overdue').slice(0, 2).map((d) => ({
       icon: 'clock', tone: 'red', n: `${d.item} — concession lapsed`,
-      s: `${d.plate} · ${siteName(d.site)}`, r: 'concession lapsed',
+      s: `${d.plate} · ${siteName(d.site)}`, r: 'lapsed',
+      go: () => run('openDefect:' + d.id),
     })),
-    { icon: 'cert', tone: 'red', n: 'Priya Dlamini — COF expires', s: 'Supervisor · Lephalale open pit', r: '12 days' },
-    { icon: 'user', tone: 'gold', n: 'Naledi Motaung has no vehicle', s: 'Operator · Steelpoort section', r: 'unassigned' },
-  ].slice(0, 6);
+    ...(lapsedCof.length ? [{
+      icon: 'cert', tone: 'red', n: `${lapsedCof.length} vehicle${lapsedCof.length === 1 ? '' : 's'} with a lapsed COF`,
+      s: 'may not be dispatched until renewed', r: 'not legal',
+      go: () => run('goto:compliance'),
+    }] : []),
+    ...(lapsedPeople.length ? [{
+      icon: 'user', tone: 'red', n: `${lapsedPeople.length} operator certificate${lapsedPeople.length === 1 ? '' : 's'} lapsed`,
+      s: 'licence, operating card or medical', r: 'not cleared',
+      go: () => run('complianceView:operators'),
+    }] : []),
+    ...(fuelExceptions.length ? [{
+      icon: 'fuel', tone: 'gold', n: `${fuelExceptions.length} fuel exception${fuelExceptions.length === 1 ? '' : 's'}`,
+      s: 'fills that will not reconcile against the meter', r: 'unposted',
+      go: () => run('fuelView:exceptions'),
+    }] : []),
+    ...(illegalTyres.length ? [{
+      icon: 'tyre', tone: 'red', n: `${illegalTyres.length} tyre${illegalTyres.length === 1 ? '' : 's'} below 3 mm`,
+      s: 'below the legal tread depth', r: 'not roadworthy',
+      go: () => run('tyresView:legal'),
+    }] : []),
+    ...(outOfStock.length ? [{
+      icon: 'part', tone: 'gold', n: `${outOfStock.length} part line${outOfStock.length === 1 ? '' : 's'} out of stock`,
+      s: 'the workshop cannot start this work', r: 'empty bin',
+      go: () => run('partsView:reorder'),
+    }] : []),
+    ...(overdueInv.length ? [{
+      icon: 'invoice', tone: 'gold', n: `${R(overdueInv.reduce((a, i) => a + invDue(i), 0))} overdue from customers`,
+      s: `${overdueInv.length} invoice${overdueInv.length === 1 ? '' : 's'} past the 30-day term`, r: 'to collect',
+      go: () => run('billingView:aging'),
+    }] : []),
+  ].slice(0, 8);
+
+  /* aging bins, built from the defects that are actually open
+     rather than from a fixed table */
   const agingTotal = openDefects.length;
+  const aging = (() => {
+    const bins = [
+      { b: '0–7 days', v: 0, c: SEQ[1] }, { b: '8–14 days', v: 0, c: SEQ[2] },
+      { b: '15–21 days', v: 0, c: SEQ[3] }, { b: `22–${settings.goButMaxDays} days`, v: 0, c: SEQ[4] },
+      { b: 'past the window', v: 0, c: '#C33B3B', breach: true },
+    ];
+    defects.filter((d) => d.status !== 'Closed').forEach((d) => {
+      const n = d.age > settings.goButMaxDays || d.status === 'Overdue' ? 4
+        : d.age <= 7 ? 0 : d.age <= 14 ? 1 : d.age <= 21 ? 2 : 3;
+      bins[n].v += 1;
+    });
+    return bins;
+  })();
 
   const isoData = SITE_SERIES.map((s) => ({ co: s.site, c: s.c, v: s.v }));
   const isoNote = { iso: 'isometric · height is volume', bars: 'grouped columns · same data', table: 'exact values' }[isoView];
@@ -193,10 +281,12 @@ export default function Dashboard({ run, goTab }) {
     <>
       <div className="cmdstrip solo">
         <div className="glance">
-          <span><b>{users.length}</b> users</span>
-          <span><b>{fleetTotal}</b> vehicles</span>
-          <span><b>3</b> sites</span>
+          <span><b>{users.length}</b> people</span>
+          <span><b>{fleetTotal}</b> vehicles and plant</span>
+          <span><b>{jobs.filter((j) => j.status === 'In transit' || j.status === 'Loading').length}</b> jobs on the road</span>
+          <span><b>{workOrders.filter((w) => w.status !== 'Completed').length}</b> job cards open</span>
           <span><b>{openDefects.length}</b> open defects</span>
+          <span><b>{pendingApprovals.length}</b> awaiting approval</span>
         </div>
         <div className="count" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <Seg value={period} onChange={setPeriod}
@@ -204,6 +294,27 @@ export default function Dashboard({ run, goTab }) {
           <Btn small icon={RefreshCw} onClick={() => run('refresh')}>Refresh</Btn>
         </div>
       </div>
+
+      {/* The operation in four numbers: what it earned, what it cost,
+          how much of the fleet could work, and what is on fire. */}
+      <Kpis items={[
+        { l: 'Revenue delivered', v: R(revenue).replace('R ', ''), unit: 'R', icon: Route,
+          dir: jobMarginTotal > 0 ? 'up' : 'dn',
+          delta: `${revenue ? ((jobMarginTotal / revenue) * 100).toFixed(1) : '0'}% margin`,
+          note: `${delivered.length} haulage jobs this period` },
+        { l: 'Fleet cost', v: R(spend).replace('R ', ''), unit: 'R', icon: Coins,
+          dir: spend <= budgetTotal ? 'up' : 'dn',
+          delta: `${((spend / budgetTotal) * 100).toFixed(0)}% of budget`,
+          note: `R ${(meterRun ? spend / meterRun : 0).toFixed(2)} per kilometre or hour run` },
+        { l: 'Outstanding from customers', v: R(outstanding).replace('R ', ''), unit: 'R', icon: Banknote,
+          dir: overdueInv.length ? 'dn' : 'flat',
+          delta: overdueInv.length ? `${overdueInv.length} overdue` : 'nothing past term',
+          note: `${invoices.length} invoices on the book` },
+        { l: 'Needing a decision', v: attention.length, icon: AlertTriangle,
+          dir: criticalIncidents.length ? 'dn' : 'warn',
+          delta: criticalIncidents.length ? `${criticalIncidents.length} critical` : `${pendingApprovals.length} approvals`,
+          note: 'exceptions across every module' },
+      ]} />
 
       <div className="kpis">{kpis.map((k) => <Kpi key={k.key} k={k} />)}</div>
 
@@ -288,7 +399,7 @@ export default function Dashboard({ run, goTab }) {
             <span className="note">{agingTotal} open items · {settings.goButMaxDays}-day repair rule</span>
             <div className="right"><button className="link" onClick={() => goTab('compliance')}>Work the list</button></div>
           </div>
-          <div className="chart-body chart"><AgingChart data={AGING} total={87} /></div>
+          <div className="chart-body chart"><AgingChart data={aging} total={agingTotal} /></div>
           <div style={{ padding: '0 12px 4px' }}><SecHead>Oldest open items</SecHead></div>
           <div className="panel-body flush">
             {[...openDefects].sort((a, b) => b.age - a.age).slice(0, 4).map((a) => (
@@ -310,7 +421,7 @@ export default function Dashboard({ run, goTab }) {
       <PerformanceReport run={run} target={settings.complianceTarget} />
 
       <Panel title="Pending inspections requiring sign-off" note="oldest first" flush
-        right={<><Badge tone="gold">5 pending</Badge>{' '}
+        right={<><Badge tone="gold">{inspections.filter((i) => !i.signed).length} pending</Badge>{' '}
           <Btn small onClick={() => run('signOffAll')}>Sign off all</Btn></>}>
         <div className="gridwrap">
           <table className="grid">
@@ -339,6 +450,29 @@ export default function Dashboard({ run, goTab }) {
       </Panel>
 
       <div className="grid-2">
+        <Panel title="Where the month's money went" note="fleet cost by head, this month" flush
+          right={<button className="link" onClick={() => goTab('costs')}>Cost control</button>}>
+          <Breakdown format={R} rows={[
+            ['Fuel and lubricants', vehicles.reduce((a, v) => a + (v.month?.fuel || 0), 0), SERIES[0]],
+            ['Maintenance and repair', vehicles.reduce((a, v) => a + (v.month?.maint || 0), 0), SERIES[1]],
+            ['Finance and leases', vehicles.reduce((a, v) => a + (v.finance?.instalment || 0), 0), SERIES[3]],
+            ['Tyres', vehicles.reduce((a, v) => a + (v.month?.tyres || 0), 0), SERIES[2]],
+            ['Consumables', vehicles.reduce((a, v) => a + (v.month?.consumables || 0), 0), SERIES[4]],
+          ].map(([k, v, c]) => ({ k, v, c })).sort((a, b) => b.v - a.v)} />
+        </Panel>
+
+        <Panel title="Most expensive vehicles to run" note="cost per kilometre or hour, this month" flush
+          right={<button className="link" onClick={() => goTab('costs')}>All vehicles</button>}>
+          <Breakdown format={(v) => 'R ' + v.toFixed(2)} colour={SERIES[4]}
+            rows={[...vehicles].filter((v) => v.month?.meter).sort((a, b) => vehCpk(b) - vehCpk(a)).slice(0, 6)
+              .map((v) => ({
+                k: `${v.plate} · ${v.type}`, v: +vehCpk(v).toFixed(2),
+                onClick: () => { select('vehicle', v.plate); goTab('fleet'); },
+              }))} />
+        </Panel>
+      </div>
+
+      <div className="grid-2">
         <Panel title="Recent activity" flush
           right={<button className="link" onClick={() => goTab('audit')}>Full audit log</button>}>
           {audit.slice(0, 5).map((a, i) => {
@@ -357,7 +491,7 @@ export default function Dashboard({ run, goTab }) {
             const Icon = ATT_ICON[a.icon];
             return (
               <ListRow key={a.n} avatar={<Avatar tone={a.tone} icon={Icon} />}
-                title={a.n} sub={a.s}
+                title={a.n} sub={a.s} onClick={a.go}
                 right={<span style={{ font: '600 11.5px var(--num)', color: `var(--${a.tone})` }}>{a.r}</span>} />
             );
           })}

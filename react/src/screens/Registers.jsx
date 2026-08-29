@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import {
-  UserPlus, Plus, ClipboardCheck, AlertTriangle, FileCheck2, Car,
+  UserPlus, Plus, ClipboardCheck, AlertTriangle, FileCheck2, Car, Truck, Wrench, Gauge,
+  Coins, ShieldCheck, Radio,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
-import { nf, targetTone } from '../theme.js';
+import { nf, SERIES } from '../theme.js';
 import { siteName } from '../data.js';
 import {
-  DataGrid, Btn, Badge, Avatar, RichText, Seg,
-  statusBadge, roleBadge, planBadge, vehicleBadge, resultBadge,
+  DataGrid, Btn, Badge, Avatar, Seg, statusBadge, roleBadge, vehicleBadge, resultBadge,
 } from '../components/ui.jsx';
-
-
+import { Kpis, Expiry, Bar } from '../components/erpUi.jsx';
+import { R, num, until, vehSpend, vehCpk, meterUnit } from '../erp/seed.js';
 
 const Person = ({ init, tone, name, sub }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -22,40 +22,142 @@ const Person = ({ init, tone, name, sub }) => (
   </div>
 );
 
-/* ── users ────────────────────────────────────────────────────── */
+/* ── operators ────────────────────────────────────────────────
+   The people register, read the way a fleet reads it: who they
+   are, what they may legally operate, how well they operate it,
+   and what that costs. A name and a role is a directory; this is
+   a workforce.  */
 export function Users({ run, openDialog }) {
-  const { users, selection, select } = useStore();
+  const { users, jobs, incidents, selection, select } = useStore();
+  const [filter, setFilter] = useState('all');
+
+  const operators = users.filter((u) => u.role === 'Operator');
+  const lapsed = users.filter((u) => [u.licenceExpiry, u.prdpExpiry, u.medicalExpiry]
+    .filter(Boolean).some((d) => until(d) < 0));
+  const overHours = operators.filter((u) => u.hoursWeek > 55);
+  const coaching = operators.filter((u) => u.score < 65);
+
   const cols = [
-    { key: 'u', label: 'User', value: (r) => r.name, render: (r) => <Person init={r.init} tone={r.tone} name={r.name} sub={r.co} /> },
+    { key: 'u', label: 'Person', value: (r) => r.name,
+      render: (r) => <Person init={r.init} tone={r.tone} name={r.name} sub={`${r.empNo} · ${r.code}`} /> },
     { key: 'role', label: 'Role', value: (r) => r.role, render: (r) => roleBadge(r.role) },
     { key: 'site', label: 'Site', value: (r) => siteName(r.site), render: (r) => <span style={{ color: 'var(--text2)' }}>{siteName(r.site)}</span> },
     { key: 'rep', label: 'Reports to', value: (r) => r.reports, render: (r) => <span style={{ color: 'var(--text2)' }}>{r.reports}</span> },
-    { key: 'veh', label: 'Vehicle', mono: true, value: (r) => r.vehicle, render: (r) => r.vehicle },
-    { key: 'cof', label: 'COF expiry', value: (r) => r.cof, render: (r) => <span style={{ color: 'var(--text2)' }}>{r.cof}</span> },
-    { key: 'insp', label: 'Inspections', num: true, value: (r) => r.insps, render: (r) => r.insps },
+    { key: 'veh', label: 'Vehicle', mono: true, value: (r) => r.vehicle,
+      render: (r) => (r.vehicle === '—' ? <span style={{ color: 'var(--text3)' }}>—</span> : r.vehicle) },
+    { key: 'lic', label: 'Licence', value: (r) => r.licenceCode,
+      render: (r) => <span style={{ fontSize: 11.5, color: 'var(--text2)' }}>{r.licenceCode}</span> },
+    { key: 'prdp', label: 'Operating card', num: true, value: (r) => (r.prdpExpiry ? until(r.prdpExpiry) : 99999),
+      render: (r) => (r.prdpExpiry ? <Expiry date={r.prdpExpiry} showDate={false} /> : <span style={{ color: 'var(--text3)' }}>n/a</span>) },
+    { key: 'med', label: 'Medical', num: true, value: (r) => until(r.medicalExpiry),
+      render: (r) => <Expiry date={r.medicalExpiry} showDate={false} /> },
+    { key: 'hrs', label: 'Hours, week', num: true, value: (r) => r.hoursWeek,
+      render: (r) => <span style={{ fontFamily: 'var(--num)', fontWeight: r.hoursWeek > 55 ? 600 : 400,
+        color: r.hoursWeek > 60 ? 'var(--red)' : r.hoursWeek > 55 ? 'var(--gold)' : 'var(--text)' }}>{r.hoursWeek}</span> },
+    { key: 'insp', label: 'Sheets', num: true, value: (r) => r.insps, render: (r) => r.insps },
+    { key: 'jobs', label: 'Jobs, month', num: true, value: (r) => r.jobsMonth,
+      render: (r) => (r.jobsMonth ? r.jobsMonth : <span style={{ color: 'var(--text3)' }}>—</span>) },
+    { key: 'score', label: 'Behaviour score', num: true, value: (r) => r.score, render: (r) => (
+      <Bar value={r.score} max={100} target={70}
+        colour={r.score >= 75 ? SERIES[1] : r.score >= 55 ? SERIES[2] : SERIES[4]}
+        label={String(r.score)} width={54} />
+    ) },
     { key: 'st', label: 'Status', value: (r) => r.status, render: (r) => statusBadge(r.status) },
-    { key: 'act', label: '', render: (r) => <Btn small onClick={() => { select('user', r.name); run('editUser'); }}>Edit</Btn> },
+    { key: 'act', label: '', render: (r) => <Btn small onClick={(e) => { e.stopPropagation(); select('user', r.name); run('editUser'); }}>Edit</Btn> },
   ];
+
+  const rows = users.filter((u) => (
+    filter === 'operators' ? u.role === 'Operator'
+      : filter === 'lapsed' ? [u.licenceExpiry, u.prdpExpiry, u.medicalExpiry].filter(Boolean).some((d) => until(d) < 0)
+        : filter === 'hours' ? u.hoursWeek > 55
+          : filter === 'coaching' ? u.role === 'Operator' && u.score < 65
+            : filter === 'unassigned' ? u.role === 'Operator' && u.vehicle === '—'
+              : true));
+
   return (
-    <DataGrid cols={cols} rows={users} keyOf={(r) => r.name} 
-      selected={selection.user} onSelect={(k) => select('user', k)}
-      toolbar={<Btn small primary icon={UserPlus} onClick={() => openDialog('user')}>New user</Btn>} />
+    <>
+      <Kpis items={[
+        { l: 'People on the platform', v: users.length, icon: UserPlus,
+          note: `${operators.length} operators · ${users.filter((u) => u.role === 'Supervisor').length} supervisors` },
+        { l: 'Certificates lapsed', v: lapsed.length, icon: ShieldCheck,
+          dir: lapsed.length ? 'dn' : 'up',
+          note: 'licence, operating card or medical past its date' },
+        { l: 'Over 55 hours this week', v: overHours.length, icon: Gauge,
+          dir: overHours.length ? 'warn' : 'up',
+          note: 'dispatch blocks a job that would pass the 60-hour ceiling' },
+        { l: 'Below the coaching line', v: coaching.length, icon: Radio,
+          dir: coaching.length ? 'warn' : 'up',
+          delta: `${operators.filter((u) => u.score < 45).length} stood down`,
+          note: 'behaviour score from the telematics feed' },
+      ]} />
+      <DataGrid cols={cols} rows={rows} keyOf={(r) => r.name} totalLabel={users.length} pageSize={20}
+        selected={selection.user} onSelect={(k) => select('user', k)}
+        rowClass={(r) => ([r.licenceExpiry, r.prdpExpiry, r.medicalExpiry].filter(Boolean).some((d) => until(d) < 0) ? 'overdue' : '')}
+        toolbar={
+          <>
+            {[['all', 'All'], ['operators', 'Operators'], ['lapsed', 'Certificate lapsed'],
+              ['hours', 'Over hours'], ['coaching', 'Coaching due'], ['unassigned', 'No vehicle']].map(([v, l]) => (
+                <Btn key={v} small active={filter === v} onClick={() => setFilter(v)}>{l}</Btn>
+              ))}
+            <Btn small primary icon={UserPlus} onClick={() => openDialog('user')}>New user</Btn>
+            <Btn small icon={Car} onClick={() => run('assignUserVehicle')}>Assign a vehicle</Btn>
+          </>
+        }
+        emptyText="No person matches this filter." />
+    </>
   );
 }
 
-/* ── fleet ────────────────────────────────────────────────────── */
+/* ── fleet ────────────────────────────────────────────────────
+   The register the whole platform hangs off. A vehicle is not one
+   record here — it is the meter reading the inspection wrote, the
+   defects that ground it, the fuel it burned, the money it costs
+   and the certificates that decide whether it may move at all.  */
 export function Fleet({ run, openDialog }) {
-  const { vehicles, defects, selection, select } = useStore();
+  const { vehicles, defects, settings, selection, select } = useStore();
+  const [filter, setFilter] = useState('all');
   const openFor = (plate) => defects.filter((d) => d.plate === plate && d.status === 'Open');
+
+  const grounded = vehicles.filter((v) => v.status === 'Maintenance');
+  const dueService = vehicles.filter((v) => v.serviceDue - v.km <= settings.serviceWarnKm);
+  const lapsedCof = vehicles.filter((v) => until(v.cofExpiry) < 0);
+  const spend = vehicles.reduce((a, v) => a + vehSpend(v), 0);
+  const meter = vehicles.reduce((a, v) => a + (v.month?.meter || 0), 0);
+
   const cols = [
     { key: 'plate', label: 'Plate', mono: true, value: (r) => r.plate, render: (r) => r.plate },
     { key: 'fleetNo', label: 'Fleet no.', value: (r) => r.fleetNo, render: (r) => <span style={{ color: 'var(--text2)' }}>{r.fleetNo}</span> },
-    { key: 'make', label: 'Make and model', value: (r) => r.make, render: (r) => r.make },
-    { key: 'type', label: 'Type', value: (r) => r.type, render: (r) => <Badge tone="grey">{r.type}</Badge> },
+    { key: 'make', label: 'Make and model', wrap: true, value: (r) => r.make, render: (r) => (
+      <div><div style={{ fontWeight: 600 }}>{r.make}</div>
+        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{r.year} · {r.type}</div></div>
+    ) },
+    { key: 'cls', label: 'Class', value: (r) => r.cls, render: (r) => <Badge tone="grey">{r.cls}</Badge> },
     { key: 'site', label: 'Site', value: (r) => siteName(r.site), render: (r) => <span style={{ color: 'var(--text2)' }}>{siteName(r.site)}</span> },
-    { key: 'driver', label: 'Assigned to', value: (r) => r.driver, render: (r) => r.driver },
+    { key: 'driver', label: 'Assigned to', value: (r) => r.driver,
+      render: (r) => (r.driver === '—' ? <span style={{ color: 'var(--text3)' }}>unassigned</span> : r.driver) },
+    { key: 'km', label: 'Meter', num: true, value: (r) => r.km,
+      render: (r) => <span>{nf(r.km)} <span style={{ color: 'var(--text3)', fontSize: 11 }}>{meterUnit(r)}</span></span> },
+    { key: 'sv', label: 'Service in', num: true, value: (r) => r.serviceDue - r.km, render: (r) => {
+      const left = r.serviceDue - r.km;
+      return (
+        <span style={{ fontFamily: 'var(--num)', fontWeight: left <= 0 ? 600 : 400,
+          color: left <= 0 ? 'var(--red)' : left < settings.serviceWarnKm ? 'var(--gold)' : 'var(--text)' }}>
+          {left <= 0 ? `${nf(-left)} over` : nf(left)}
+        </span>
+      );
+    } },
+    { key: 'cof', label: 'COF', num: true, value: (r) => until(r.cofExpiry),
+      render: (r) => <Expiry date={r.cofExpiry} showDate={false} /> },
+    { key: 'util', label: 'Utilisation', num: true, value: (r) => r.month?.utilPct, render: (r) => (
+      <Bar value={r.month?.utilPct || 0} max={100} target={70}
+        colour={(r.month?.utilPct || 0) >= 70 ? SERIES[1] : (r.month?.utilPct || 0) >= 45 ? SERIES[2] : SERIES[4]}
+        label={(r.month?.utilPct || 0) + '%'} width={54} />
+    ) },
+    { key: 'cpk', label: 'Cost per unit run', num: true, value: (r) => vehCpk(r),
+      render: (r) => (vehCpk(r)
+        ? <span style={{ fontFamily: 'var(--num)' }}>R {vehCpk(r).toFixed(2)}</span>
+        : <span style={{ color: 'var(--text3)' }}>—</span>) },
     { key: 'insp', label: 'Last inspection', value: (r) => r.lastInsp, render: (r) => <span style={{ color: 'var(--text2)' }}>{r.lastInsp}</span> },
-    { key: 'km', label: 'Odometer', num: true, value: (r) => r.km, render: (r) => nf(r.km) },
     {
       key: 'def', label: 'Defects', num: true, value: (r) => openFor(r.plate).length,
       render: (r) => {
@@ -68,16 +170,56 @@ export function Fleet({ run, openDialog }) {
     },
     { key: 'st', label: 'Status', value: (r) => r.status, render: (r) => vehicleBadge(r.status) },
   ];
+
+  const rows = vehicles.filter((v) => (
+    filter === 'grounded' ? v.status === 'Maintenance'
+      : filter === 'service' ? v.serviceDue - v.km <= settings.serviceWarnKm
+        : filter === 'cof' ? until(v.cofExpiry) < settings.cofWarnDays
+          : filter === 'unassigned' ? v.driver === '—'
+            : filter === 'plant' ? v.cls === 'Plant'
+              : true));
+
   return (
-    <DataGrid cols={cols} rows={vehicles} keyOf={(r) => r.plate} 
-      selected={selection.vehicle} onSelect={(k) => select('vehicle', k)}
-      toolbar={
-        <>
-          <Btn small primary icon={Plus} onClick={() => openDialog('vehicle')}>New vehicle</Btn>
-          <Btn small icon={ClipboardCheck} onClick={() => run('startInspection')}>Inspect</Btn>
-          <Btn small icon={Car} onClick={() => run('assignVehicle')}>Assign</Btn>
-        </>
-      } />
+    <>
+      <Kpis items={[
+        { l: 'Vehicles and plant', v: vehicles.length, icon: Truck,
+          note: `${vehicles.filter((v) => v.driver !== '—').length} assigned · ${vehicles.filter((v) => v.driver === '—').length} in the pool` },
+        { l: 'Off the road', v: grounded.length, icon: Wrench,
+          dir: grounded.length ? 'dn' : 'up',
+          delta: `${((1 - grounded.length / vehicles.length) * 100).toFixed(1)}% available`,
+          note: 'grounded by a no-go defect or a service' },
+        { l: 'Service or COF due', v: dueService.length + lapsedCof.length, icon: ShieldCheck,
+          dir: lapsedCof.length ? 'dn' : 'warn',
+          delta: lapsedCof.length ? `${lapsedCof.length} COF lapsed` : 'certificates in force',
+          note: `within ${nf(settings.serviceWarnKm)} of the interval` },
+        { l: 'Fleet cost this month', v: R(spend).replace('R ', ''), unit: 'R', icon: Coins,
+          note: `R ${(meter ? spend / meter : 0).toFixed(2)} per kilometre or hour run` },
+      ]} />
+      <DataGrid cols={cols} rows={rows} keyOf={(r) => r.plate} totalLabel={vehicles.length} pageSize={20}
+        selected={selection.vehicle} onSelect={(k) => select('vehicle', k)}
+        rowClass={(r) => (r.status === 'Maintenance' || until(r.cofExpiry) < 0 ? 'overdue' : '')}
+        toolbar={
+          <>
+            {[['all', 'All'], ['grounded', 'Off road'], ['service', 'Service due'],
+              ['cof', 'COF expiring'], ['unassigned', 'Unassigned'], ['plant', 'Plant']].map(([v, l]) => (
+                <Btn key={v} small active={filter === v} onClick={() => setFilter(v)}>{l}</Btn>
+              ))}
+            <Btn small primary icon={Plus} onClick={() => openDialog('vehicle')}>New vehicle</Btn>
+            <Btn small icon={ClipboardCheck} onClick={() => run('startInspection')}>Inspect</Btn>
+            <Btn small icon={Car} onClick={() => run('assignVehicle')}>Assign</Btn>
+          </>
+        }
+        emptyText="No vehicle matches this filter."
+        totals={(list) => (
+          <>
+            <td colSpan={6} style={{ fontWeight: 600 }}>{list.length} vehicles</td>
+            <td className="num" style={{ fontWeight: 600 }}>{nf(list.reduce((a, r) => a + r.km, 0))}</td>
+            <td colSpan={3} />
+            <td className="num" style={{ fontWeight: 600 }}>{R(list.reduce((a, r) => a + vehSpend(r), 0))}</td>
+            <td colSpan={3} />
+          </>
+        )} />
+    </>
   );
 }
 

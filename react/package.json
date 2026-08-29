@@ -3,11 +3,12 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "SafeNexus ERP — fleet safety administration platform (React)",
+  "description": "SafeNexus ERP — fleet management platform for a single mining tenant (React)",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:single": "vite build --mode single && node scripts/bundle-single.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.550.0",

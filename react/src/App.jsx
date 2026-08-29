@@ -9,10 +9,14 @@ import Backstage from './shell/Backstage.jsx';
 import { MESSAGES } from './shell/ribbon.js';
 import { Dialog } from './components/ui.jsx';
 import { VehiclePane, InspectionPane, DefectPane, UserPane, WorkOrderPane, FormPane } from './components/panes.jsx';
+import {
+  JobPane, FuelPane, TyrePane, PartPane, POPane, IncidentPane, InvoicePane, DocumentPane,
+  ShiftPane,
+} from './components/erpPanes.jsx';
 import Toasts from './components/Toasts.jsx';
 import AuthShell, { LockScreen } from './auth/AuthShell.jsx';
 import InspectionRunner from './inspection/InspectionRunner.jsx';
-import { templateFor } from './inspection/templates.js';
+import { templateFor, blankTemplate } from './inspection/templates.js';
 import { StoreProvider, useStore } from './store.jsx';
 import { siteName, SITES } from './data.js';
 
@@ -21,10 +25,35 @@ import { Users, Fleet, Inspections } from './screens/Registers.jsx';
 import AuditLog from './screens/AuditLog.jsx';
 import Forms from './screens/Forms.jsx';
 import Workshop from './screens/Workshop.jsx';
-import { Hierarchy, Compliance, CompanyProfile } from './screens/Misc.jsx';
+import { Hierarchy, CompanyProfile } from './screens/Misc.jsx';
+import Compliance from './screens/Compliance.jsx';
 import Analytics from './screens/Analytics.jsx';
 import Settings from './screens/Settings.jsx';
 import Reports from './screens/Reports.jsx';
+import Dispatch from './screens/Dispatch.jsx';
+import FuelScreen from './screens/Fuel.jsx';
+import TyresScreen from './screens/Tyres.jsx';
+import PartsScreen from './screens/Parts.jsx';
+import Telematics from './screens/Telematics.jsx';
+import Costs from './screens/Costs.jsx';
+import Procurement from './screens/Procurement.jsx';
+import Billing from './screens/Billing.jsx';
+import Incidents from './screens/Incidents.jsx';
+import Documents from './screens/Documents.jsx';
+import Contracts from './screens/Contracts.jsx';
+import Admin from './screens/Admin.jsx';
+import Shifts from './screens/Shifts.jsx';
+import RosterScreen from './screens/Roster.jsx';
+import Timesheets from './screens/Timesheets.jsx';
+import FormDesigner from './inspection/FormDesigner.jsx';
+import {
+  R, R2, num, shift, fmtDate, until, poTotal, invTotal, invDue, woCost, LANES, CARGO,
+  CUSTOMERS, SUPPLIERS, FUEL_SITES, TYRE_BRANDS, TYRE_POS_HEAVY, TYRE_POS_PLANT,
+  INCIDENT_TYPES, DOC_TYPES, COST_HEADS, PART_CATS,
+} from './erp/seed.js';
+import {
+  SHIFT_DEFS, PATTERNS, DELAY_CODES, rosterKey, rosterConflicts, mondayOf, isoAdd, TODAY_ISO,
+} from './erp/workforce.js';
 
 const ME = {
   name: 'Kobus van der Merwe', initials: 'KM', role: 'Administrator',
@@ -32,7 +61,11 @@ const ME = {
 };
 
 /* screens that carry a reading pane */
-const PANE_TABS = { fleet: 1, inspections: 1, users: 1, workshop: 1 };
+const PANE_TABS = {
+  fleet: 1, inspections: 1, users: 1, workshop: 1, dispatch: 1, fuel: 1, tyres: 1,
+  parts: 1, procurement: 1, incidents: 1, billing: 1, documents: 1, contracts: 1, costs: 1,
+  shifts: 1,
+};
 
 function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
   const store = useStore();
@@ -60,6 +93,9 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
   const inspection = store.inspection;
   const defect = defects.find((d) => d.id === selection.defect) || null;
   const user = users.find((u) => u.name === selection.user) || null;
+  const {
+    job, fuelTx, tyre, part, po, supplierInvoice, incident, invoice, document: doc, workOrder,
+  } = store;
 
   /* a command that acts on a selection says so when there is none */
   const need = (thing, what) => {
@@ -332,12 +368,422 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         return flash(`Revision ${t.revision + 1} of ${t.name} opened as a draft.`, { tone: 'info', title: 'New revision' });
       }
 
+      /* ══════════════════════════════════════════════════════
+         Dispatch
+         ══════════════════════════════════════════════════════ */
+      case 'dispatchView': store.setView('dispatch', arg); return goTab('dispatch');
+      case 'jobStatus': {
+        if (!need(job, 'a job')) return goTab('dispatch');
+        if (job.status === arg) return flash(`${job.ref} is already ${arg.toLowerCase()}.`, { tone: 'warn' });
+        if (job.status === 'Delivered' && arg !== 'Delivered') {
+          return flash(`${job.ref} has been delivered — it cannot be moved back.`, { tone: 'warn' });
+        }
+        dispatch({ type: 'JOB_STATUS', ref: job.ref, status: arg, by: me.name });
+        return flash(
+          arg === 'Delivered'
+            ? `${job.ref} delivered. Capture the proof of delivery before it can be invoiced.`
+            : `${job.ref} moved to ${arg.toLowerCase()}.`,
+          { tone: arg === 'Cancelled' ? 'warn' : 'ok', title: 'Dispatch' },
+        );
+      }
+      case 'recordPod': {
+        if (!need(job, 'a job')) return goTab('dispatch');
+        if (job.status !== 'Delivered') return flash(`${job.ref} has not been delivered yet.`, { tone: 'warn' });
+        if (job.pod) return flash(`The proof of delivery for ${job.ref} is already in.`, { tone: 'warn' });
+        dispatch({ type: 'RECORD_POD', ref: job.ref, by: me.name });
+        return flash(`Proof of delivery captured for ${job.ref} — it can now be invoiced.`, { title: 'POD in' });
+      }
+      case 'openJobVehicle':
+        if (!need(job, 'a job')) return goTab('dispatch');
+        select('vehicle', job.vehicle);
+        return goTab('fleet');
+      case 'openJobDriver':
+        if (!need(job, 'a job')) return goTab('dispatch');
+        select('user', job.driver);
+        return goTab('users');
+
+      /* ══════════════════════════════════════════════════════
+         Fuel
+         ══════════════════════════════════════════════════════ */
+      case 'fuelView': store.setView('fuel', arg); return goTab('fuel');
+      case 'verifyFuel': {
+        if (!need(fuelTx, 'a transaction')) return goTab('fuel');
+        if (fuelTx.exception) return flash('Clear the exception before verifying this transaction.', { tone: 'warn' });
+        if (fuelTx.status === 'Verified') return flash(`${fuelTx.ref} is already verified.`, { tone: 'warn' });
+        dispatch({ type: 'VERIFY_FUEL', ref: fuelTx.ref, by: me.name });
+        return flash(`${fuelTx.ref} verified against the meter reading.`, { title: 'Fuel' });
+      }
+      case 'clearException':
+        if (!need(fuelTx, 'a transaction')) return goTab('fuel');
+        if (!fuelTx.exception) return flash(`${fuelTx.ref} is not in exception.`, { tone: 'warn' });
+        return setDialog('clearException');
+      case 'openFuelVehicle':
+        if (!need(fuelTx, 'a transaction')) return goTab('fuel');
+        select('vehicle', fuelTx.vehicle);
+        return goTab('fleet');
+
+      /* ══════════════════════════════════════════════════════
+         Tyres
+         ══════════════════════════════════════════════════════ */
+      case 'tyresView': store.setView('tyres', arg); return goTab('tyres');
+      case 'logTread':
+        if (!need(tyre, 'a tyre')) return goTab('tyres');
+        return setDialog('logTread');
+      case 'scrapTyre':
+        if (!need(tyre, 'a tyre')) return goTab('tyres');
+        if (tyre.status === 'Scrapped') return flash(`${tyre.serial} is already scrapped.`, { tone: 'warn' });
+        return setDialog('scrapTyre');
+      case 'openTyreVehicle':
+        if (!need(tyre, 'a tyre')) return goTab('tyres');
+        select('vehicle', tyre.vehicle);
+        return goTab('fleet');
+
+      /* ══════════════════════════════════════════════════════
+         Stores
+         ══════════════════════════════════════════════════════ */
+      case 'partsView': store.setView('parts', arg); return goTab('parts');
+      case 'issuePart':
+        if (!need(part, 'a part')) return goTab('parts');
+        if (!part.qty) return flash(`${part.desc} is out of stock — nothing to issue.`, { tone: 'warn' });
+        return setDialog('issuePart');
+      case 'adjustStock':
+        if (!need(part, 'a part')) return goTab('parts');
+        return setDialog('adjustStock');
+      case 'orderPart':
+        if (!need(part, 'a part')) return goTab('parts');
+        return setDialog('po');
+      case 'reorderProposal': {
+        const low = store.parts.filter((x) => x.qty <= x.reorder && !x.onOrder);
+        return flash(low.length
+          ? `${low.length} line(s) are below reorder with nothing on order — worth ${R(low.reduce((a, x) => a + x.reorder * 2 * x.unitCost, 0))} at the proposed quantities.`
+          : 'Every line below its reorder level already has an order out.',
+        { tone: low.length ? 'warn' : 'ok', title: 'Reorder proposal' });
+      }
+
+      /* ══════════════════════════════════════════════════════
+         Workshop depth
+         ══════════════════════════════════════════════════════ */
+      case 'workshopView': store.setView('workshop', arg); return goTab('workshop');
+      case 'authoriseWO': {
+        if (!need(workOrder, 'a work order')) return goTab('workshop');
+        if (workOrder.status !== 'Awaiting authorisation') {
+          return flash(`${workOrder.ref} is already authorised.`, { tone: 'warn' });
+        }
+        const cost = woCost(workOrder);
+        if (cost > store.settings.woApprovalLimit) {
+          return flash(
+            `${workOrder.ref} costs ${R(cost)}, above the ${R(store.settings.woApprovalLimit)} workshop limit. It needs an approval on the Admin tab before work may start.`,
+            { tone: 'warn', title: 'Above your limit', action: { label: 'Open approvals', onClick: () => run('adminView:approvals') } },
+          );
+        }
+        dispatch({ type: 'AUTHORISE_WO', ref: workOrder.ref, cost, by: me.name });
+        return flash(`${workOrder.ref} authorised at ${R(cost)} and moved to in progress.`, { title: 'Workshop' });
+      }
+      case 'bookLabour':
+        if (!need(workOrder, 'a work order')) return goTab('workshop');
+        return setDialog('bookLabour');
+
+      /* ══════════════════════════════════════════════════════
+         Procurement
+         ══════════════════════════════════════════════════════ */
+      case 'procurementView': store.setView('procurement', arg); return goTab('procurement');
+      case 'poStatus': {
+        if (!need(po, 'a purchase order')) return goTab('procurement');
+        if (po.status === arg) return flash(`${po.ref} is already ${arg.toLowerCase()}.`, { tone: 'warn' });
+        if (arg === 'Sent' && po.status === 'Draft') {
+          return flash(`${po.ref} must be approved before it can be sent.`, { tone: 'warn', title: 'Not approved' });
+        }
+        dispatch({ type: 'PO_STATUS', ref: po.ref, status: arg, by: me.name });
+        return flash(
+          arg === 'Received'
+            ? `${po.ref} received — ${po.lines.length} line(s) taken into stock at ${siteName(po.site)}.`
+            : `${po.ref} moved to ${arg.toLowerCase()}.`,
+          { title: 'Procurement' },
+        );
+      }
+      case 'sinStatus': {
+        if (!need(supplierInvoice, 'a supplier invoice')) { store.setView('procurement', 'invoices'); return goTab('procurement'); }
+        if (arg === 'Paid' && supplierInvoice.status === 'Query') {
+          return flash(`${supplierInvoice.ref} is in query — settle the difference before paying it.`, { tone: 'warn' });
+        }
+        dispatch({ type: 'SIN_STATUS', ref: supplierInvoice.ref, status: arg, by: me.name });
+        return flash(`${supplierInvoice.ref} marked ${arg.toLowerCase()}.`, { title: 'Supplier invoice' });
+      }
+
+      /* ══════════════════════════════════════════════════════
+         Incidents
+         ══════════════════════════════════════════════════════ */
+      case 'incidentsView': store.setView('incidents', arg); return goTab('incidents');
+      case 'incidentStatus': {
+        if (!need(incident, 'an incident')) return goTab('incidents');
+        if (incident.status === arg) return flash(`${incident.ref} is already ${arg.toLowerCase()}.`, { tone: 'warn' });
+        const open = incident.actions.filter((x) => !x.done).length;
+        if (arg === 'Closed' && open) {
+          return flash(`${incident.ref} still has ${open} outstanding action(s). Close them first — an incident closed with actions open is a record, not an investigation.`,
+            { tone: 'warn', title: 'Actions outstanding' });
+        }
+        dispatch({ type: 'INCIDENT_STATUS', ref: incident.ref, status: arg, by: me.name });
+        return flash(`${incident.ref} moved to ${arg.toLowerCase()}.`, { title: 'Incident' });
+      }
+      case 'incidentAction':
+        return dispatch({ type: 'INCIDENT_ACTION', ref: arg.split('|')[0], index: +arg.split('|')[1], by: me.name });
+      case 'lodgeClaim':
+        if (!need(incident, 'an incident')) return goTab('incidents');
+        if (incident.claim) return flash(`${incident.ref} already carries claim ${incident.claim}.`, { tone: 'warn' });
+        return setDialog('lodgeClaim');
+      case 'raiseWOFromIncident': {
+        if (!need(incident, 'an incident')) return goTab('incidents');
+        const ref = 'WO-26-' + Math.floor(3400 + Math.random() * 200);
+        dispatch({
+          type: 'RAISE_WO_DIRECT', ref, vehicle: incident.vehicle, site: incident.site,
+          woType: 'Repair', assigned: 'On-site workshop',
+          note: `Damage from ${incident.ref}: ${incident.description}`, by: me.name,
+        });
+        select('workOrder', ref);
+        return flash(`${ref} raised against ${incident.vehicle} from ${incident.ref}.`, {
+          title: 'Work order raised',
+          action: { label: 'Open it', onClick: () => goTab('workshop') },
+        });
+      }
+      case 'groundFromIncident': {
+        if (!need(incident, 'an incident')) return goTab('incidents');
+        dispatch({ type: 'GROUND_VEHICLE', plate: incident.vehicle, reason: `damage from ${incident.ref}`, by: me.name });
+        return flash(`${incident.vehicle} taken off road pending assessment.`, { tone: 'warn' });
+      }
+      case 'openIncidentVehicle':
+        if (!need(incident, 'an incident')) return goTab('incidents');
+        select('vehicle', incident.vehicle);
+        return goTab('fleet');
+      case 'openIncidentDriver':
+        if (!need(incident, 'an incident')) return goTab('incidents');
+        select('user', incident.driver);
+        return goTab('users');
+
+      /* ══════════════════════════════════════════════════════
+         Billing
+         ══════════════════════════════════════════════════════ */
+      case 'billingView': store.setView('billing', arg); return goTab('billing');
+      case 'raiseInvoice': return setDialog('invoice');
+      case 'recordPayment':
+        if (!need(invoice, 'an invoice')) return goTab('billing');
+        if (invDue(invoice) <= 0) return flash(`${invoice.ref} is already settled.`, { tone: 'warn' });
+        return setDialog('payment');
+      case 'openInvoice':
+        select('invoice', arg);
+        return goTab('billing');
+      case 'openInvoiceJob': {
+        if (!need(invoice, 'an invoice')) return goTab('billing');
+        select('job', invoice.jobs[0]);
+        return goTab('dispatch');
+      }
+
+      /* ══════════════════════════════════════════════════════
+         Documents, telematics, costs, contracts and admin
+         ══════════════════════════════════════════════════════ */
+      case 'documentsView': store.setView('documents', arg); return goTab('documents');
+      case 'verifyDoc': {
+        if (!need(doc, 'a document')) return goTab('documents');
+        if (doc.status === 'Verified') return flash(`${doc.kind} for ${doc.subject} is already verified.`, { tone: 'warn' });
+        dispatch({ type: 'VERIFY_DOC', ref: doc.ref, by: me.name });
+        return flash(`${doc.kind} for ${doc.subject} verified.`, { title: 'Document register' });
+      }
+      case 'telematicsView': store.setView('telematics', arg); return goTab('telematics');
+      case 'ackEvent':
+        dispatch({ type: 'ACK_EVENT', id: arg, by: me.name });
+        return flash('Event acknowledged.');
+      case 'ackAll': {
+        const open = store.events.filter((e) => !e.acknowledged);
+        open.forEach((e) => dispatch({ type: 'ACK_EVENT', id: e.id, by: me.name }));
+        return flash(`${open.length} event(s) acknowledged.`, { title: 'Telematics' });
+      }
+      case 'offlineUnits': {
+        store.setView('telematics', 'units');
+        goTab('telematics');
+        const n = store.vehicles.filter((v) => !v.telematics?.online).length;
+        return flash(n
+          ? `${n} unit(s) have stopped reporting — those vehicles' figures are as old as their last pre-use sheet.`
+          : 'Every telematics unit is reporting.', { tone: n ? 'warn' : 'ok' });
+      }
+      case 'liveMap':
+        store.setView('telematics', 'units');
+        goTab('telematics');
+        return flash(`${store.vehicles.filter((v) => v.telematics?.online).length} units plotted from the last position poll.`, { title: 'Live map' });
+      case 'costsView': store.setView('costs', arg); return goTab('costs');
+      case 'openCostVehicle':
+        if (!need(vehicle, 'a vehicle')) return goTab('costs');
+        return goTab('fleet');
+      case 'contractsView': store.setView('contracts', arg); return goTab('contracts');
+      case 'openContractVehicle':
+        if (!need(vehicle, 'a vehicle')) return goTab('contracts');
+        return goTab('fleet');
+      case 'renewContract': {
+        if (!need(vehicle, 'a vehicle')) return goTab('contracts');
+        if (vehicle.finance?.kind === 'Owned outright') return flash(`${vehicle.plate} is owned outright — there is nothing to renew.`, { tone: 'warn' });
+        return flash(`Settlement quote for ${vehicle.plate} requested from ${vehicle.finance.financier} — ${R(vehicle.finance.residual)} outstanding.`,
+          { title: 'Finance' });
+      }
+      case 'adminView': store.setView('admin', arg); return goTab('admin');
+      case 'runJob':
+        dispatch({ type: 'RUN_JOB', name: arg, by: me.name });
+        return flash(`${arg} ran and completed.`, { title: 'Scheduled job' });
+      case 'approve': {
+        const [decision, ref] = arg.split(':');
+        const target = ref || store.approvals.find((x) => x.status === 'Pending')?.ref;
+        if (!need(target, 'a request')) { store.setView('admin', 'approvals'); return goTab('admin'); }
+        const ap = store.approvals.find((x) => x.ref === target);
+        if (ap?.status !== 'Pending') return flash(`${target} has already been decided.`, { tone: 'warn' });
+        dispatch({ type: 'DECIDE_APPROVAL', ref: target, decision, by: me.name });
+        return flash(`${target} ${decision.toLowerCase()} — ${ap.type}, ${R(ap.amount)}.`,
+          { tone: decision === 'Declined' ? 'warn' : 'ok', title: 'Approval' });
+      }
+      case 'usersView': store.setView('users', arg); return goTab('users');
+      case 'complianceView': store.setView('compliance', arg); return goTab('compliance');
+      case 'rateCard':
+        return flash('Rate cards are held per customer and lane — the floor is R 24.00 per kilometre.', { title: 'Rates' });
+      case 'download':
+        return flash('File downloaded.');
+
+
+      /* ══════════════════════════════════════════════════════
+         The form designer
+         ══════════════════════════════════════════════════════ */
+      case 'designerView': return goTab('designer');
+      case 'newForm': return setDialog('newForm');
+      case 'duplicateForm': {
+        const t = templates.find((x) => x.id === selection.template) || templates[0];
+        if (!need(t, 'a form')) return goTab('designer');
+        const newId = 'TPL-' + String(200 + templates.length);
+        dispatch({ type: 'DUPLICATE_TEMPLATE', id: t.id, newId, by: me.name });
+        select('template', newId);
+        goTab('designer');
+        return flash(`${t.code} duplicated as a draft. Edit it, then publish it.`, { title: 'Form duplicated' });
+      }
+      case 'deleteForm': {
+        const t = templates.find((x) => x.id === selection.template);
+        if (!need(t, 'a form')) return goTab('designer');
+        if (t.status === 'Published') {
+          return flash(`${t.code} is published. A published form is the record behind every sheet captured on it — it cannot be deleted.`,
+            { tone: 'warn', title: 'Published form' });
+        }
+        return setDialog('deleteForm');
+      }
+      case 'addSection': {
+        const t = templates.find((x) => x.id === selection.template) || templates[0];
+        if (!need(t, 'a form')) return goTab('designer');
+        if (t.status === 'Published') {
+          return flash(`${t.code} is published — open a new revision before changing it.`, { tone: 'warn' });
+        }
+        dispatch({
+          type: 'ADD_SECTION', id: t.id, by: me.name,
+          section: { id: 'S' + Date.now(), title: 'New section', severity: 'No Go', condition: null, items: [] },
+        });
+        goTab('designer');
+        return flash('Section added — name it and set its severity in the designer.');
+      }
+      case 'addItem': {
+        const t = templates.find((x) => x.id === selection.template) || templates[0];
+        if (!need(t, 'a form')) return goTab('designer');
+        if (t.status === 'Published') {
+          return flash(`${t.code} is published — open a new revision before changing it.`, { tone: 'warn' });
+        }
+        const last = t.sections[t.sections.length - 1];
+        if (!last) return flash('Add a section first — a check has to live in one.', { tone: 'warn' });
+        dispatch({ type: 'ADD_ITEM', id: t.id, sectionId: last.id });
+        goTab('designer');
+        return flash(`Check added to “${last.title}”.`);
+      }
+
+      /* ══════════════════════════════════════════════════════
+         Shifts
+         ══════════════════════════════════════════════════════ */
+      case 'shiftsView': store.setView('shifts', arg); return goTab('shifts');
+      case 'signShift': {
+        const sh = store.shiftRow;
+        if (!need(sh, 'a shift')) return goTab('shifts');
+        if (sh.signedOff) return flash(`${sh.ref} is already signed off.`, { tone: 'warn' });
+        dispatch({ type: 'SIGN_SHIFT', ref: sh.ref, by: me.name });
+        return flash(`${sh.ref} signed off — ${sh.worked} h worked at ${sh.availability}% availability.`, { title: 'Shift log' });
+      }
+      case 'recordDelay':
+        if (!need(store.shiftRow, 'a shift')) return goTab('shifts');
+        return setDialog('delay');
+      case 'openShiftVehicle':
+        if (!need(store.shiftRow, 'a shift')) return goTab('shifts');
+        select('vehicle', store.shiftRow.vehicle);
+        return goTab('fleet');
+      case 'raiseWOFromShift': {
+        const sh = store.shiftRow;
+        if (!need(sh, 'a shift')) return goTab('shifts');
+        const breakdowns = sh.delays.filter((d) => d.reason.startsWith('Breakdown'));
+        if (!breakdowns.length) {
+          return flash(`${sh.ref} lost no time to a breakdown — there is nothing for the workshop here.`, { tone: 'warn' });
+        }
+        const ref = 'WO-26-' + Math.floor(3500 + Math.random() * 200);
+        dispatch({
+          type: 'RAISE_WO_DIRECT', ref, vehicle: sh.vehicle, site: sh.site,
+          woType: 'Breakdown', assigned: 'On-site workshop',
+          note: `${breakdowns.map((d) => d.reason).join('; ')} on ${sh.ref} — ${breakdowns.reduce((a, d) => a + d.minutes, 0)} minutes lost.`,
+          by: me.name,
+        });
+        select('workOrder', ref);
+        return flash(`${ref} raised against ${sh.vehicle} from ${sh.ref}.`, {
+          title: 'Work order raised',
+          action: { label: 'Open it', onClick: () => goTab('workshop') },
+        });
+      }
+
+      /* ══════════════════════════════════════════════════════
+         Roster
+         ══════════════════════════════════════════════════════ */
+      case 'rosterView': store.setView('roster', arg); return goTab('roster');
+      case 'rosterConflicts': {
+        store.setView('roster', 'board');
+        goTab('roster');
+        const crew = users.filter((u) => u.role === 'Operator' || u.role === 'Supervisor');
+        const window14 = Array.from({ length: 14 }, (_, i) => isoAdd(mondayOf(TODAY_ISO), i));
+        const n = crew.reduce((a, p) => a
+          + window14.filter((d) => rosterConflicts(store.roster, p, d, store.settings).length).length, 0);
+        return flash(n
+          ? `${n} rostered shift(s) in the next fortnight have a conflict — a lapsed certificate, no rest between shifts, or a week over the ceiling.`
+          : 'No rostered shift in the next fortnight has a conflict.',
+        { tone: n ? 'warn' : 'ok', title: 'Roster' });
+      }
+      case 'swapShift': {
+        const cell = selection.rosterCell;
+        if (!need(cell?.date, 'a cell on the roster')) return goTab('roster');
+        return setDialog('swapShift');
+      }
+      case 'bookLeave': {
+        const cell = selection.rosterCell;
+        const who = cell?.code || users.find((u) => u.name === selection.user)?.code;
+        if (!need(who, 'someone on the roster')) return goTab('roster');
+        return setDialog('bookLeave');
+      }
+      case 'openRosterVehicle':
+        select('vehicle', arg);
+        return goTab('fleet');
+      case 'openRosterPerson':
+        select('user', arg);
+        return goTab('users');
+
+      /* ══════════════════════════════════════════════════════
+         Timesheets
+         ══════════════════════════════════════════════════════ */
+      case 'timesheetsView': store.setView('timesheets', arg); return goTab('timesheets');
+      case 'approveWeek':
+      case 'reopenWeek':
+        return goTab('timesheets');
+      case 'openTimesheetPerson':
+        if (arg) select('user', arg);
+        return goTab('users');
+
       /* session */
       case 'signOut': return setSignedOut(true);
       default:
         return flash(MESSAGES[head] || 'Done.');
     }
-  }, [density, flash, goTab, inspection, inspections, vehicle, defects, selection, dispatch, me, openRunner]);
+  }, [density, flash, goTab, inspection, inspections, vehicle, defects, selection, dispatch, me,
+    openRunner, store, job, fuelTx, tyre, part, po, supplierInvoice, incident, invoice, doc, workOrder]);
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') { setBackstage(false); setDialog(null); } };
@@ -561,6 +1007,714 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
         });
       },
     },
+
+    /* ══════════════════════════════════════════════════════════
+       Dispatch
+       ══════════════════════════════════════════════════════════ */
+    planJob: {
+      title: 'Plan a haulage job', submit: 'Plan it',
+      note: 'The job is costed from the lane distance, the vehicle’s own consumption and the standard operator rate, so the margin is real before it is committed.',
+      fields: [
+        [{ k: 'lane', l: 'Lane', options: LANES.map((l) => `${l[0]} → ${l[1]} · ${l[2]} km`) }],
+        [{ k: 'customer', l: 'Customer', options: CUSTOMERS }, { k: 'cargo', l: 'Cargo', options: CARGO }],
+        [{ k: 'plate', l: 'Vehicle', options: vehicles.filter((v) => v.cls === 'Heavy' && v.status !== 'Maintenance').map((v) => `${v.plate} — ${v.make}`) },
+         { k: 'driver', l: 'Operator', options: operators.length ? operators : ['—'] }],
+        [{ k: 'depart', l: 'Departure date', type: 'date', required: true },
+         { k: 'departTime', l: 'Departure time', options: ['04:00', '05:00', '06:00', '07:00', '09:00', '13:00', '17:00'] }],
+        [{ k: 'tons', l: 'Load, tons', type: 'number', value: '30' },
+         { k: 'rate', l: 'Rate per kilometre', type: 'number', value: '26.40',
+           validate: (v) => (+v >= store.settings.rateFloor ? ''
+             : `Below the ${R2(store.settings.rateFloor)} per kilometre floor — this needs an approval before it can be planned.`) }],
+        [{ k: 'priority', l: 'Priority', options: ['Standard', 'Urgent'] }],
+      ],
+      onSubmit: (v) => {
+        const lane = LANES.find((l) => `${l[0]} → ${l[1]} · ${l[2]} km` === v.lane) || LANES[0];
+        const plate = v.plate.split(' — ')[0];
+        const veh = vehicles.find((x) => x.plate === plate) || vehicles[0];
+        const ref = 'JOB-26-' + Math.floor(4300 + Math.random() * 300);
+        const hours = Math.max(2, Math.round(lane[2] / 58));
+        const revenue = Math.round(lane[2] * (+v.rate || 26.4));
+        const fuelCost = Math.round((lane[2] / (veh.rate || 2.6)) * store.settings.dieselPrice);
+        const tollCost = Math.round(lane[2] * 0.42);
+        const driverCost = Math.round(hours * 128);
+        const other = Math.round(lane[2] * 1.7);
+        const depart = v.depart || shift(0);
+        dispatch({
+          type: 'PLAN_JOB', by: me.name,
+          job: {
+            ref, vehicle: plate, fleetNo: veh.fleetNo, driver: v.driver, customer: v.customer,
+            origin: lane[0], destination: lane[1], distance: lane[2], route: lane[3], cargo: v.cargo,
+            tons: +v.tons || 30, depart, departTime: v.departTime,
+            eta: shift(Math.round((new Date(depart) - new Date()) / 86400000) + Math.ceil(hours / 11)),
+            hours, status: 'Planned', site: veh.site, revenue, fuelCost, tollCost, driverCost, other,
+            cost: fuelCost + tollCost + driverCost + other, lateBy: 0, pod: false,
+            priority: v.priority, invoice: null,
+          },
+        });
+        select('job', ref);
+        goTab('dispatch');
+        const margin = revenue - (fuelCost + tollCost + driverCost + other);
+        flash(`${ref} planned — ${R(revenue)} revenue against ${R(fuelCost + tollCost + driverCost + other)} of cost, ${R(margin)} margin.`,
+          { tone: margin > 0 ? 'ok' : 'warn', title: 'Job planned' });
+      },
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       Fuel
+       ══════════════════════════════════════════════════════════ */
+    fuel: {
+      title: 'Capture a fill', submit: 'Capture',
+      note: 'The meter reading is checked against the last one on record. A reading that goes backwards, or litres above the tank capacity, is captured as an exception rather than rejected — the fill happened either way, and somebody has to explain it.',
+      fields: [
+        [{ k: 'plate', l: 'Vehicle', options: vehicles.filter((v) => v.tank > 0).map((v) => `${v.plate} — ${v.make}`) }],
+        [{ k: 'station', l: 'Where', options: FUEL_SITES }, { k: 'driver', l: 'Operator', options: operators.length ? operators : ['—'] }],
+        [{ k: 'litres', l: 'Litres', type: 'number', required: true,
+           validate: (v) => (+v > 0 ? '' : 'Enter the litres drawn.') },
+         { k: 'rate', l: 'Rate per litre', type: 'number', value: String(store.settings.dieselPrice) }],
+        [{ k: 'meter', l: 'Meter reading', type: 'number', required: true },
+         { k: 'since', l: 'Distance or hours since the last fill', type: 'number', required: true }],
+      ],
+      onSubmit: (v) => {
+        const plate = v.plate.split(' — ')[0];
+        const veh = vehicles.find((x) => x.plate === plate) || vehicles[0];
+        const plant = veh.meterType === 'hours';
+        const litres = +v.litres;
+        const since = +v.since || 1;
+        const consumption = plant ? +(litres / since).toFixed(2) : +(since / litres).toFixed(2);
+        const target = plant ? 18 : veh.targetRate;
+        const variance = target ? +(((consumption - target) / target) * 100 * (plant ? -1 : 1)).toFixed(1) : 0;
+        const exception = +v.meter < veh.km ? 'Meter reading lower than the previous fill'
+          : litres > veh.tank ? 'Litres exceed the tank capacity'
+            : Math.abs(variance) > store.settings.fuelVariancePct * 2
+              ? `Consumption ${Math.abs(variance).toFixed(0)}% off the model target` : null;
+        const ref = 'FT-26-' + Math.floor(60300 + Math.random() * 400);
+        dispatch({
+          type: 'ADD_FUEL', by: me.name,
+          entry: {
+            ref, date: shift(0),
+            time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+            vehicle: plate, fleetNo: veh.fleetNo, driver: v.driver, site: veh.site,
+            card: '6011 •••• 4417', station: v.station, litres, rate: +v.rate,
+            amount: Math.round(litres * +v.rate),
+            meter: exception === 'Meter reading lower than the previous fill' ? veh.km : +v.meter,
+            since, consumption, unit: plant ? 'L/h' : 'km/L', variance, exception,
+            status: exception ? 'Exception' : 'Unverified',
+          },
+        });
+        select('fuel', ref);
+        goTab('fuel');
+        flash(exception
+          ? `${ref} captured as an exception — ${exception.toLowerCase()}.`
+          : `${ref} captured — ${litres} L, ${consumption} ${plant ? 'L/h' : 'km/L'}.`,
+        { tone: exception ? 'warn' : 'ok', title: exception ? 'Exception raised' : 'Fuel captured' });
+      },
+    },
+    clearException: fuelTx && {
+      title: `Clear the exception on ${fuelTx.ref}`, submit: 'Clear it',
+      note: `${fuelTx.exception}. Clearing this posts the fill against ${fuelTx.vehicle}’s cost, so the reason stays on the record and in the audit trail.`,
+      fields: [[{ k: 'reason', l: 'Reason', options: [
+        'meter fault confirmed on site, corrected from the telematics feed',
+        'the previous fill was captured against the wrong vehicle',
+        'a second tank was filled on the same transaction',
+        'confirmed against the site’s own bunker record',
+        'operator error on the meter capture, corrected',
+      ] }]],
+      onSubmit: (v) => {
+        dispatch({ type: 'CLEAR_EXCEPTION', ref: fuelTx.ref, reason: v.reason, by: me.name });
+        flash(`Exception on ${fuelTx.ref} cleared and the fill posted.`, { title: 'Fuel exception' });
+      },
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       Tyres
+       ══════════════════════════════════════════════════════════ */
+    fitTyre: {
+      title: 'Fit a tyre', submit: 'Fit it',
+      note: 'The tyre is recorded at the vehicle’s current meter reading. Everything it costs from here is measured over the distance it runs from that point.',
+      fields: [
+        [{ k: 'plate', l: 'Vehicle', options: vehicles.filter((v) => v.cls === 'Heavy' || v.cls === 'Plant').map((v) => `${v.plate} — ${v.type}`) }],
+        [{ k: 'position', l: 'Position', options: [...TYRE_POS_HEAVY, ...TYRE_POS_PLANT] },
+         { k: 'brand', l: 'Brand', options: TYRE_BRANDS }],
+        [{ k: 'tread', l: 'Tread depth, mm', type: 'number', value: '16' },
+         { k: 'cost', l: 'Fitted cost', type: 'number', value: '8400' }],
+        [{ k: 'retread', l: 'Retread', options: ['No', 'Yes'] }],
+      ],
+      onSubmit: (v) => {
+        const plate = v.plate.split(' — ')[0];
+        const veh = vehicles.find((x) => x.plate === plate) || vehicles[0];
+        const serial = 'TY' + Math.floor(500000 + Math.random() * 99999);
+        dispatch({
+          type: 'FIT_TYRE', by: me.name,
+          tyre: {
+            serial, brand: v.brand, size: veh.cls === 'Plant' ? '29.5R25' : '315/80R22.5',
+            position: v.position, vehicle: plate, fleetNo: veh.fleetNo, site: veh.site,
+            fittedAt: veh.km, fittedOn: shift(0), currentMeter: veh.km, run: 0,
+            tread: +v.tread, pressure: veh.cls === 'Plant' ? 560 : 820,
+            retreads: v.retread === 'Yes' ? 1 : 0, cost: +v.cost,
+            cpk: +(+v.cost / 1000).toFixed(3), status: 'New',
+          },
+        });
+        select('tyre', serial);
+        goTab('tyres');
+        flash(`${serial} fitted to ${plate} at ${v.position}.`, { title: 'Tyre fitted' });
+      },
+    },
+    logTread: tyre && {
+      title: `Record the tread on ${tyre.serial}`, submit: 'Record',
+      note: `${tyre.brand} at ${tyre.position} on ${tyre.vehicle}, last measured at ${tyre.tread} mm. Below ${store.settings.minTreadMm} mm the tyre is not legal and the vehicle should not move on it.`,
+      fields: [[{ k: 'tread', l: 'Tread depth, mm', type: 'number', value: String(tyre.tread), required: true,
+        validate: (v) => (+v >= 0 && +v <= 30 ? '' : 'Enter a depth between 0 and 30 mm.') }]],
+      onSubmit: (v) => {
+        dispatch({ type: 'LOG_TREAD', serial: tyre.serial, tread: +v.tread, by: me.name });
+        const min = store.settings.minTreadMm;
+        flash(+v.tread < min
+          ? `${tyre.serial} measured at ${v.tread} mm — below the ${min} mm legal limit. Scrap it before ${tyre.vehicle} runs again.`
+          : `${tyre.serial} measured at ${v.tread} mm.`,
+        { tone: +v.tread < min ? 'err' : +v.tread < min + 2 ? 'warn' : 'ok', title: 'Tread recorded' });
+      },
+    },
+    scrapTyre: tyre && {
+      title: `Scrap ${tyre.serial}`, submit: 'Scrap it',
+      note: `Fitted at ${num(tyre.fittedAt)} and run ${num(tyre.run)} since, at R ${tyre.cpk.toFixed(3)} per kilometre. The cost stays on the vehicle’s record.`,
+      fields: [[{ k: 'reason', l: 'Reason', options: [
+        'tread below the 3 mm legal limit', 'sidewall damage', 'irreparable puncture',
+        'irregular wear from misalignment', 'sent for retreading', 'casing failure',
+      ] }]],
+      onSubmit: (v) => {
+        dispatch({ type: 'SCRAP_TYRE', serial: tyre.serial, reason: v.reason, by: me.name });
+        flash(`${tyre.serial} scrapped — ${v.reason}.`, { tone: 'warn', title: 'Tyre scrapped' });
+      },
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       Stores
+       ══════════════════════════════════════════════════════════ */
+    part: {
+      title: 'Add a catalogue line', submit: 'Add it',
+      note: 'A new line starts at zero on hand. The reorder level is what the nightly reorder proposal reads.',
+      fields: [
+        [{ k: 'desc', l: 'Description', p: 'Oil filter — Volvo FH', required: true }],
+        [{ k: 'category', l: 'Category', options: PART_CATS }, { k: 'supplier', l: 'Supplier', options: SUPPLIERS }],
+        [{ k: 'store', l: 'Store', options: siteOptions }, { k: 'bin', l: 'Bin', p: 'B4-27' }],
+        [{ k: 'qty', l: 'Opening quantity', type: 'number', value: '0' },
+         { k: 'reorder', l: 'Reorder level', type: 'number', value: '6' }],
+        [{ k: 'unitCost', l: 'Unit cost', type: 'number', required: true },
+         { k: 'lead', l: 'Lead time, days', type: 'number', value: '7' }],
+      ],
+      onSubmit: (v) => {
+        const sku = 'P-' + Math.floor(20000 + Math.random() * 9000);
+        dispatch({
+          type: 'ADD_PART', by: me.name,
+          part: {
+            sku, desc: v.desc, category: v.category, bin: v.bin || 'A1-10',
+            store: (SITES.find((x) => x.name === v.store) || SITES[1]).key,
+            qty: +v.qty || 0, reorder: +v.reorder || 6, onOrder: 0,
+            unitCost: +v.unitCost, supplier: v.supplier, lastIssued: shift(0),
+            usage90: 0, lead: +v.lead || 7,
+          },
+        });
+        select('part', sku);
+        goTab('parts');
+        flash(`${v.desc} added to the catalogue as ${sku}.`);
+      },
+    },
+    issuePart: part && {
+      title: `Issue ${part.desc}`, submit: 'Issue',
+      note: `${part.qty} on hand in bin ${part.bin}. Issuing moves the part out of stock and onto the job card at ${R(part.unitCost)} each, so the workshop cost and the stock value cannot disagree.`,
+      fields: [
+        [{ k: 'qty', l: 'Quantity', type: 'number', value: '1', required: true,
+          validate: (v) => (+v > 0 && +v <= part.qty ? '' : `Only ${part.qty} on hand.`) }],
+        [{ k: 'wo', l: 'To job card', options: ['— stock issue —', ...store.workOrders.filter((w) => w.status !== 'Completed').map((w) => `${w.ref} · ${w.vehicle}`)] }],
+      ],
+      onSubmit: (v) => {
+        const wo = v.wo === '— stock issue —' ? null : v.wo.split(' · ')[0];
+        dispatch({ type: 'ISSUE_PART', sku: part.sku, qty: +v.qty, workOrder: wo, by: me.name });
+        flash(`${v.qty} × ${part.desc} issued${wo ? ` to ${wo}` : ''} — ${R(+v.qty * part.unitCost)}.`,
+          { title: 'Stores' });
+      },
+    },
+    adjustStock: part && {
+      title: `Adjust ${part.desc}`, submit: 'Adjust',
+      note: `The system says ${part.qty}. An adjustment is a write-off or a write-on against the stock value, so it carries a reason and lands in the audit trail.`,
+      fields: [
+        [{ k: 'qty', l: 'Counted quantity', type: 'number', value: String(part.qty), required: true,
+          validate: (v) => (+v >= 0 ? '' : 'A count cannot be negative.') }],
+        [{ k: 'reason', l: 'Reason', options: [
+          'stock count variance', 'damaged in the store', 'issued without a job card',
+          'received short from the supplier', 'found on the shelf, previously written off',
+        ] }],
+      ],
+      onSubmit: (v) => {
+        const diff = +v.qty - part.qty;
+        dispatch({ type: 'ADJUST_STOCK', sku: part.sku, qty: +v.qty, reason: v.reason, by: me.name });
+        flash(`${part.desc} adjusted ${diff >= 0 ? 'up' : 'down'} by ${Math.abs(diff)} — ${R(Math.abs(diff) * part.unitCost)} ${diff >= 0 ? 'on' : 'off'} the stock value.`,
+          { tone: 'warn', title: 'Stock adjusted' });
+      },
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       Workshop
+       ══════════════════════════════════════════════════════════ */
+    bookLabour: workOrder && {
+      title: `Book labour to ${workOrder.ref}`, submit: 'Book it',
+      note: `${workOrder.labourHours} hours booked so far at ${R(store.settings.labourRate)} an hour. Labour and parts together are what the job card costs.`,
+      fields: [
+        [{ k: 'hours', l: 'Hours', type: 'number', value: '2', required: true,
+          validate: (v) => (+v > 0 ? '' : 'Enter the hours worked.') },
+         { k: 'technician', l: 'Technician', options: ['J. Marais', 'S. Ndlovu', 'P. Mokoena', 'A. Khoza', 'W. Botha'] }],
+      ],
+      onSubmit: (v) => {
+        dispatch({ type: 'WO_LABOUR', ref: workOrder.ref, hours: +v.hours, technician: v.technician, by: me.name });
+        flash(`${v.hours} hours booked to ${workOrder.ref} — ${R(+v.hours * workOrder.labourRate)}.`, { title: 'Workshop' });
+      },
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       Procurement
+       ══════════════════════════════════════════════════════════ */
+    po: {
+      title: 'Raise a purchase order', submit: 'Raise it',
+      note: `An order above ${R(store.settings.poApprovalLimit)} needs an approval before it can be sent to the supplier.`,
+      fields: [
+        [{ k: 'supplier', l: 'Supplier', options: SUPPLIERS }, { k: 'site', l: 'Deliver to', options: siteOptions }],
+        [{ k: 'sku', l: 'Part', options: store.parts.map((x) => `${x.sku} · ${x.desc}`) },
+         { k: 'qty', l: 'Quantity', type: 'number', value: '4', required: true }],
+        [{ k: 'wo', l: 'Against a job card', options: ['— stock replenishment —', ...store.workOrders.filter((w) => w.status !== 'Completed').map((w) => `${w.ref} · ${w.vehicle}`)] }],
+        [{ k: 'note', l: 'Note to the supplier', p: 'Deliver to the Lephalale stores, attention the foreman.', area: true }],
+      ],
+      onSubmit: (v) => {
+        const sku = v.sku.split(' · ')[0];
+        const p = store.parts.find((x) => x.sku === sku) || store.parts[0];
+        const ref = 'PO-26-' + Math.floor(2300 + Math.random() * 200);
+        const po2 = {
+          ref, supplier: v.supplier,
+          site: (SITES.find((x) => x.name === v.site) || SITES[1]).key,
+          raisedBy: me.name, raised: shift(0), expected: shift(p.lead),
+          lines: [{ sku: p.sku, desc: p.desc, qty: +v.qty, price: p.unitCost }],
+          status: 'Draft',
+          workOrder: v.wo === '— stock replenishment —' ? null : v.wo.split(' · ')[0],
+          note: v.note,
+        };
+        dispatch({ type: 'RAISE_PO', po: po2, by: me.name });
+        select('po', ref);
+        goTab('procurement');
+        const total = poTotal(po2);
+        const over = total > store.settings.poApprovalLimit;
+        flash(over
+          ? `${ref} raised at ${R(total)} — above the ${R(store.settings.poApprovalLimit)} limit, so it needs an approval before it can be sent.`
+          : `${ref} raised on ${v.supplier} at ${R(total)}.`,
+        { tone: over ? 'warn' : 'ok', title: 'Order raised' });
+      },
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       Incidents
+       ══════════════════════════════════════════════════════════ */
+    incident: {
+      title: 'Log an incident', submit: 'Log it',
+      note: 'A critical incident is reportable within 24 hours and grounds the vehicle until it has been assessed. The four investigation actions are opened automatically.',
+      fields: [
+        [{ k: 'type', l: 'Type', options: INCIDENT_TYPES },
+         { k: 'severity', l: 'Severity', options: ['Minor', 'Moderate', 'Major', 'Critical'] }],
+        [{ k: 'plate', l: 'Vehicle', options: vehicles.map((v) => `${v.plate} — ${v.make}`) },
+         { k: 'driver', l: 'Operator', options: operators.length ? operators : ['—'] }],
+        [{ k: 'location', l: 'Where', p: 'Haul road 2, at the tip head' },
+         { k: 'estimate', l: 'Estimated cost', type: 'number', value: '25000' }],
+        [{ k: 'injuries', l: 'People injured', type: 'number', value: '0' },
+         { k: 'thirdParty', l: 'Third party involved', options: ['No', 'Yes'] }],
+        [{ k: 'description', l: 'What happened', p: 'Describe the sequence of events, the conditions and what was done immediately afterwards.', area: true, rows: 3, required: true }],
+      ],
+      onSubmit: (v) => {
+        const plate = v.plate.split(' — ')[0];
+        const veh = vehicles.find((x) => x.plate === plate) || vehicles[0];
+        const ref = 'INC-26-' + Math.floor(200 + Math.random() * 90);
+        const critical = v.severity === 'Critical';
+        dispatch({
+          type: 'ADD_INCIDENT', by: me.name, ground: critical,
+          incident: {
+            ref, type: v.type, severity: v.severity, description: v.description, status: 'Open',
+            vehicle: plate, fleetNo: veh.fleetNo, driver: v.driver, site: veh.site,
+            date: shift(0), location: v.location, claim: null,
+            estimate: +v.estimate || 0, excess: 15000, thirdParty: v.thirdParty === 'Yes',
+            injuries: +v.injuries || 0, lostDays: 0, reportedBy: me.name, workOrder: null,
+            actions: [
+              { text: 'Scene secured and the operator’s statement taken', done: false },
+              { text: 'Telematics and camera footage pulled', done: false },
+              { text: 'Root cause established and coaching booked', done: false },
+              { text: 'Claim lodged with the insurer', done: false },
+            ],
+          },
+        });
+        select('incident', ref);
+        goTab('incidents');
+        flash(critical
+          ? `${ref} logged as critical — ${plate} taken off road, and the incident is reportable within 24 hours.`
+          : `${ref} logged against ${plate}.`,
+        { tone: critical ? 'err' : 'warn', title: 'Incident logged' });
+      },
+    },
+    lodgeClaim: incident && {
+      title: `Lodge a claim on ${incident.ref}`, submit: 'Lodge it',
+      note: `${incident.type} on ${incident.vehicle}, estimated at ${R(incident.estimate)} against a ${R(incident.excess)} excess.`,
+      fields: [
+        [{ k: 'insurer', l: 'Insurer', options: ['Santam Commercial', 'Old Mutual Insure', 'Hollard Fleet', 'Bryte Insurance'] }],
+        [{ k: 'amount', l: 'Claim amount', type: 'number', value: String(incident.estimate) }],
+      ],
+      onSubmit: (v) => {
+        const claim = 'CLM-26-' + Math.floor(4500 + Math.random() * 200);
+        dispatch({ type: 'LODGE_CLAIM', ref: incident.ref, claim, insurer: v.insurer, by: me.name });
+        flash(`${claim} lodged with ${v.insurer} for ${R(+v.amount)}.`, { title: 'Claim lodged' });
+      },
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       Billing
+       ══════════════════════════════════════════════════════════ */
+    invoice: {
+      title: 'Raise an invoice', submit: 'Raise it',
+      note: 'Only delivered jobs with a proof of delivery in are billable — that is the rule the dispatch settings set, and it is what stops a customer disputing a line.',
+      fields: [
+        [{ k: 'customer', l: 'Customer', options: [...new Set(store.jobs.filter((j) => j.status === 'Delivered' && !j.invoice && j.pod).map((j) => j.customer))].sort() }],
+        [{ k: 'discount', l: 'Discount, %', type: 'number', value: '0' },
+         { k: 'vat', l: 'VAT, %', type: 'number', value: '15' }],
+        [{ k: 'terms', l: 'Payment terms',
+          options: [store.settings.paymentTerms,
+            ...['30 days', '14 days', '60 days', 'On presentation'].filter((t) => t !== store.settings.paymentTerms)] }],
+      ],
+      onSubmit: (v) => {
+        const billable = store.jobs.filter((j) => j.customer === v.customer && j.status === 'Delivered' && !j.invoice && j.pod);
+        if (!billable.length) {
+          return flash(`Nothing is billable for ${v.customer} — every delivered job is either already invoiced or missing its POD.`,
+            { tone: 'warn', title: 'Nothing to bill' });
+        }
+        const days = { '30 days': 30, '14 days': 14, '60 days': 60, 'On presentation': 0 }[v.terms];
+        const ref = 'INV-26-' + Math.floor(7200 + Math.random() * 200);
+        const inv = {
+          ref, customer: v.customer,
+          contact: `accounts@${v.customer.toLowerCase().replace(/[^a-z]/g, '').slice(0, 14)}.co.za`,
+          site: billable[0].site, date: shift(0), due: shift(days),
+          lines: billable.map((j) => ({
+            desc: `${j.ref} · ${j.origin} → ${j.destination} · ${j.cargo}`,
+            qty: j.distance, unit: 'km', price: +(j.revenue / j.distance).toFixed(2),
+          })),
+          discount: +v.discount || 0, vat: +v.vat || 15, payments: [],
+          jobs: billable.map((j) => j.ref), status: 'Issued',
+        };
+        dispatch({ type: 'RAISE_INVOICE', invoice: inv, by: me.name });
+        select('invoice', ref);
+        store.setView('billing', 'register');
+        goTab('billing');
+        return flash(`${ref} raised to ${v.customer} — ${billable.length} job(s), ${R(invTotal(inv))} including VAT.`,
+          { title: 'Invoice raised' });
+      },
+    },
+    payment: invoice && {
+      title: `Receipt a payment against ${invoice.ref}`, submit: 'Receipt it',
+      note: `${invoice.customer} owes ${R(invDue(invoice))} of ${R(invTotal(invoice))}.`,
+      fields: [
+        [{ k: 'amount', l: 'Amount received', type: 'number', value: String(invDue(invoice)), required: true,
+          validate: (v) => (+v > 0 ? '' : 'Enter the amount received.') },
+         { k: 'method', l: 'Method', options: ['EFT', 'Cheque', 'Card', 'Cash'] }],
+      ],
+      onSubmit: (v) => {
+        const amount = Math.round(+v.amount);
+        const payment = { ref: 'RCT-' + Math.floor(20000 + Math.random() * 70000), date: shift(0), amount, method: v.method };
+        dispatch({ type: 'RECORD_PAYMENT', ref: invoice.ref, payment, by: me.name });
+        const left = Math.max(0, invDue(invoice) - amount);
+        flash(left
+          ? `${R(amount)} receipted against ${invoice.ref} — ${R(left)} still outstanding.`
+          : `${invoice.ref} settled in full.`,
+        { tone: left ? 'info' : 'ok', title: 'Payment receipted' });
+      },
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       Documents and cost control
+       ══════════════════════════════════════════════════════════ */
+    document: {
+      title: 'Upload a document', submit: 'Upload',
+      note: 'An uploaded document is unverified until somebody checks it against the original. The nightly expiry sweep reads the date on this record, so it has to be the date on the paper.',
+      fields: [
+        [{ k: 'kind', l: 'Kind', options: DOC_TYPES },
+         { k: 'subjectType', l: 'Held against', options: ['Vehicle', 'Person'] }],
+        [{ k: 'subject', l: 'Vehicle or person', options: [...vehicles.map((v) => v.plate), ...users.map((u) => u.name)] }],
+        [{ k: 'issued', l: 'Issued on', type: 'date' }, { k: 'expires', l: 'Expires on', type: 'date' }],
+        [{ k: 'owner', l: 'Owned by', options: ['Compliance officer', 'Human resources', 'Finance', 'Workshop', 'Occupational health'] }],
+      ],
+      onSubmit: (v) => {
+        const isVehicle = vehicles.some((x) => x.plate === v.subject);
+        const site = isVehicle
+          ? vehicles.find((x) => x.plate === v.subject).site
+          : (users.find((x) => x.name === v.subject) || { site: 'HO' }).site;
+        const ref = 'DOC-' + Math.floor(9600 + Math.random() * 300);
+        dispatch({
+          type: 'UPLOAD_DOC', by: me.name,
+          doc: {
+            ref, kind: v.kind, subject: v.subject,
+            subjectType: isVehicle ? 'Vehicle' : 'Person', site,
+            issued: v.issued || shift(0), expires: v.expires || null,
+            owner: v.owner, file: `${v.kind.toLowerCase().replace(/\s/g, '-')}-${v.subject.replace(/\s/g, '')}.pdf`,
+            size: '214 KB', status: 'Unverified',
+          },
+        });
+        select('document', ref);
+        goTab('documents');
+        flash(`${v.kind} uploaded for ${v.subject}. It stays unverified until it is checked against the original.`,
+          { title: 'Document uploaded' });
+      },
+    },
+    budget: {
+      title: 'Set a monthly budget', submit: 'Set it',
+      note: 'The budget is what the variance on the cost screen is measured against, and a change to it is a change to what the board was told. It is written to the audit trail.',
+      fields: [
+        [{ k: 'head', l: 'Cost head', options: COST_HEADS.map((h) => h.label) }],
+        [{ k: 'amount', l: 'Monthly budget', type: 'number', required: true,
+          validate: (v) => (+v > 0 ? '' : 'Enter the budgeted amount.') }],
+      ],
+      onSubmit: (v) => {
+        const head = COST_HEADS.find((h) => h.label === v.head) || COST_HEADS[0];
+        dispatch({ type: 'SET_BUDGET', head: head.key, label: head.label, amount: Math.round(+v.amount), by: me.name });
+        store.setView('costs', 'budget');
+        goTab('costs');
+        flash(`${head.label} budget set to ${R(+v.amount)} for the month.`, { title: 'Budget set' });
+      },
+    },
+
+
+    /* ══════════════════════════════════════════════════════════
+       The form designer
+       ══════════════════════════════════════════════════════════ */
+    newForm: {
+      title: 'New inspection form', submit: 'Create the draft',
+      note: 'A new form opens as a draft with one empty section. It cannot be used to capture a sheet until it is published, and publishing is one-way — after that a change means a new revision.',
+      fields: [
+        [{ k: 'name', l: 'Form name', p: 'Pre-use inspection — water tanker', required: true,
+          hint: 'Everything before an em dash prints as the masthead on the paper sheet.' }],
+        [{ k: 'code', l: 'Form number', p: 'SN-MIN-500', required: true },
+         { k: 'industry', l: 'Industry', options: ['Mining', 'Construction', 'Logistics', 'Agriculture', 'Utilities', 'Government'] }],
+        [{ k: 'basedOn', l: 'Start from', options: ['A blank form', ...templates.map((t) => `${t.code} — ${t.name}`)] }],
+      ],
+      onSubmit: (v) => {
+        const id = 'TPL-' + String(200 + templates.length);
+        const from = v.basedOn === 'A blank form'
+          ? null
+          : templates.find((t) => `${t.code} — ${t.name}` === v.basedOn);
+        const tpl = from
+          ? {
+            ...from,
+            id,
+            name: v.name,
+            code: v.code,
+            industry: v.industry,
+            status: 'Draft',
+            revision: 1,
+            usedThisMonth: 0,
+            sections: from.sections.map((sec, i) => ({
+              ...sec,
+              id: `${id}S${i}`,
+              items: sec.items.map((it, j) => ({ ...it, id: `${id}S${i}I${j}` })),
+            })),
+          }
+          : blankTemplate(id, v.name, v.code, v.industry);
+        dispatch({ type: 'ADD_TEMPLATE', template: tpl, by: me.name });
+        select('template', id);
+        goTab('designer');
+        flash(`${v.code} created as a draft${from ? `, copied from ${from.code}` : ''}.`, { title: 'Form created' });
+      },
+    },
+    deleteForm: (() => {
+      const t = templates.find((x) => x.id === selection.template);
+      return t && {
+        title: `Delete ${t.code}`, submit: 'Delete the draft',
+        note: `${t.name} — ${t.sections.length} sections, ${t.sections.reduce((a, x) => a + x.items.length, 0)} checks. It is a draft and has never been used to capture a sheet, so nothing points at it.`,
+        fields: [[{ k: 'confirm', l: `Type “${t.code}” to confirm`, required: true,
+          validate: (v) => (v.trim().toUpperCase() === t.code.toUpperCase() ? '' : 'That does not match the form number.') }]],
+        onSubmit: () => {
+          dispatch({ type: 'DELETE_TEMPLATE', id: t.id, by: me.name });
+          select('template', templates.find((x) => x.id !== t.id)?.id || null);
+          flash(`${t.code} deleted.`, { tone: 'warn', title: 'Draft removed' });
+        },
+      };
+    })(),
+
+    /* ══════════════════════════════════════════════════════════
+       Shifts
+       ══════════════════════════════════════════════════════════ */
+    shift: {
+      title: 'Log a shift', submit: 'Log it',
+      note: 'The meter reading at the end of the shift becomes the machine’s meter, so it is read off the machine rather than typed from memory. Availability and utilisation are calculated from the hours, not entered.',
+      fields: [
+        [{ k: 'plate', l: 'Machine', options: vehicles.filter((v) => v.cls === 'Plant' || v.cls === 'Heavy').map((v) => `${v.plate} — ${v.type}`) },
+         { k: 'shiftName', l: 'Shift', options: ['A', 'B', 'Night'] }],
+        [{ k: 'date', l: 'Date', type: 'date', required: true },
+         { k: 'operator', l: 'Operator', options: operators.length ? operators : ['—'] }],
+        [{ k: 'meterStart', l: 'Meter at the start', type: 'number', required: true },
+         { k: 'meterEnd', l: 'Meter at the end', type: 'number', required: true }],
+        [{ k: 'worked', l: 'Hours worked', type: 'number', value: '10.5', required: true,
+          validate: (v) => (+v >= 0 && +v <= 12 ? '' : 'A shift is twelve hours — worked time cannot exceed it.') },
+         { k: 'production', l: 'Production', type: 'number', value: '0' }],
+      ],
+      onSubmit: (v) => {
+        const plate = v.plate.split(' — ')[0];
+        const veh = vehicles.find((x) => x.plate === plate) || vehicles[0];
+        const worked = +v.worked || 0;
+        const lost = +(12 - worked).toFixed(1);
+        const ref = 'SHF-26-' + Math.floor(9200 + Math.random() * 300);
+        dispatch({
+          type: 'LOG_SHIFT', by: me.name,
+          shift: {
+            ref, date: v.date || shift(0), shift: v.shiftName,
+            vehicle: plate, fleetNo: veh.fleetNo, type: veh.type, meterType: veh.meterType,
+            site: veh.site, operator: v.operator,
+            operatorCode: users.find((u) => u.name === v.operator)?.code || '—',
+            supervisor: users.find((u) => u.name === v.operator)?.reports || '—',
+            meterStart: +v.meterStart, meterEnd: +v.meterEnd,
+            scheduled: 12, worked, lost, delays: [],
+            production: +v.production || 0,
+            unit: veh.cls === 'Heavy' ? 'Tonnes hauled' : 'Cubic metres moved',
+            availability: Math.round(((12 - lost) / 12) * 100),
+            utilisation: Math.round((worked / Math.max(0.1, 12 - lost)) * 100),
+            signedOff: false, notes: '',
+          },
+        });
+        select('shift', ref);
+        goTab('shifts');
+        flash(`${ref} logged — ${worked} h worked, ${lost} h lost. Record the delays so the lost time has a reason against it.`,
+          { title: 'Shift logged' });
+      },
+    },
+    delay: store.shiftRow && {
+      title: `Record a delay on ${store.shiftRow.ref}`, submit: 'Record it',
+      note: `${store.shiftRow.vehicle} on ${store.shiftRow.shift} shift. Hours lost without a code cannot be argued about at the morning meeting, which is the whole reason the code is compulsory.`,
+      fields: [
+        [{ k: 'code', l: 'Reason', options: DELAY_CODES.map(([c, l]) => `${c} — ${l}`) }],
+        [{ k: 'minutes', l: 'Minutes lost', type: 'number', value: '60', required: true,
+          validate: (v) => (+v > 0 ? '' : 'Enter the minutes lost.') }],
+        [{ k: 'reported', l: 'Time reported', p: '08:20' }, { k: 'repaired', l: 'Time repaired', p: '10:15' }],
+      ],
+      onSubmit: (v) => {
+        const [code, reason] = v.code.split(' — ');
+        dispatch({
+          type: 'ADD_DELAY', ref: store.shiftRow.ref, by: me.name,
+          delay: { code, reason, minutes: +v.minutes, reported: v.reported, repaired: v.repaired },
+        });
+        flash(`${v.minutes} minutes recorded against ${store.shiftRow.ref} — ${reason}.`,
+          { tone: 'warn', title: 'Delay recorded' });
+      },
+    },
+
+    /* ══════════════════════════════════════════════════════════
+       Roster
+       ══════════════════════════════════════════════════════════ */
+    generateRoster: {
+      title: 'Generate a roster', submit: 'Generate',
+      note: 'The pattern is laid over the crew with each person offset by one, so the shifts interlock and the machine is never uncovered. Leave already booked is kept, and conflicts are flagged on the board afterwards rather than silently resolved.',
+      fields: [
+        [{ k: 'pattern', l: 'Shift pattern', options: PATTERNS.map((p) => p.name) }],
+        [{ k: 'siteName', l: 'Crew', options: ['All sites', ...siteOptions] },
+         { k: 'role', l: 'Who', options: ['Operators only', 'Operators and supervisors'] }],
+        [{ k: 'from', l: 'Starting', type: 'date', required: true },
+         { k: 'days', l: 'For how many days', options: ['14', '28', '7'] }],
+        [{ k: 'keepLeave', l: 'Keep booked leave', options: ['Yes', 'No'] }],
+      ],
+      onSubmit: (v) => {
+        const pattern = PATTERNS.find((p) => p.name === v.pattern) || PATTERNS[0];
+        const siteKey = v.siteName === 'All sites' ? null : (SITES.find((x) => x.name === v.siteName) || {}).key;
+        const crew = users.filter((u) => (
+          (v.role === 'Operators only' ? u.role === 'Operator' : u.role === 'Operator' || u.role === 'Supervisor')
+          && (!siteKey || u.site === siteKey)));
+        if (!crew.length) return flash('No one matches that crew.', { tone: 'warn' });
+        const from = v.from || mondayOf(TODAY_ISO);
+        const days = +v.days || 14;
+        dispatch({
+          type: 'GENERATE_ROSTER', by: me.name,
+          crew, pattern, from, days, keepLeave: v.keepLeave === 'Yes',
+        });
+        store.setView('roster', 'board');
+        goTab('roster');
+        /* say what it produced, and whether any of it is illegal */
+        const window = Array.from({ length: days }, (_, i) => isoAdd(from, i));
+        const bad = crew.reduce((a, p) => a + window.filter((d) => {
+          const next = { ...store.roster };
+          return rosterConflicts(next, p, d, store.settings).length;
+        }).length, 0);
+        return flash(
+          `${days} days rostered for ${crew.length} people on “${pattern.name}”.`
+          + (bad ? ` ${bad} shift(s) carry a conflict — check the red dots before publishing it to the crews.` : ''),
+          { tone: bad ? 'warn' : 'ok', title: 'Roster generated' },
+        );
+      },
+    },
+    swapShift: (() => {
+      const cell = selection.rosterCell;
+      const person = cell && users.find((u) => u.code === cell.code);
+      if (!person || !cell.date) return null;
+      const others = users.filter((u) => u.code !== person.code
+        && (u.role === 'Operator' || u.role === 'Supervisor') && u.site === person.site);
+      const mine = store.roster[rosterKey(person.code, cell.date)] || 'O';
+      return {
+        title: `Swap ${person.name}’s shift`, submit: 'Swap them',
+        note: `${fmtDate(cell.date)} — ${person.name} is on ${SHIFT_DEFS[mine].label.toLowerCase()}. Both people keep the other’s shift, and the swap is written to the audit trail with your name on it.`,
+        fields: [[{ k: 'other', l: 'Swap with', options: others.length ? others.map((u) => `${u.name} — ${SHIFT_DEFS[store.roster[rosterKey(u.code, cell.date)] || 'O'].label}`) : ['—'] }]],
+        onSubmit: (v) => {
+          const otherName = v.other.split(' — ')[0];
+          const other = users.find((u) => u.name === otherName);
+          if (!other) return flash('Nobody to swap with on that site.', { tone: 'warn' });
+          dispatch({
+            type: 'SWAP_SHIFT', by: me.name, date: cell.date,
+            a: person.code, aName: person.name, b: other.code, bName: other.name,
+          });
+          return flash(`${person.name} and ${other.name} have swapped their ${fmtDate(cell.date)} shift.`,
+            { title: 'Shift swapped' });
+        },
+      };
+    })(),
+    bookLeave: (() => {
+      const cell = selection.rosterCell;
+      const person = users.find((u) => u.code === cell?.code) || users.find((u) => u.name === selection.user);
+      return person && {
+        title: `Book time off for ${person.name}`, submit: 'Book it',
+        note: 'Booked leave survives a roster regeneration — it is somebody’s holiday, not a gap in the pattern.',
+        fields: [
+          [{ k: 'kind', l: 'Kind', options: ['Leave', 'Training'] },
+           { k: 'days', l: 'How many days', type: 'number', value: '5', required: true,
+             validate: (v) => (+v > 0 && +v <= 60 ? '' : 'Between one and sixty days.') }],
+          [{ k: 'from', l: 'Starting', type: 'date', required: true }],
+        ],
+        onSubmit: (v) => {
+          dispatch({
+            type: 'BOOK_LEAVE', by: me.name, code: person.code, name: person.name,
+            from: v.from || TODAY_ISO, days: +v.days, kind: v.kind,
+          });
+          flash(`${v.days} day(s) of ${v.kind.toLowerCase()} booked for ${person.name} from ${fmtDate(v.from || TODAY_ISO)}.`,
+            { title: 'Booked' });
+        },
+      };
+    })(),
+    clearRoster: {
+      title: 'Clear the roster', submit: 'Clear it',
+      note: 'This wipes rostered shifts across the window. Booked leave can be kept, because a holiday is not a rostering decision.',
+      fields: [
+        [{ k: 'siteName', l: 'Crew', options: ['All sites', ...siteOptions] }],
+        [{ k: 'from', l: 'From', type: 'date', required: true },
+         { k: 'days', l: 'For how many days', options: ['14', '7', '28'] }],
+        [{ k: 'keepLeave', l: 'Keep booked leave', options: ['Yes', 'No'] }],
+      ],
+      onSubmit: (v) => {
+        const siteKey = v.siteName === 'All sites' ? null : (SITES.find((x) => x.name === v.siteName) || {}).key;
+        const crew = users.filter((u) => (u.role === 'Operator' || u.role === 'Supervisor')
+          && (!siteKey || u.site === siteKey));
+        dispatch({
+          type: 'CLEAR_ROSTER', by: me.name, crew,
+          from: v.from || TODAY_ISO, days: +v.days || 14, keepLeave: v.keepLeave === 'Yes',
+        });
+        store.setView('roster', 'board');
+        goTab('roster');
+        flash(`Roster cleared for ${crew.length} people across ${v.days} days.`,
+          { tone: 'warn', title: 'Roster cleared' });
+      },
+    },
+
     reject: inspection && {
       title: `Return #${inspection.ref} to the operator`, submit: 'Return',
       note: 'The operator recaptures the sheet. The rejection and its reason stay on the record.',
@@ -587,6 +1741,22 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
     reports: <Reports {...props} />,
     analytics: <Analytics {...props} />,
     settings: <Settings {...props} />,
+    dispatch: <Dispatch {...props} />,
+    fuel: <FuelScreen {...props} />,
+    tyres: <TyresScreen {...props} />,
+    parts: <PartsScreen {...props} />,
+    telematics: <Telematics {...props} />,
+    costs: <Costs {...props} />,
+    procurement: <Procurement {...props} />,
+    billing: <Billing {...props} />,
+    incidents: <Incidents {...props} />,
+    documents: <Documents {...props} />,
+    contracts: <Contracts {...props} />,
+    admin: <Admin {...props} />,
+    designer: <FormDesigner {...props} />,
+    shifts: <Shifts {...props} />,
+    roster: <RosterScreen {...props} />,
+    timesheets: <Timesheets {...props} />,
     view: <Dashboard {...props} />,
   }[tab];
 
@@ -614,7 +1784,7 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
       <div className="workspace">
         <NavPane hidden={navHidden} company={company} width={navWidth} setWidth={setNavWidth}
           setCompany={(k, name) => { setCompany(k); flash(`Scope set to ${name}.`); }} run={run} />
-        <div className="content" key={tab}>{screen}</div>
+        <div className={'content' + (tab === 'designer' ? ' flush' : '')} key={tab}>{screen}</div>
         {showPane && (
           <>
             <div className="splitter" title="Drag to resize" onMouseDown={paneDrag}
@@ -625,6 +1795,21 @@ function Workspace({ msg, setMsg, toasts, flash, closeToast }) {
                 <UserPane user={user} vehicles={vehicles} inspections={inspections} siteOf={siteName} run={run} />
               )}
               {tab === 'workshop' && <WorkOrderPane wo={store.workOrder} defects={defects} run={run} />}
+              {tab === 'dispatch' && <JobPane job={job} run={run} />}
+              {tab === 'fuel' && <FuelPane tx={fuelTx} settings={store.settings} run={run} />}
+              {tab === 'tyres' && <TyrePane tyre={tyre} settings={store.settings} run={run} />}
+              {tab === 'parts' && <PartPane part={part} run={run} />}
+              {tab === 'procurement' && <POPane po={po} settings={store.settings} run={run} />}
+              {tab === 'incidents' && (
+                <IncidentPane incident={incident} run={run}
+                  onAction={(ref, index) => dispatch({ type: 'INCIDENT_ACTION', ref, index, by: me.name })} />
+              )}
+              {tab === 'billing' && <InvoicePane invoice={invoice} run={run} />}
+              {tab === 'documents' && <DocumentPane document={doc} run={run} />}
+              {tab === 'shifts' && <ShiftPane shift={store.shiftRow} run={run} />}
+              {(tab === 'contracts' || tab === 'costs') && (
+                <VehiclePane vehicle={vehicle} defects={defects} inspections={inspections} run={run} />
+              )}
               {tab === 'inspections' && (inspView === 'defects'
                 ? <DefectPane defect={defect} workOrders={store.workOrders} settings={store.settings} run={run} />
                 : inspView === 'forms'

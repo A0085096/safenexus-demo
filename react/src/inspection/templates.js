@@ -14,6 +14,18 @@ const sec = (title, severity, items, condition = null) => {
   return { id, title, severity, condition, items: items.map((label, i) => ({ id: `${id}I${i}`, label })) };
 };
 
+/* The colour band a section prints in. Red grounds the machine,
+   yellow runs on a signed concession, grey is periodic, and anything
+   else is informational. The same three colours the paper sheet has
+   used since long before there was software. */
+export const sevColour = (s) => (
+  s === 'No Go' ? { bg: '#C33B3B', fg: '#fff', tint: '#FBECEC' }
+    : s === 'Go But' ? { bg: '#E0B341', fg: '#3B2A00', tint: '#FDF6E3' }
+      : s === 'Weekly' ? { bg: '#E2E8F0', fg: '#1E293B', tint: '#F8FAFC' }
+        : { bg: '#EEF2F7', fg: '#475569', tint: '#FBFCFE' });
+
+export const SEVERITIES = ['No Go', 'Go But', 'Weekly', 'Info'];
+
 export const RESULT_ORDER = ['Go', 'Go But', 'No Go', 'N/A'];
 export const resultTone = (r) => ({ Go: 'green', 'Go But': 'gold', 'No Go': 'red', 'N/A': 'grey' }[r] || 'grey');
 export const allItems = (tpl) =>
@@ -25,6 +37,9 @@ export const TEMPLATES = [
     name: 'Pre-use inspection — LDV, crew bus and light vehicle',
     code: 'SN-MIN-328693', revision: 9, status: 'Published',
     owner: 'Engineering department', updated: '14 Mar 2026', usedThisMonth: 268,
+    industry: 'Mining',
+    header: ['Employee number', 'Vehicle number', 'Date', 'Start km reading', 'Shift'],
+    remarks: ['Defects and remarks', 'Action taken'],
     appliesTo: ['LDV bakkie', 'Crew bus', 'Panel van'],
     meterLabel: 'Start km reading', goButMaxDays: 30, requiresSupervisor: true,
     declaration:
@@ -58,6 +73,9 @@ export const TEMPLATES = [
     code: 'SN-MIN-019', revision: 3, status: 'Published',
     owner: 'Engineering department', updated: '02 Feb 2026', usedThisMonth: 154,
     delayCapture: true,
+    industry: 'Mining',
+    header: ['Employee number', 'Machine number', 'Date', 'Machine hours at start', 'Shift'],
+    remarks: ['Defects found', 'Time reported', 'Time repaired', 'Action taken'],
     appliesTo: ['Haul truck', 'Excavator', 'Front-end loader'],
     meterLabel: 'Machine hours — start of shift', goButMaxDays: 14, requiresSupervisor: true,
     declaration:
@@ -81,6 +99,9 @@ export const TEMPLATES = [
     name: 'Weekly deep check — light vehicle',
     code: 'SN-MIN-441', revision: 1, status: 'Draft',
     owner: 'Fleet operations', updated: '17 Jun 2026', usedThisMonth: 0,
+    industry: 'Mining',
+    header: ['Employee number', 'Vehicle number', 'Week commencing', 'Start km reading'],
+    remarks: ['Defects and remarks', 'Action taken'],
     appliesTo: ['LDV bakkie', 'Crew bus'],
     meterLabel: 'Start km reading', goButMaxDays: 30, requiresSupervisor: true,
     declaration: 'The weekly check is carried out on the first working day of the week, in addition to the daily pre-use inspection.',
@@ -94,5 +115,37 @@ export const TEMPLATES = [
   },
 ];
 
-export const templateFor = (vehicleType) =>
-  TEMPLATES.find((t) => t.appliesTo.includes(vehicleType)) || TEMPLATES[0];
+/* Which form a vehicle is inspected on. Only a published form may be
+   used to capture, so a draft never reaches an operator. */
+export const templateFor = (vehicleType, templates = TEMPLATES) => {
+  const live = templates.filter((t) => t.status === 'Published');
+  return live.find((t) => t.appliesTo.includes(vehicleType))
+    || live[0]
+    || templates[0];
+};
+
+/* A blank form, for the designer's New form command. */
+export const blankTemplate = (id, name, code, industry = 'Mining') => ({
+  id,
+  name: name || 'Untitled inspection form',
+  code: code || 'SN-NEW-001',
+  revision: 1,
+  status: 'Draft',
+  owner: 'Fleet operations',
+  updated: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+  usedThisMonth: 0,
+  industry,
+  header: ['Employee number', 'Vehicle number', 'Date', 'Meter reading', 'Shift'],
+  remarks: ['Defects and remarks', 'Action taken'],
+  appliesTo: [],
+  meterLabel: 'Meter reading at the start of the shift',
+  goButMaxDays: 30,
+  requiresSupervisor: true,
+  delayCapture: false,
+  declaration: 'I declare that I am appropriately authorised, sufficiently rested and alert to operate this vehicle, and that I have carried out this inspection myself.',
+  note: 'Draft — publish it before it can be used to capture a sheet.',
+  sections: [
+    { id: 'S' + id + 'a', title: 'Vehicle condition', severity: 'No Go', condition: null, items: [] },
+  ],
+  signoffs: ['Operator', 'Supervisor'],
+});

@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
   AlertTriangle, UserPlus, Truck, ClipboardCheck, ShieldCheck, Users as UsersIcon, Wrench,
-  BarChart3, MapPin, FileText, BadgeCheck, Pencil, Download, Rocket, Trash2,
-  Bell, Lock, FileCheck2, Receipt, ChevronRight, CircleAlert, Building2,
+  BarChart3, MapPin, FileText, BadgeCheck, Pencil, Download, Rocket, Trash2, Bell, Lock,
+  FileCheck2, Receipt, ChevronRight,
 } from 'lucide-react';
-import { TENANT, SITES, siteName } from '../data.js';
-import { targetTone } from '../theme.js';
+import { SITES, siteName } from '../data.js';
+
 import {
-  Panel, Btn, Badge, Avatar, ListRow, SecHead, KV, roleBadge, statusBadge, vehicleBadge, resultBadge,
+  Panel, Btn, Badge, Avatar, ListRow, SecHead, KV, roleBadge, statusBadge, vehicleBadge,
+  resultBadge,
 } from '../components/ui.jsx';
 import { useStore } from '../store.jsx';
 
@@ -100,65 +101,6 @@ export function Hierarchy({ run }) {
         </Panel>
       </div>
     </div>
-  );
-}
-
-/* ── compliance ───────────────────────────────────────────────── */
-export function Compliance({ run, goTab }) {
-  const { defects, vehicles, users, settings, select } = useStore();
-  const open = defects.filter((d) => d.status !== 'Closed');
-  const noGo = open.filter((d) => d.severity === 'No Go');
-  const lapsed = open.filter((d) => d.status === 'Overdue');
-  const unsigned = open.filter((d) => d.severity === 'Go But' && !d.supervisorSigned);
-  const grounded = vehicles.filter((v) => v.status === 'Maintenance').length;
-
-  const cof = [...users.filter((u) => u.cof && u.cof !== 'N/A')
-    .map((u) => ({ who: u.name, what: 'Operator COF', when: u.cof, site: u.site, init: u.init, tone: u.tone })),
-  ...vehicles.map((v) => ({ who: v.plate, what: 'Vehicle COF', when: v.cof, site: v.site, init: v.fleetNo.slice(-2), tone: 'blue' }))]
-    .slice(0, 8);
-
-  return (
-    <>
-      <div className="grid-3">
-        {[[String(lapsed.length), 'Lapsed concessions', 'red', 'dn', 'running as if uninspected'],
-          [String(unsigned.length), 'Unsigned concessions', 'gold', 'warn', 'treat as a no-go until signed'],
-          [String(noGo.length), 'Open no-go defects', 'red', 'dn', `${grounded} vehicle(s) grounded`]].map(([v, l, tone, dir, note]) => (
-            <div className="tile" key={l}>
-              <div className="tile-val" style={{ color: `var(--${tone})` }}>{v}</div>
-              <div className="tile-lbl">{l}</div>
-              <div className={'tile-trend t-' + (dir === 'warn' ? 'warn' : dir)}>{note}</div>
-            </div>
-          ))}
-      </div>
-      <div className="grid-2">
-        <Panel title="Certificates of fitness" note={`warning window ${settings.cofWarnDays} days`} flush
-          right={<button className="link" onClick={() => run('export')}>Export</button>}>
-          {cof.map((c) => (
-            <ListRow key={c.who + c.what} avatar={<Avatar init={c.init} tone={c.tone} />}
-              title={c.who} sub={`${c.what} · ${siteName(c.site)}`}
-              right={<div style={{ font: '600 12px var(--num)', color: 'var(--text2)' }}>{c.when}</div>} />
-          ))}
-        </Panel>
-        <Panel title="Open defects" note={`${open.length} open · ${settings.goButMaxDays}-day window`} flush
-          right={<button className="link" onClick={() => goTab('inspections')}>Defect register</button>}>
-          {open.map((a) => (
-            <ListRow key={a.id} avatar={<Avatar tone={a.severity === 'No Go' || a.status === 'Overdue' ? 'red' : 'gold'} icon={CircleAlert} />}
-              title={a.item} sub={`${a.plate} · ${siteName(a.site)}`}
-              onClick={() => run('openDefect:' + a.id)}
-              right={
-                <>
-                  <div style={{ font: '600 12px var(--num)', color: a.status === 'Overdue' ? 'var(--red)' : 'var(--gold)' }}>
-                    {a.severity === 'No Go' ? 'No Go' : a.status === 'Overdue' ? 'lapsed' : a.due}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>
-                    {a.severity === 'No Go' ? 'grounded' : a.supervisorSigned ? 'concession signed' : 'unsigned'}
-                  </div>
-                </>
-              } />
-          ))}
-        </Panel>
-      </div>
-    </>
   );
 }
 

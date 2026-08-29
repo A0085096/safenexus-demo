@@ -1,18 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import {
   ClipboardCheck, ShieldCheck, Truck, Users as UsersIcon, AlertTriangle, BadgeCheck,
-  Download, Printer, ArrowLeft, FileText, Wrench, FileJson, Columns3,
-  PlayCircle, PauseCircle, Mail,
+  Download, Printer, ArrowLeft, Wrench, FileJson, Columns3, PlayCircle, PauseCircle, Mail,
+  Route, Fuel, CircleDot, Coins, Package, Receipt, ShieldAlert, Files,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
-import { SERIES, nf } from '../theme.js';
-import { Panel, Btn, Badge, Seg, SecHead } from '../components/ui.jsx';
+import { nf } from '../theme.js';
+import { Panel, Btn, Badge, Seg } from '../components/ui.jsx';
 import Sparkline from '../charts/Sparkline.jsx';
-import { SITE_PERF, siteName, TENANT } from '../data.js';
+import { SITE_PERF, siteName } from '../data.js';
+import {
+  R, num, until, fmtDate, jobMargin, woCost, vehSpend, vehCpk, stockValue, invTotal,
+  invPaid, invDue, invState,
+} from '../erp/seed.js';
 
 const ICONS = {
   clipboard: ClipboardCheck, shield: ShieldCheck, truck: Truck,
   users: UsersIcon, alert: AlertTriangle, cert: BadgeCheck, tool: Wrench,
+  route: Route, fuel: Fuel, tyre: CircleDot, coins: Coins, part: Package,
+  receipt: Receipt, incident: ShieldAlert, files: Files,
 };
 
 /* ══════════════════════════════════════════════════════════════
@@ -21,6 +27,162 @@ const ICONS = {
    message claiming a PDF was produced somewhere.
    ══════════════════════════════════════════════════════════════ */
 const DEFS = [
+  {
+    id: 'dispatch', name: 'Dispatch report', icon: 'route', tone: 'blue',
+    desc: 'Every haulage job, what it earned and what it cost to move the load.',
+    build: ({ jobs }) => ({
+      cols: ['Job', 'Customer', 'From', 'To', 'Vehicle', 'Operator', 'Departs', 'Km', 'Revenue', 'Cost', 'Margin', 'POD', 'Status'],
+      rows: jobs.map((j) => [j.ref, j.customer, j.origin, j.destination, j.vehicle, j.driver, fmtDate(j.depart),
+        j.distance, j.revenue, j.cost, jobMargin(j),
+        j.status === 'Delivered' ? (j.pod ? 'In' : 'Missing') : '—', j.status]),
+      summary: (rows) => [
+        ['Jobs', rows.length],
+        ['Delivered', rows.filter((r) => r[12] === 'Delivered').length],
+        ['Revenue', R(rows.reduce((a, r) => a + r[8], 0))],
+        ['Margin', R(rows.reduce((a, r) => a + r[10], 0))],
+      ],
+    }),
+  },
+  {
+    id: 'fuel', name: 'Fuel report', icon: 'fuel', tone: 'gold',
+    desc: 'Every fill measured against the model target, and the ones that will not reconcile.',
+    build: ({ fuel }) => ({
+      cols: ['Transaction', 'Date', 'Vehicle', 'Operator', 'Station', 'Litres', 'Rate', 'Amount', 'Meter', 'Achieved', 'Variance', 'Exception', 'Status'],
+      rows: fuel.map((f) => [f.ref, fmtDate(f.date), f.vehicle, f.driver, f.station, f.litres, f.rate, f.amount,
+        f.meter, `${f.consumption} ${f.unit}`, f.variance ? `${f.variance}%` : '—', f.exception || '—', f.status]),
+      summary: (rows) => [
+        ['Transactions', rows.length],
+        ['Litres drawn', num(rows.reduce((a, r) => a + r[5], 0))],
+        ['Spend', R(rows.reduce((a, r) => a + r[7], 0))],
+        ['In exception', rows.filter((r) => r[11] !== '—').length],
+      ],
+    }),
+  },
+  {
+    id: 'cost', name: 'Cost report', icon: 'coins', tone: 'purple',
+    desc: 'What each vehicle costs to run, and what that buys in distance or hours.',
+    build: ({ vehicles }) => ({
+      cols: ['Plate', 'Fleet no.', 'Type', 'Class', 'Site', 'Run', 'Fuel', 'Maintenance', 'Tyres', 'Finance', 'Total', 'Cost per unit run'],
+      rows: vehicles.map((v) => [v.plate, v.fleetNo, v.type, v.cls, siteName(v.site), v.month?.meter || 0,
+        v.month?.fuel || 0, v.month?.maint || 0, v.month?.tyres || 0, v.finance?.instalment || 0,
+        vehSpend(v), +vehCpk(v).toFixed(2)]),
+      summary: (rows) => [
+        ['Vehicles', rows.length],
+        ['Total cost', R(rows.reduce((a, r) => a + r[10], 0))],
+        ['Distance and hours run', num(rows.reduce((a, r) => a + r[5], 0))],
+        ['Blended cost per unit', 'R ' + (rows.reduce((a, r) => a + r[10], 0) / Math.max(1, rows.reduce((a, r) => a + r[5], 0))).toFixed(2)],
+      ],
+    }),
+  },
+  {
+    id: 'workshop2', name: 'Workshop cost report', icon: 'tool', tone: 'blue',
+    desc: 'Every job card with its labour, its parts and the downtime it caused.',
+    build: ({ workOrders }) => ({
+      cols: ['Job card', 'Vehicle', 'Work type', 'Reported fault', 'Site', 'Opened', 'Days down', 'Labour hours', 'Part lines', 'Cost', 'From defect', 'Status'],
+      rows: workOrders.map((w) => [w.ref, w.vehicle, w.type, w.fault || w.note, siteName(w.site), w.opened,
+        w.downtimeDays || 0, w.labourHours || 0, (w.parts || []).length, woCost(w), w.defect || '—', w.status]),
+      summary: (rows) => [
+        ['Job cards', rows.length],
+        ['Open', rows.filter((r) => r[11] !== 'Completed').length],
+        ['Days down', rows.reduce((a, r) => a + r[6], 0)],
+        ['Workshop cost', R(rows.reduce((a, r) => a + r[9], 0))],
+      ],
+    }),
+  },
+  {
+    id: 'tyre', name: 'Tyre report', icon: 'tyre', tone: 'gold',
+    desc: 'Tread, distance run and cost per kilometre for every tyre on the fleet.',
+    build: ({ tyres }) => ({
+      cols: ['Serial', 'Brand', 'Size', 'Vehicle', 'Position', 'Site', 'Fitted', 'Run', 'Tread', 'Cost', 'Cost per km', 'Status'],
+      rows: tyres.map((t) => [t.serial, t.brand, t.size, t.vehicle, t.position, siteName(t.site),
+        fmtDate(t.fittedOn), t.run, t.tread, t.cost, +t.cpk.toFixed(3), t.status]),
+      summary: (rows) => [
+        ['Tyres', rows.length],
+        ['Below the 3 mm limit', rows.filter((r) => r[8] < 3 && r[11] !== 'Scrapped').length],
+        ['Fitted cost', R(rows.reduce((a, r) => a + r[9], 0))],
+        ['Distance run on them', num(rows.reduce((a, r) => a + r[7], 0))],
+      ],
+    }),
+  },
+  {
+    id: 'stock', name: 'Stock report', icon: 'part', tone: 'purple',
+    desc: 'What is on the shelf, what it is worth and what is about to run out.',
+    build: ({ parts }) => ({
+      cols: ['Part number', 'Description', 'Category', 'Store', 'Bin', 'On hand', 'Reorder at', 'On order', 'Used, 90 days', 'Unit cost', 'Stock value', 'Supplier'],
+      rows: parts.map((p) => [p.sku, p.desc, p.category, siteName(p.store), p.bin, p.qty, p.reorder,
+        p.onOrder, p.usage90, p.unitCost, stockValue(p), p.supplier]),
+      summary: (rows) => [
+        ['Lines', rows.length],
+        ['Below reorder', rows.filter((r) => r[5] <= r[6]).length],
+        ['Out of stock', rows.filter((r) => r[5] === 0).length],
+        ['Stock value', R(rows.reduce((a, r) => a + r[10], 0))],
+      ],
+    }),
+  },
+  {
+    id: 'debtors', name: 'Debtors report', icon: 'receipt', tone: 'green',
+    desc: 'What has been invoiced, what has been collected and how old the rest is.',
+    build: ({ invoices }) => ({
+      cols: ['Invoice', 'Customer', 'Site', 'Jobs', 'Dated', 'Due', 'Total', 'Received', 'Outstanding', 'Days overdue', 'Status'],
+      rows: invoices.map((i) => [i.ref, i.customer, siteName(i.site), i.jobs.length, fmtDate(i.date), fmtDate(i.due),
+        Math.round(invTotal(i)), invPaid(i), invDue(i), Math.max(0, -until(i.due)), invState(i)]),
+      summary: (rows) => [
+        ['Invoices', rows.length],
+        ['Invoiced', R(rows.reduce((a, r) => a + r[6], 0))],
+        ['Collected', R(rows.reduce((a, r) => a + r[7], 0))],
+        ['Outstanding', R(rows.reduce((a, r) => a + r[8], 0))],
+      ],
+    }),
+  },
+  {
+    id: 'incident', name: 'Incident report', icon: 'incident', tone: 'red',
+    desc: 'Every incident, its investigation state and what it is expected to cost.',
+    build: ({ incidents }) => ({
+      cols: ['Incident', 'Type', 'Severity', 'Vehicle', 'Operator', 'Site', 'Date', 'Where', 'Injuries', 'Actions done', 'Claim', 'Estimate', 'Status'],
+      rows: incidents.map((i) => [i.ref, i.type, i.severity, i.vehicle, i.driver, siteName(i.site), fmtDate(i.date),
+        i.location, i.injuries, `${i.actions.filter((a) => a.done).length} of ${i.actions.length}`,
+        i.claim || '—', i.estimate, i.status]),
+      summary: (rows) => [
+        ['Incidents', rows.length],
+        ['Open', rows.filter((r) => r[12] !== 'Closed').length],
+        ['Injuries', rows.reduce((a, r) => a + r[8], 0)],
+        ['Estimated cost', R(rows.reduce((a, r) => a + r[11], 0))],
+      ],
+    }),
+  },
+  {
+    id: 'document', name: 'Document report', icon: 'files', tone: 'blue',
+    desc: 'Every certificate held, read as the days it has left rather than a date.',
+    build: ({ documents }) => ({
+      cols: ['Reference', 'Kind', 'Held against', 'Type', 'Site', 'Owner', 'Issued', 'Expires', 'Days left', 'Status'],
+      rows: documents.map((d) => [d.ref, d.kind, d.subject, d.subjectType, siteName(d.site), d.owner,
+        fmtDate(d.issued), d.expires ? fmtDate(d.expires) : '—',
+        d.expires ? until(d.expires) : '—', d.status]),
+      summary: (rows) => [
+        ['Documents', rows.length],
+        ['Expired', rows.filter((r) => typeof r[8] === 'number' && r[8] < 0).length],
+        ['Within 90 days', rows.filter((r) => typeof r[8] === 'number' && r[8] >= 0 && r[8] <= 90).length],
+        ['Unverified', rows.filter((r) => r[9] !== 'Verified').length],
+      ],
+    }),
+  },
+  {
+    id: 'asset', name: 'Asset register', icon: 'truck', tone: 'purple',
+    desc: 'How each asset is held, what is owed on it and what it is worth.',
+    build: ({ vehicles }) => ({
+      cols: ['Plate', 'Fleet no.', 'VIN', 'Asset', 'Year', 'Site', 'Footing', 'Financier', 'Purchase price', 'Instalment', 'Residual', 'Contract ends'],
+      rows: vehicles.map((v) => [v.plate, v.fleetNo, v.vin, v.make, v.year, siteName(v.site),
+        v.finance?.kind, v.finance?.financier, v.finance?.purchase || 0, v.finance?.instalment || 0,
+        v.finance?.kind === 'Owned outright' ? 0 : (v.finance?.residual || 0),
+        v.finance?.kind === 'Owned outright' ? '—' : fmtDate(v.finance?.end)]),
+      summary: (rows) => [
+        ['Assets', rows.length],
+        ['Under finance', rows.filter((r) => r[6] !== 'Owned outright').length],
+        ['Monthly instalments', R(rows.reduce((a, r) => a + r[9], 0))],
+        ['Residual exposure', R(rows.reduce((a, r) => a + r[10], 0))],
+      ],
+    }),
+  },
   {
     id: 'inspection', name: 'Inspection report', icon: 'clipboard', tone: 'blue',
     desc: 'Every sheet captured in the period, with its outcome and sign-off state.',

@@ -1,18 +1,30 @@
 # SafeNexus ERP — React
 
-The SafeNexus fleet-safety admin platform as a Vite + React application.
-It is the componentised twin of the single-file build at
-[`../safenexus.html`](../safenexus.html): same Office-style desktop shell,
-same SafeNexus palette, same data — split into components, with charts
-rendered by [recharts](https://recharts.org) and one custom isometric
-component.
+A fleet management ERP for a single mining tenant, as a Vite + React
+application. It began as a pre-use inspection platform — same
+Office-style desktop shell, same SafeNexus palette — and has grown into
+the whole operation around those inspections: the haulage jobs the fleet runs, the diesel it
+burns, the tyres and parts it consumes, the workshop that repairs it,
+the incidents that damage it, the contracts that finance it and the
+invoices that pay for it.
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
-npm run build      # → dist/
+npm run dev            # http://localhost:5173
+npm run build          # → dist/
 npm run preview
+npm run build:single   # → ../safenexus.html, one file, no server
 ```
+
+### The single-file build
+
+`../safenexus.html` is the whole application in one file — open it
+straight off a disk, no server and no toolchain. It is **generated**,
+not maintained: `npm run build:single` builds the app as a single
+classic script (a module will not load from a `file://` URL, CORS
+having no meaning for an opaque origin) and inlines the CSS and JS into
+the index shell. Edit the source and regenerate; never edit that file,
+or the two copies drift apart.
 
 ## Signing in
 
@@ -27,109 +39,183 @@ code is printed on screen instead of emailed.
 
 SafeNexus is multi-tenant: a company registers and works its own fleet
 inside its own workspace. There is no cross-company view anywhere in the
-app — no tenant may see another tenant's operators, vehicles, sheets or
-defects. The scope selector in the navigation pane moves between *this
+app. The scope selector in the navigation pane moves between *this
 company's sites*, and every register, report and chart is that company's
 own. `src/data.js` seeds one tenant, Acme Mining Corp, with three sites.
 
-## What actually works
+## Why the inspection platform became an ERP
 
-State lives in one store (`src/store.jsx`), and every action that changes
-a record writes its own audit entry, so the trail cannot drift from the
-data:
+A mine that inspects every vehicle before every shift already holds the
+expensive half of a fleet ERP: the meter readings, the defects, the
+operators and the paper trail that proves it. The rest of the modules
+are what those records are *for*. So nothing here is a separate system
+bolted alongside the inspections — a failed sheet raises a defect, the
+defect raises a job card, the job card consumes parts and labour, the
+parts come off a purchase order, the cost lands on the vehicle, and the
+vehicle's cost per kilometre is what decides whether it gets replaced.
 
-- **Inspection forms** — the third view on the Inspections tab is the
-  form register: which sheet is in force, at which revision, what it
-  asks, its go-but window and its sign-off chain. A draft cannot be used
-  to capture until it is published, and publishing or opening a revision
-  is audited.
-- **Pre-use inspections** — the runner loads the form that applies to the
-  vehicle's type. Conditional sections (red permit area, towing, weekly)
-  appear when ticked and the vehicle's own permit pre-ticks its section.
-  Sections collapse and carry their own progress. The rules the paper
-  sheet encodes are enforced: the declaration must be accepted, a failed
-  item must carry a note saying what is wrong (and can take photographs),
-  the operator must sign, no item may be left unanswered, and the meter
-  cannot go backwards. A **No Go** grounds the vehicle and raises a
-  defect; a **Go But** runs only on a supervisor's signed concession,
-  and without one the sheet counts as a No Go. Forms with delay capture
-  ask for the time reported, the time repaired and the reason.
-- **Defect register** — every defect carries its section, who raised it,
-  a rectify-by date and whether the concession is signed. A concession
+## The modules
+
+Every screen is a working register over live state. Nothing is a static
+mock-up, and every action writes its own audit entry.
+
+**Operations**
+
+- **Dispatch** — haulage jobs costed from the lane distance, the
+  vehicle's own consumption and the standard operator rate, so the margin
+  is real before the job is committed. A plan board across the week, and
+  lane profitability ranked by margin per kilometre — because a lane that
+  loses money loses it every time it runs.
+- **Fleet** — the register the platform hangs off: meter, service
+  position, certificate days, utilisation, cost per unit run and open
+  defects, per vehicle.
+- **Operators** — the people register read the way a fleet reads it:
+  what they may legally operate, how well they operate it, their hours
+  against the 60-hour ceiling and their behaviour score.
+- **Inspections** — the original module: sheets, defects and the form
+  register, with the go-but concession clock.
+- **Form designer** — the form is the safety case, so this is the most
+  consequential screen on the platform. Three modes: **Design** edits the
+  sections, their severities, their conditions and their checks;
+  **Paper preview** renders exactly what prints for the clipboard in the
+  yard — black masthead, hand-filled header boxes, the NO GO / GO-BUT
+  legend, the operator's declaration and the colour bands that carry the
+  meaning; **Settings** holds the rules the runner enforces, what the form
+  applies to, the sign-off chain and the declaration. A published form is
+  read-only: editing one in place would silently rewrite what every past
+  sheet meant, so a change opens a new revision and the captured sheets
+  keep the one they were signed on.
+- **Shifts** — one row per machine per shift: meter at each end, hours
+  scheduled, worked and lost, and a delay code against every lost hour.
+  Availability and utilisation fall out of those numbers rather than being
+  entered, and a breakdown code is a work order waiting to be raised.
+- **Roster** — people down, days across, one letter per shift. Click a
+  cell to inspect it, double-click to cycle it. The board does not refuse
+  an illegal shift; it flags it and says why — a lapsed certificate, a
+  night running straight into a day, or a week over the hours ceiling —
+  because a planner needs the whole conflict before resolving it. Seven
+  shift patterns generate a roster; coverage shows the days nobody is on.
+- **Timesheets** — built from the roster rather than keyed again, which is
+  the whole argument for having both in one system: the hours somebody is
+  paid for are the hours they were rostered. Normal time to forty-five
+  hours, overtime at time and a half beyond it and on Sundays, a night
+  allowance per hour, standby at a fraction. A week over the ceiling
+  cannot be approved.
+- **Workshop** — job cards with labour hours, parts issued and what the
+  job actually cost, plus a service planner that forecasts from each
+  machine's own running rate rather than a fleet average.
+- **Parts** — stores with months of cover, dead-stock detection and
+  issuing that moves a part out of the bin and onto the job card, so the
+  workshop cost and the stock value cannot disagree.
+- **Tyres** — managed by position and judged on cost per kilometre.
+  Under 3 mm stops being a cost question and becomes a legal one.
+- **Fuel** — every fill measured against the model target for that
+  vehicle type. Anything that will not reconcile is an exception until a
+  person clears it with a reason, in the trail.
+- **Telematics** — units, events and operator behaviour. An offline unit
+  takes its vehicle's figures with it, so offline units come first.
+
+**Compliance and risk**
+
+- **Compliance** — three questions, any one of which stops a vehicle:
+  is the machine legal, is the person legal, and is anything running on a
+  concession that has quietly lapsed.
+- **Documents** — every certificate the operation holds, read as days
+  remaining rather than as a date.
+- **Incidents** — four investigation actions per incident, which must be
+  closed before the incident can be. An incident closed with actions
+  outstanding is a record, not an investigation.
+
+**Commercial**
+
+- **Costs** — cost per kilometre (or per hour, for plant) against the
+  average for the same class, and budget against actual by head.
+- **Procurement** — orders out, supplier invoices in, and the three-way
+  match between the order, the receipt and the invoice.
+- **Billing** — invoices raised from delivered jobs with a proof of
+  delivery in, then the aging profile and the collection rate.
+- **Contracts** — how each asset is held, and a replacement case scored
+  from age, cost against class, and whether the finance term has run out.
+
+**Administration**
+
+- **Reports** — seventeen definitions built from the live store, with a
+  column chooser, CSV and JSON export, a print stylesheet, a run history
+  and schedules that can be paused and resumed.
+- **Analytics**, **Hierarchy**, **Audit log**, **Company**, **Settings** —
+  as before, now reading a much larger data set.
+- **Admin** — the plumbing an ERP is judged on once it is live: nightly
+  jobs and whether they succeeded, integration health, an editable
+  permission matrix, and the approvals queue for anything above the
+  limit the requester may authorise.
+
+## Rules that actually bite
+
+The demo is worth clicking because the guards are real:
+
+- A pre-use **No Go** grounds the vehicle and raises a defect; a **Go
+  But** runs only on a supervisor's signed concession, and a concession
   that passes its date becomes **Overdue** — a vehicle running on a
-  lapsed go-but is no better than one running with no inspection at all.
-  Closing the last open no-go returns the vehicle to service.
-- **Workshop** — a defect becomes a work order that keeps the link back
-  to it, so a grounded vehicle traces from the sheet that failed it to
-  the job that clears it. Work orders move through authorisation, parts,
-  progress, road test and completion.
-- **Vehicle management** — add, assign, unassign, take off road, return
-  to service, update the odometer and book a service, each with its own
-  dialog and its own guard: returning a grounded vehicle to service is
-  refused while a no-go defect is still open.
-- **User management** — a record pane per person (contact, reporting line,
-  licence, vehicle, inspection history, competencies), then edit, assign
-  and unassign a vehicle, reset password, suspend, reactivate and delete.
-  Delete asks for the surname and is undoable from its toast; suspending
-  is undoable the same way.
-- **Settings that mean something** — the inspection rules page is read by
-  the runner, the defect clock, the status bar and every threshold on the
-  platform. Change the go-but window to 14 days and the runner, the aging
-  bins, the defect filters and the status bar all follow. Edits are
-  staged, saved as a set, and written to the audit trail.
-- **Reports** — scope and period parameters, seven report definitions
-  built from the live store, a column chooser, CSV and JSON export, a
-  print stylesheet, a run history that records who generated what, and
-  schedules that can be paused and resumed.
-- **Analytics** — every figure compared with the previous period, pass
-  rate against the configured target, a re-cuttable "where it fails"
-  view (company, shift, weekday, item), and insight rows that drill
-  through to the register that fixes them.
-- **Audit trail** — filter by kind, actor and severity, search the text,
-  open any entry for the actor, record, channel, address and session
-  behind it, export CSV or JSON, and run an integrity check.
-- **Companies** — registering writes through to the register.
+  lapsed go-but is no better than one running with no inspection.
+- A vehicle cannot be returned to service while a no-go defect is open.
+- A job cannot be invoiced without a proof of delivery.
+- A purchase order cannot be sent before it is approved, and one above
+  R 250 000 needs an approval to get there.
+- A supplier invoice in query cannot be paid.
+- An incident cannot be closed with investigation actions outstanding.
+- A part cannot be issued in a quantity the bin does not hold.
+- A published inspection form cannot be edited — only revised.
+- A week of timesheets cannot be approved while anyone on it is over sixty
+  hours, because approving it turns a rostering mistake into a payroll
+  record.
+- A meter reading cannot go backwards — a fill that says otherwise is
+  captured as an exception rather than rejected, because the fill
+  happened either way and somebody has to explain it.
+- Changing the go-but window on the Settings tab moves the runner, the
+  aging bins, the defect filters and the status bar with it.
+
+## The data set
+
+`src/erp/seed.js` assembles everything from a fixed PRNG, in dependency
+order, so every cross-reference points at a record that exists and the
+demo is identical on every load. One date — 18 June 2026 — anchors every
+"expires in n days" and every aging bin, so nothing drifts.
+
+The ten hand-written vehicles and eleven people in `src/data.js` are
+untouched: every existing defect, sheet and work order still points at
+them. The ERP fields are added to those records, and the rest of the
+fleet and workforce is generated around them.
 
 ## Layout
 
 ```
 src/
   theme.js               design tokens + the validated chart palettes
-  data.js                the mock data set (companies, users, fleet, inspections, audit)
+  data.js                the hand-written core (tenant, sites, the named fleet and people)
+  erp/seed.js            the ERP data set — builders, derived helpers, the clock, money
   styles.css             the design system — shared verbatim with ../safenexus.html
   shell/
     TitleBar.jsx         quick-access commands, search, account
     Ribbon.jsx           tab strip, contextual tab, command groups
-    ribbon.js            the command map: tabs, ribbon groups, status messages
-    NavPane.jsx          company scope + jump-to list, draggable splitter
+    ribbon.js            the command map: tabs, ribbon groups, queues, status messages
+    NavPane.jsx          site scope + the queues that need working, with live counts
     StatusBar.jsx        platform counts, live command message, row density
     Backstage.jsx        the File screen
-  components/ui.jsx      badges, buttons, panels, list rows, DataGrid, Dialog
-  charts/
-    VolumeChart.jsx      stacked columns — volume by outcome (recharts)
-    FleetDonut.jsx       fleet split (recharts)
-    AgingChart.jsx       defect age bins on the sequential ramp (recharts)
-    GroupedBars.jsx      the flat reading of the isometric field (recharts)
-    Iso3D.jsx            isometric column field (hand-rolled SVG)
-    Sparkline.jsx        inline trend marks for KPI tiles and report rows
-    tooltip.jsx          one tooltip shape for every chart
-  screens/
-    Dashboard.jsx        KPI strip, charts, company performance report
-    Registers.jsx        companies, users, fleet, inspections, defects, audit log
-    Forms.jsx            the inspection form register
-    Workshop.jsx         work orders raised from defects
-    Reports.jsx          report definitions, the generated document and CSV export
-    Misc.jsx             hierarchy, compliance, company profile, analytics, settings
-  auth/
-    AuthShell.jsx        sign in, register a company, forgot and reset password,
-                         email verification, lock screen
-  inspection/
-    templates.js         the inspection forms, as sections of items with severities
-    InspectionRunner.jsx the working sheet — capture, rules, submission
   components/
-    panes.jsx            reading panes: vehicle, user, completed sheet, defect,
-                         work order, inspection form
+    ui.jsx               badges, buttons, panels, list rows, DataGrid, Dialog
+    erpUi.jsx            KPI strip, expiry-as-days, money, share bars, breakdowns
+    panes.jsx            reading panes: vehicle, operator, sheet, defect, job card, form
+    erpPanes.jsx         reading panes: job, fill, tyre, part, order, incident, invoice, document
     Toasts.jsx           the notification stack — tone, title, dismiss and undo
+  charts/                recharts wrappers, one hand-rolled isometric field, one tooltip shape
+  screens/               one file per module
+  auth/AuthShell.jsx     sign in, register, forgot and reset password, lock screen
+  erp/workforce.js       shift definitions, roster patterns, delay codes, timesheet maths
+  inspection/
+    templates.js         the forms, as sections of items with severities
+    FormDesigner.jsx     design, paper preview and settings
+    FormPreview.jsx      the sheet as it prints for the clipboard
+    InspectionRunner.jsx the working sheet — capture, rules, submission
   store.jsx              the state every module mutates, plus the audit trail
 ```
 
@@ -142,7 +228,8 @@ src/
   the lightness band, chroma floor, colour-vision separation and contrast
   against the chart surface. Assign in the given order; never cycle it.
 - **Sequential** (`SEQ`) — one hue, light to dark, for ordered bins such as
-  defect age. Status colours (`OUTCOME`) stay reserved for state.
+  defect age and invoice aging. Status colours (`OUTCOME`) stay reserved
+  for state.
 
 ## About the 3D chart
 

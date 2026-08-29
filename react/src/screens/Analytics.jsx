@@ -1,13 +1,17 @@
 import React, { useMemo, useState } from 'react';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ReferenceLine, BarChart, Bar, Cell,
+  ReferenceLine, BarChart, Bar,
 } from 'recharts';
 import { TrendingUp, TrendingDown, Minus, ArrowRight } from 'lucide-react';
 import { useStore } from '../store.jsx';
-import { MONTHLY, SITE_SERIES, SITE_MONTHS, SITE_PERF, CATEGORIES, passRate, siteName } from '../data.js';
+import {
+  MONTHLY, SITE_SERIES, SITE_MONTHS, SITE_PERF, CATEGORIES, passRate,
+} from '../data.js';
 import { SERIES, SEQ, nf, targetTone } from '../theme.js';
-import { ChartCard, Panel, Seg, Btn, Badge, Legend, SecHead } from '../components/ui.jsx';
+import {
+  ChartCard, Panel, Seg, Btn, Badge, Legend,
+} from '../components/ui.jsx';
 import { rechartsTip } from '../charts/tooltip.jsx';
 import Sparkline from '../charts/Sparkline.jsx';
 
