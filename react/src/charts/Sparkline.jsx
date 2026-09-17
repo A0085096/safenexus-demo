@@ -3,6 +3,10 @@ import React from 'react';
 /* A sparkline carries shape, not values — no axes, no labels.
    The number it belongs to is stated beside it. */
 export default function Sparkline({ values, color, w = 74, h = 26 }) {
+  /* Two points are the fewest that can carry a shape. Below that
+     there is nothing to draw, and drawing something anyway is how a
+     chart ends up asserting a trend nobody measured. */
+  if (!values || values.length < 2) return null;
   const min = Math.min(...values), max = Math.max(...values), span = (max - min) || 1;
   const pts = values.map((v, i) => [i / (values.length - 1) * w, h - 2 - (v - min) / span * (h - 5)]);
   const d = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');

@@ -5,6 +5,8 @@ import { buildErp, invTotal, invPaid, poTotal, R, num, fmtDate, shift } from './
 import {
   buildShifts, buildRoster, rosterKey, SHIFT_DEFS, timesheetFor, mondayOf, TODAY_ISO,
 } from './erp/workforce.js';
+import { buildInspectionHistory, datedCore } from './erp/history.js';
+import { sitePerformance, monthlySeries, siteSeries } from './erp/analytics.js';
 
 /* The ERP data set is assembled once, in dependency order, from the
    hand-written core in data.js. Everything below mutates it. */
@@ -12,6 +14,14 @@ const ERP = buildErp({ fleet: FLEET, users: USERS, workOrders: WORK_ORDERS });
 /* the workforce reads the fleet and the people the ERP just built */
 const SHIFT_LOG = buildShifts(ERP.vehicles, ERP.people);
 const ROSTER = buildRoster(ERP.people);
+
+/* Twelve months of sheets behind the eight the defect register
+   points at, so the analytics can be summed rather than asserted.
+   The hand-written eight stay at the head of the list. */
+const INSPECTION_LOG = [
+  ...datedCore(INSPECTIONS),
+  ...buildInspectionHistory(ERP.vehicles, ERP.people, TEMPLATES),
+];
 
 /* ══════════════════════════════════════════════════════════════
    One store for everything the modules mutate. Every action that
@@ -78,7 +88,7 @@ const initial = {
   tenant: TENANT,
   users: ERP.people,
   vehicles: ERP.vehicles,
-  inspections: INSPECTIONS.map((i) => ({ ...i, sheet: null })),
+  inspections: INSPECTION_LOG,
   defects: DEFECTS,
   workOrders: ERP.workOrders,
   templates: TEMPLATES,
@@ -116,6 +126,36 @@ const initial = {
     { id: 'RUN-4471', report: 'Compliance report', scope: 'All sites', period: 'June 2026', by: 'Kobus van der Merwe', at: 'Today 08:02', rows: 3, format: 'PDF', status: 'Complete' },
     { id: 'RUN-4468', report: 'COF expiry report', scope: 'All sites', period: '90-day window', by: 'Thabo Nkosi', at: 'Today 07:41', rows: 12, format: 'PDF', status: 'Complete' },
     { id: 'RUN-4463', report: 'Fleet status report', scope: 'Steelpoort section', period: 'June 2026', by: 'Refilwe Sekhukhune', at: 'Yesterday 16:20', rows: 3, format: 'CSV', status: 'Complete' },
+  ],
+  /* Saved report queries. What is stored is the query, never its
+     result, so a saved report re-runs against whatever the registers
+     hold when somebody opens it — and its description is read off
+     that query rather than stored beside it, so the two cannot come
+     to say different things. */
+  savedReports: [
+    {
+      id: 'RPT-AX41K', name: 'Machines burning more than the model', by: 'Kobus van der Merwe',
+      q: {
+        source: 'vehicles',
+        cols: ['fleetNo', 'plate', 'type', 'site', 'targetRate', 'rate', 'runMonth', 'fuelSpend', 'cpk'],
+        filters: [
+          { f: 'rate', op: 'lt', v: 7, v2: '' },
+          { f: 'runMonth', op: 'gt', v: 500, v2: '' },
+        ],
+        match: 'all', group: '', aggs: [], sort: { f: 'cpk', dir: 'desc' }, limit: 0,
+      },
+    },
+    {
+      id: 'RPT-B7T22', name: 'Lost hours by delay reason', by: 'Refilwe Sekhukhune',
+      q: {
+        source: 'shifts',
+        cols: ['ref', 'date', 'vehicle', 'operator', 'lost', 'firstDelay'],
+        filters: [{ f: 'lost', op: 'gt', v: 0, v2: '' }],
+        match: 'all', group: 'firstDelay',
+        aggs: [{ fn: 'sum', f: 'lost' }, { fn: 'avg', f: 'availability' }],
+        sort: { f: 'sum:lost', dir: 'desc' }, limit: 0,
+      },
+    },
   ],
   schedules: [
     { id: 'SCH-11', report: 'Compliance report', scope: 'All sites', cadence: 'Monthly, first working day', to: 'exco@acmecorp.co.za', format: 'PDF', on: true, next: '01 Jul 2026' },
@@ -947,6 +987,26 @@ function reducer(state, a) {
       return audit(s, 'insp', `**${a.by}** generated **${a.run.report}** — ${a.run.rows} rows, ${a.run.scope}`,
         'Report generated', { entity: a.run.id, actor: a.by });
     }
+    /* A saved report is a query, so saving one cannot change a
+       record — but it does change what the next person sees on the
+       Reports tab, which is worth a line in the trail. */
+    case 'SAVE_REPORT': {
+      const dup = state.savedReports.find((x) => x.name.toLowerCase() === a.report.name.toLowerCase());
+      const s = {
+        ...state,
+        savedReports: dup
+          ? state.savedReports.map((x) => (x.id === dup.id ? { ...a.report, id: dup.id } : x))
+          : [a.report, ...state.savedReports],
+      };
+      return audit(s, 'insp', `**${a.by}** ${dup ? 'updated' : 'saved'} the report **${a.report.name}** — ${a.report.desc}`,
+        dup ? 'Report updated' : 'Report saved', { entity: a.report.id, actor: a.by });
+    }
+    case 'DELETE_REPORT': {
+      const rpt = state.savedReports.find((x) => x.id === a.id);
+      const s = { ...state, savedReports: state.savedReports.filter((x) => x.id !== a.id) };
+      return audit(s, 'user', `**${a.by}** deleted the saved report **${rpt?.name}**`,
+        'Report deleted', { entity: a.id, severity: 'Warning', actor: a.by });
+    }
     case 'TOGGLE_SCHEDULE': {
       const sch = state.schedules.find((x) => x.id === a.id);
       const s = { ...state, schedules: state.schedules.map((x) => (x.id === a.id ? { ...x, on: !x.on } : x)) };
@@ -1004,6 +1064,11 @@ export function StoreProvider({ children, me, flash }) {
     invoice: state.invoices.find((x) => x.ref === selection.invoice) || null,
     document: state.documents.find((x) => x.ref === selection.document) || null,
     shiftRow: state.shifts.find((x) => x.ref === selection.shift) || null,
+    /* derived analytics — summed from the registers above, so no
+       screen can quote a figure another screen contradicts */
+    sitePerf: sitePerformance(state),
+    monthly: monthlySeries(state.inspections),
+    siteVolume: siteSeries(state.inspections),
     set: (patch, section) => dispatch({ type: 'SET_SETTINGS', patch, section, by: me.name }),
     newRef: () => String(2120353 + state.inspections.length),
     newId: ref,

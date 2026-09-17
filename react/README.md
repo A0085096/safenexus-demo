@@ -142,8 +142,21 @@ mock-up, and every action writes its own audit entry.
 - **Reports** — seventeen definitions built from the live store, with a
   column chooser, CSV and JSON export, a print stylesheet, a run history
   and schedules that can be paused and resumed.
-- **Analytics**, **Hierarchy**, **Audit log**, **Company**, **Settings** —
-  as before, now reading a much larger data set.
+- **Report builder** — the seventeen definitions answer questions somebody
+  knew to ask; this answers the rest. Pick one of fifteen registers, choose
+  from its fields, narrow it with filters whose operators come from the
+  field's own type, group it with aggregates, sort it, cap it — and watch
+  the result redraw as you go, rather than pressing Run to find out you
+  narrowed it to nothing. What gets saved is the **query, never the
+  result**, so a saved report is current every time it opens. Saved reports
+  render through the same view as the fixed ones: same export, same print.
+- **Analytics** — twelve months of sheets cut five ways: by site, by shift,
+  by weekday, by operator and by check. Every figure is a sum over the
+  inspection register, and the month in progress is compared against the
+  same span of the previous month rather than against a full one, because
+  eighteen days against thirty reads as a collapse.
+- **Hierarchy**, **Audit log**, **Company**, **Settings** — as before, now
+  reading a much larger data set.
 - **Admin** — the plumbing an ERP is judged on once it is live: nightly
   jobs and whether they succeeded, integration health, an editable
   permission matrix, and the approvals queue for anything above the
@@ -165,6 +178,8 @@ The demo is worth clicking because the guards are real:
 - An incident cannot be closed with investigation actions outstanding.
 - A part cannot be issued in a quantity the bin does not hold.
 - A published inspection form cannot be edited — only revised.
+- A saved report holds the query, not the answer, so it cannot go stale
+  the way an exported spreadsheet does.
 - A week of timesheets cannot be approved while anyone on it is over sixty
   hours, because approving it turns a rostering mistake into a payroll
   record.
@@ -211,6 +226,9 @@ src/
   screens/               one file per module
   auth/AuthShell.jsx     sign in, register, forgot and reset password, lock screen
   erp/workforce.js       shift definitions, roster patterns, delay codes, timesheet maths
+  erp/analytics.js       derived analytics — read by Analytics, the dashboard and the compliance report
+  erp/history.js         twelve months of pre-use sheets, so the trends are sums rather than assertions
+  erp/sources.js         the queryable registers, field by field, and the engine the builder runs
   inspection/
     templates.js         the forms, as sections of items with severities
     FormDesigner.jsx     design, paper preview and settings

@@ -4,15 +4,14 @@ import {
   BadgeCheck, Wrench, Clock, UserX, Car, CarFront, UserPlus, FileText, Route, Coins, Fuel,
   ShieldAlert, Receipt, Package, CircleDot, Banknote,
 } from 'lucide-react';
-import {
-  MONTHLY, SITE_SERIES, SITE_MONTHS, SITE_PERF, KPIS, siteName,
-} from '../data.js';
+import { KPIS, siteName } from '../data.js';
 import { useStore } from '../store.jsx';
 import { SERIES, SEQ, OUTCOME, nf, targetTone, targetLabel } from '../theme.js';
 import { Kpis, Breakdown } from '../components/erpUi.jsx';
 import {
   R, num, until, vehSpend, vehCpk, jobMargin, invDue, invState,
 } from '../erp/seed.js';
+import { monthlySeries } from '../erp/analytics.js';
 import {
   Panel, ChartCard, Seg, Legend, Btn, Badge, Avatar, ListRow, SecHead, RichText,
   resultBadge,
@@ -43,6 +42,9 @@ function Kpi({ k }) {
       <div className="kpi-row">
         <span className="kpi-val">{k.val}</span>
         <span className="kpi-unit">{k.unit}</span>
+        {/* a tile whose figure has no measured history carries no
+            sparkline — fleet availability is a reading of today, and
+            the platform does not keep yesterday's */}
         <span className="kpi-spark"><Sparkline values={k.series} color={k.tone} /></span>
       </div>
       <div className="kpi-foot">
@@ -57,20 +59,23 @@ function Kpi({ k }) {
 const PERF_COLS = [
   { k: 'site', l: 'Site' },
   { k: 'users', l: 'Users', num: true }, { k: 'vehicles', l: 'Vehicles', num: true },
-  { k: 'insp', l: 'Inspections', num: true }, { k: 'pass', l: 'Pass rate vs 90% target', num: true },
+  { k: 'insp', l: 'Inspections', num: true },
+  /* the target is a setting, so the column that measures against it
+     cannot state one — it is filled in when the table renders */
+  { k: 'pass', l: 'Pass rate vs %t target', num: true },
   { k: 'ng', l: 'No-go', num: true }, { k: 'trend', l: '6-month trend', num: true },
   { k: 'status', l: 'Status' },
 ];
 
-function PerformanceReport({ run, target }) {
+function PerformanceReport({ run, target, perf }) {
   const [sort, setSort] = useState({ k: 'pass', d: -1 });
-  const rows = [...SITE_PERF].sort((a, b) => {
+  const rows = [...perf].sort((a, b) => {
     const k = sort.k === 'trend' ? 'pass' : sort.k === 'status' ? 'pass' : sort.k;
     const x = a[k], y = b[k];
     return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y))) * sort.d;
   });
-  const sum = (k) => SITE_PERF.reduce((a, d) => a + d[k], 0);
-  const weighted = SITE_PERF.reduce((a, d) => a + d.pass * d.insp, 0) / sum('insp');
+  const sum = (k) => perf.reduce((a, d) => a + d[k], 0);
+  const weighted = sum('insp') ? perf.reduce((a, d) => a + d.pass * d.insp, 0) / sum('insp') : 0;
 
   return (
     <div className="chart-card">
@@ -94,7 +99,7 @@ function PerformanceReport({ run, target }) {
                 <th key={c.k}
                   className={['sortable', c.num && 'num', sort.k === c.k && (sort.d === 1 ? 'sort-asc' : 'sort-desc')].filter(Boolean).join(' ')}
                   onClick={() => setSort((s) => ({ k: c.k, d: s.k === c.k ? -s.d : (c.k === 'co' || c.k === 'plan' ? 1 : -1) }))}>
-                  {c.l}
+                  {c.l.replace('%t', `${target}%`)}
                 </th>
               ))}
             </tr>
@@ -102,7 +107,7 @@ function PerformanceReport({ run, target }) {
           <tbody>
             {rows.map((d) => {
               const tone = targetTone(d.pass, target);
-              const drift = +(d.trend[5] - d.trend[0]).toFixed(1);
+              const drift = d.drift;
               return (
                 <tr key={d.key}>
                   <td style={{ fontWeight: 600 }}>{d.site}</td>
@@ -139,7 +144,7 @@ function PerformanceReport({ run, target }) {
           </tbody>
           <tfoot>
             <tr>
-              <td>3 sites</td>
+              <td>{perf.length} site{perf.length === 1 ? '' : 's'}</td>
               <td className="num">{sum('users')}</td>
               <td className="num">{sum('vehicles')}</td>
               <td className="num">{nf(sum('insp'))}</td>
@@ -160,10 +165,11 @@ export default function Dashboard({ run, goTab }) {
   const {
     vehicles, inspections, defects, audit, users, select, settings,
     jobs, fuel, tyres, parts, incidents, invoices, workOrders, approvals, budgets,
+    sitePerf, siteVolume,
   } = useStore();
   const [period, setPeriod] = useState(6);
   const [isoView, setIsoView] = useState('iso');
-  const months = MONTHLY.slice(MONTHLY.length - period);
+  const months = monthlySeries(inspections, period);
   const pending = inspections.filter((i) => !i.signed || i.result === 'no-go').slice(0, 5);
 
   /* live counts — the dashboard moves when the modules change data */
@@ -176,11 +182,31 @@ export default function Dashboard({ run, goTab }) {
     { k: 'Maintenance', v: grounded.length, c: OUTCOME.ng },
   ];
   const fleetTotal = fleetMix.reduce((a, d) => a + d.v, 0);
+  /* The inspection KPI strip is derived the same way as everything
+     else now — the shapes come from KPIS, the numbers do not. */
+  const last = months[months.length - 1] || { total: 0, pass: 0 };
+  const prev = months[months.length - 2] || last;
+  const volDelta = prev.total ? ((last.total - prev.total) / prev.total) * 100 : 0;
+  const passDelta = +(last.pass - prev.pass).toFixed(1);
   const kpis = KPIS.map((k) => (k.key === 'nogo'
     ? { ...k, val: String(noGoOpen.length), delta: `${grounded.length} grounded`, dir: noGoOpen.length ? 'warn' : 'up', note: 'open across the fleet' }
     : k.key === 'avail'
       ? { ...k, val: (100 - grounded.length / vehicles.length * 100).toFixed(1), note: `${grounded.length} of ${vehicles.length} in maintenance` }
-      : k));
+      : k.key === 'insp'
+        ? { ...k,
+          val: nf(last.total),
+          delta: `${volDelta >= 0 ? '+' : ''}${volDelta.toFixed(1)}%`,
+          dir: volDelta >= 0 ? 'up' : 'dn',
+          note: `vs ${nf(prev.total)} in ${prev.label || 'the month before'}`,
+          series: months.map((m) => m.total) }
+        : k.key === 'pass'
+          ? { ...k,
+            val: last.pass.toFixed(1),
+            delta: `${passDelta >= 0 ? '+' : '−'}${Math.abs(passDelta)} pp`,
+            dir: passDelta >= 0 ? 'up' : 'dn',
+            note: `not grounded · target ${settings.passRateTarget}%`,
+            series: months.map((m) => m.pass) }
+          : k));
 
   /* ── the money, live from the modules ───────────────────────
      Every figure below is summed from the same records the
@@ -274,7 +300,7 @@ export default function Dashboard({ run, goTab }) {
     return bins;
   })();
 
-  const isoData = SITE_SERIES.map((s) => ({ co: s.site, c: s.c, v: s.v }));
+  const isoData = siteVolume.series.map((s) => ({ co: s.site, c: s.c, v: s.v }));
   const isoNote = { iso: 'isometric · height is volume', bars: 'grouped columns · same data', table: 'exact values' }[isoView];
 
   return (
@@ -361,13 +387,13 @@ export default function Dashboard({ run, goTab }) {
               ]} />
             </>
           }>
-          {isoView === 'iso' && <Iso3D data={isoData} months={SITE_MONTHS} />}
-          {isoView === 'bars' && <GroupedBars data={isoData} months={SITE_MONTHS} />}
+          {isoView === 'iso' && <Iso3D data={isoData} months={siteVolume.months} />}
+          {isoView === 'bars' && <GroupedBars data={isoData} months={siteVolume.months} />}
           {isoView === 'table' && (
             <div className="gridwrap" style={{ margin: -12 }}>
               <table className="grid">
                 <thead>
-                  <tr><th>Site</th>{SITE_MONTHS.map((m) => <th key={m} className="num">{m}</th>)}<th className="num">Total</th></tr>
+                  <tr><th>Site</th>{siteVolume.months.map((m) => <th key={m} className="num">{m}</th>)}<th className="num">Total</th></tr>
                 </thead>
                 <tbody>
                   {isoData.map((d) => (
@@ -384,7 +410,7 @@ export default function Dashboard({ run, goTab }) {
                 <tfoot>
                   <tr>
                     <td>All sites</td>
-                    {SITE_MONTHS.map((m, i) => <td className="num" key={m}>{nf(isoData.reduce((a, d) => a + d.v[i], 0))}</td>)}
+                    {siteVolume.months.map((m, i) => <td className="num" key={m}>{nf(isoData.reduce((a, d) => a + d.v[i], 0))}</td>)}
                     <td className="num">{nf(isoData.reduce((a, d) => a + d.v.reduce((x, y) => x + y, 0), 0))}</td>
                   </tr>
                 </tfoot>
@@ -418,7 +444,7 @@ export default function Dashboard({ run, goTab }) {
         </div>
       </div>
 
-      <PerformanceReport run={run} target={settings.complianceTarget} />
+      <PerformanceReport run={run} target={settings.complianceTarget} perf={sitePerf} />
 
       <Panel title="Pending inspections requiring sign-off" note="oldest first" flush
         right={<><Badge tone="gold">{inspections.filter((i) => !i.signed).length} pending</Badge>{' '}

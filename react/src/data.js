@@ -1,4 +1,4 @@
-import { SERIES, SEQ, OUTCOME } from './theme.js';
+import { SERIES, OUTCOME } from './theme.js';
 
 /* ══════════════════════════════════════════════════════════════
    One tenant's workspace.
@@ -140,62 +140,38 @@ export const AUDIT = [
     meta: 'Steelpoort section · Pre-use inspection' },
 ];
 
-/* ── series behind the dashboard ───────────────────────────────── */
-export const MONTHLY = [
-  { m: 'Jul', y: 25, total: 268, ok: 228, go: 34, ng: 6 },
-  { m: 'Aug', y: 25, total: 276, ok: 236, go: 34, ng: 6 },
-  { m: 'Sep', y: 25, total: 289, ok: 249, go: 35, ng: 5 },
-  { m: 'Oct', y: 25, total: 284, ok: 243, go: 35, ng: 6 },
-  { m: 'Nov', y: 25, total: 297, ok: 256, go: 36, ng: 5 },
-  { m: 'Dec', y: 25, total: 248, ok: 213, go: 30, ng: 5 },
-  { m: 'Jan', y: 26, total: 295, ok: 253, go: 36, ng: 6 },
-  { m: 'Feb', y: 26, total: 327, ok: 283, go: 38, ng: 6 },
-  { m: 'Mar', y: 26, total: 313, ok: 269, go: 38, ng: 6 },
-  { m: 'Apr', y: 26, total: 378, ok: 326, go: 45, ng: 7 },
-  { m: 'May', y: 26, total: 353, ok: 304, go: 43, ng: 6 },
-  { m: 'Jun', y: 26, total: 449, ok: 381, go: 60, ng: 8 },
-];
+/* ══════════════════════════════════════════════════════════════
+   What used to live here.
 
-export const passRate = (d) => (d.ok + d.go) / d.total * 100;
-const PASS_SERIES = MONTHLY.slice(6).map(passRate);
-const PASS_NOW = PASS_SERIES[PASS_SERIES.length - 1];
-const PASS_PREV = PASS_SERIES[PASS_SERIES.length - 2];
-const PASS_DELTA = (PASS_NOW >= PASS_PREV ? '+' : '−') + Math.abs(PASS_NOW - PASS_PREV).toFixed(1) + ' pp';
+   This file once carried hand-written analytics: a fixed monthly
+   table, a per-site table, a category ranking and a set of KPI
+   values. They were the last figures in the platform that were
+   asserted rather than derived, and they had already drifted — the
+   per-site table said three sites ran five vehicles each while the
+   fleet register held forty-eight, and both were on screen at once.
 
+   They are gone. The monthly series, the per-site performance, the
+   category ranking and every KPI value are now sums over the
+   registers, in `erp/analytics.js`, built from the twelve months of
+   sheets `erp/history.js` generates. What remains below is the
+   shape of the dashboard's KPI strip — the labels, units and
+   colours — because a layout is not a number.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Pass rate over one month's outcome counts. A go-but is a pass on
+   a concession, so it counts; only a no-go grounds the vehicle. The
+   same rule is stated once more, over records rather than months, as
+   `passed` in erp/analytics.js. */
+export const passRate = (d) => (d.total ? ((d.ok + d.go) / d.total) * 100 : 0);
+
+/* The dashboard's KPI strip: four tiles, in this order, with these
+   labels and these colours. Every value, delta, note and sparkline
+   is computed in Dashboard.jsx from the live registers. */
 export const KPIS = [
-  { key: 'insp', icon: 'clipboard', lbl: 'Inspections captured', val: '449', unit: 'this month', delta: '+27.2%', dir: 'up', note: 'vs 353 in May', series: MONTHLY.slice(6).map((m) => m.total), tone: SERIES[0] },
-  { key: 'pass', icon: 'check', lbl: 'Pass rate', val: PASS_NOW.toFixed(1), unit: '%', delta: PASS_DELTA, dir: PASS_DELTA[0] === '+' ? 'up' : 'dn', note: 'not grounded · target 95%', series: PASS_SERIES, tone: SERIES[1] },
-  { key: 'avail', icon: 'truck', lbl: 'Fleet availability', val: '90.0', unit: '%', delta: '−10.0 pp', dir: 'dn', note: '1 of 10 in maintenance', series: [100, 100, 90, 100, 90, 90], tone: SERIES[2] },
-  { key: 'nogo', icon: 'alert', lbl: 'Open no-go defects', val: '1', unit: 'vehicle grounded', delta: '+1', dir: 'warn', note: 'oldest open 1 day', series: [0, 1, 0, 1, 0, 1], tone: SERIES[4] },
-];
-
-/* per-site figures, the tenant's own cut of its operation */
-export const SITE_PERF = [
-  { site: 'Lephalale open pit', key: 'PIT', users: 5, vehicles: 5, insp: 268, pass: 96.9, ng: 1, trend: [95.1, 95.8, 96.4, 96.9, 96.4, 96.9] },
-  { site: 'Steelpoort section', key: 'STL', users: 4, vehicles: 3, insp: 121, pass: 98.3, ng: 0, trend: [96.4, 97.1, 97.6, 97.9, 98.0, 98.3] },
-  { site: 'Head office and workshop', key: 'HO', users: 3, vehicles: 2, insp: 60, pass: 93.3, ng: 0, trend: [95.8, 95.1, 94.6, 94.0, 93.6, 93.3] },
-];
-
-/* per-site monthly volume — the isometric field and the stacked columns */
-export const SITE_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-export const SITE_SERIES = [
-  { site: 'Lephalale open pit', key: 'PIT', c: SERIES[0], v: [168, 186, 178, 214, 200, 268] },
-  { site: 'Steelpoort section', key: 'STL', c: SERIES[1], v: [86, 96, 92, 111, 104, 121] },
-  { site: 'Head office', key: 'HO', c: SERIES[2], v: [41, 45, 43, 53, 49, 60] },
-];
-
-export const AGING = [
-  { b: '0–7 days', v: 2, c: SEQ[1] },
-  { b: '8–14 days', v: 1, c: SEQ[2] },
-  { b: '15–21 days', v: 0, c: SEQ[3] },
-  { b: '22–30 days', v: 2, c: SEQ[4] },
-  { b: 'past the window', v: 2, c: '#C33B3B', breach: true },
-];
-
-export const CATEGORIES = [
-  { k: 'Windows and wipers', v: 31 }, { k: 'Reflective tape', v: 22 },
-  { k: 'Lights and indicators', v: 18 }, { k: 'Tyres and tread', v: 12 },
-  { k: 'Air conditioner', v: 10 }, { k: 'Other', v: 7 },
+  { key: 'insp', icon: 'clipboard', lbl: 'Inspections captured', unit: 'this month', tone: SERIES[0] },
+  { key: 'pass', icon: 'check', lbl: 'Pass rate', unit: '%', tone: SERIES[1] },
+  { key: 'avail', icon: 'truck', lbl: 'Fleet availability', unit: '%', tone: SERIES[2] },
+  { key: 'nogo', icon: 'alert', lbl: 'Open no-go defects', unit: 'vehicle grounded', tone: SERIES[4] },
 ];
 
 export const FLEET_MIX_TONES = OUTCOME;

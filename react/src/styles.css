@@ -1033,3 +1033,118 @@ table.matrix td.None { color: var(--text3); }
 .designer .toggle:disabled { cursor: not-allowed; opacity: .6; }
 .designer.locked .sec-item button.x,
 .designer.locked .sec-bar .btn.danger { opacity: .45; }
+
+/* ══════════════════════════════════════════════════════════════
+   The report builder.
+
+   Query on the left, result on the right, and the result redraws as
+   the query is edited — the point being that a person tuning a
+   filter can see it bite rather than having to press Run to find
+   out they narrowed it to nothing.
+   ══════════════════════════════════════════════════════════════ */
+.builder { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 12px; align-items: start; }
+@media (max-width: 1240px) { .builder { grid-template-columns: 1fr; } }
+
+.bld-side {
+  background: var(--card); border: 1px solid var(--stroke); border-radius: var(--r);
+  padding: 10px; position: sticky; top: 0;
+}
+.bld-body { margin-top: 10px; max-height: 560px; overflow: auto; padding-right: 2px; }
+.bld-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+/* the query, written out as a sentence — which is also how a person
+   checks the query says what they meant it to say */
+.bld-q {
+  display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px;
+  padding: 7px 11px; background: var(--sel); border: 1px solid var(--stroke);
+  border-left: 3px solid var(--brand); border-radius: var(--r);
+}
+.bld-q-l { font: 600 10.5px/1 var(--ui); letter-spacing: .06em; text-transform: uppercase; color: var(--brand-dark); flex-shrink: 0; }
+.bld-q-v { flex: 1; font-size: 12.5px; color: var(--text); line-height: 1.5; }
+.bld-q-n { font: 600 12px var(--num); color: var(--text2); flex-shrink: 0; }
+
+/* ── choosing a register ─────────────────────────────────────── */
+.bld-src {
+  display: block; width: 100%; text-align: left; margin-bottom: 5px; padding: 7px 9px;
+  background: var(--pane); border: 1px solid var(--stroke-soft); border-radius: 3px;
+  cursor: pointer; font: inherit; transition: background .1s, border-color .1s;
+}
+.bld-src:hover { background: var(--hover); border-color: var(--stroke); }
+.bld-src.on { background: var(--sel); border-color: var(--brand); }
+.bld-src-h { display: flex; justify-content: space-between; align-items: baseline; font: 600 12.5px var(--ui); color: var(--text); }
+.bld-src.on .bld-src-h { color: var(--brand-dark); }
+.bld-n { font: 600 11.5px var(--num); color: var(--text3); }
+.bld-src-d { font-size: 11.5px; color: var(--text3); line-height: 1.4; margin-top: 2px; }
+
+/* ── choosing columns ────────────────────────────────────────── */
+.bld-col {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 3px 6px; border-radius: 3px; font-size: 12.5px;
+}
+.bld-col:hover { background: var(--hover); }
+.bld-col.on { background: var(--sel); }
+.bld-col-l { display: flex; align-items: center; gap: 7px; cursor: pointer; flex: 1; min-width: 0; }
+.bld-col-l span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bld-col-a { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+/* the type is the reason a column can be totalled, so it is on show */
+.bld-t {
+  font: 600 9.5px/1 var(--ui); letter-spacing: .04em; text-transform: uppercase;
+  color: var(--text3); background: var(--stroke-soft); padding: 2px 4px; border-radius: 2px;
+}
+
+/* ── filters ─────────────────────────────────────────────────── */
+.bld-filter {
+  padding: 7px 8px; margin-bottom: 6px; background: var(--pane);
+  border: 1px solid var(--stroke-soft); border-radius: 3px;
+}
+.bld-filter-h {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;
+  font: 600 10.5px/1 var(--ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text3);
+}
+.bld-filter-r { display: flex; align-items: center; gap: 6px; margin-top: 5px; flex-wrap: wrap; }
+.bld-filter .inp { width: 100%; }
+.bld-empty {
+  font-size: 11.5px; color: var(--text3); line-height: 1.5;
+  padding: 8px 9px; background: var(--pane); border: 1px dashed var(--stroke); border-radius: 3px;
+  margin-bottom: 7px;
+}
+
+/* a bare text button for the small in-panel actions — reordering a
+   column or dropping a filter is not a Btn-sized decision */
+.lnk {
+  background: none; border: none; cursor: pointer; padding: 1px 3px;
+  font: inherit; font-size: 11.5px; color: var(--brand); border-radius: 2px;
+}
+.lnk:hover { background: var(--sel); text-decoration: underline; }
+.lnk:disabled { color: var(--text3); cursor: default; opacity: .45; background: none; text-decoration: none; }
+.lnk.danger { color: var(--red); display: inline-flex; align-items: center; }
+.lnk.danger:hover { background: var(--red-bg); }
+
+.rb-tile { border-color: var(--brand); }
+.rb-tile:hover { box-shadow: 0 2px 8px rgba(12, 61, 122, .14); }
+
+/* a grouped or totalled result gets a footer row, and it has to read
+   as a total rather than as one more record */
+table.grid tfoot td {
+  font: 600 12px var(--num); background: var(--pane);
+  border-top: 2px solid var(--stroke); color: var(--text);
+  /* sticky, for the same reason the header is: the total is what the
+     column is for, and scrolling away from it loses the point */
+  position: sticky; bottom: 0; z-index: 2;
+}
+/* so the last row can be read clear of the sticky total */
+.bld-result { scroll-padding-bottom: 34px; }
+.bld-result table.grid tbody tr:last-child td { padding-bottom: 34px; }
+
+/* which column the table is sorted on, and which way */
+.th-sort { margin-left: 4px; font-size: 8.5px; color: var(--brand); vertical-align: 1px; }
+
+/* A cell that carries a sentence rather than a value clips it and
+   keeps the whole thing on hover — a query description is long by
+   nature, and letting it push the next column off the row makes the
+   table unreadable to save a tooltip. */
+table.grid td.clip { max-width: 0; }
+table.grid td.clip > span {
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11.5px; color: var(--text3);
+}

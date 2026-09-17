@@ -5,33 +5,23 @@ import {
 } from 'recharts';
 import { TrendingUp, TrendingDown, Minus, ArrowRight } from 'lucide-react';
 import { useStore } from '../store.jsx';
-import {
-  MONTHLY, SITE_SERIES, SITE_MONTHS, SITE_PERF, CATEGORIES, passRate,
-} from '../data.js';
 import { SERIES, SEQ, nf, targetTone } from '../theme.js';
+import {
+  monthlySeries, monthToDate, bySite, byShift, byWeekday, byItem, byOperator, passRateOf,
+} from '../erp/analytics.js';
 import {
   ChartCard, Panel, Seg, Btn, Badge, Legend,
 } from '../components/ui.jsx';
 import { rechartsTip } from '../charts/tooltip.jsx';
 import Sparkline from '../charts/Sparkline.jsx';
 
-const SHIFTS = [
-  { k: 'Day A', v: 412, ng: 9, go: 61 }, { k: 'Day B', v: 388, ng: 6, go: 52 },
-  { k: 'Aft A', v: 214, ng: 4, go: 29 }, { k: 'Aft B', v: 121, ng: 2, go: 16 },
-  { k: 'Night A', v: 68, ng: 1, go: 7 }, { k: 'Night B', v: 44, ng: 0, go: 3 },
-];
-const WEEKDAYS = [
-  { k: 'Mon', v: 268 }, { k: 'Tue', v: 226 }, { k: 'Wed', v: 214 },
-  { k: 'Thu', v: 208 }, { k: 'Fri', v: 197 }, { k: 'Sat', v: 92 }, { k: 'Sun', v: 42 },
-];
-
-const Delta = ({ now, was, unit = '', invert }) => {
+const Delta = ({ now, was, unit = '', invert, label = 'vs the same point last month' }) => {
   const d = +(now - was).toFixed(1);   /* the difference is rounded, never the inputs */
   const good = invert ? d <= 0 : d >= 0;
   const I = d === 0 ? Minus : d > 0 ? TrendingUp : TrendingDown;
   return (
     <span className={'delta ' + (d === 0 ? 'flat' : good ? 'up' : 'dn')}>
-      <I size={13} />{d > 0 ? '+' : ''}{d}{unit} vs last month
+      <I size={13} />{d > 0 ? '+' : ''}{d}{unit} {label}
     </span>
   );
 };
@@ -42,24 +32,43 @@ const Delta = ({ now, was, unit = '', invert }) => {
    that carry an action are clickable through to the register.
    ══════════════════════════════════════════════════════════════ */
 export default function Analytics({ run, goTab }) {
-  const { inspections, defects, vehicles, settings, select, setInspView } = useStore();
+  const {
+    inspections, defects, vehicles, settings, select, setInspView, sitePerf, siteVolume,
+  } = useStore();
   const [months, setMonths] = useState(6);
   const [cut, setCut] = useState('site');
 
-  const series = MONTHLY.slice(MONTHLY.length - months);
-  const now = MONTHLY[MONTHLY.length - 1];
-  const was = MONTHLY[MONTHLY.length - 2];
-  const trend = series.map((m) => ({ ...m, pass: +passRate(m).toFixed(2) }));
+  /* Every figure below is a sum over the sheets the register holds,
+     so the period selector genuinely re-cuts the data rather than
+     slicing a fixed table. */
+  const series = useMemo(() => monthlySeries(inspections, months), [inspections, months]);
+  const trend = series;
+  const now = series[series.length - 1] || { total: 0, ok: 0, go: 0, ng: 0, pass: 0 };
+  /* the month in progress is compared against the same span of the
+     previous one, so a partial month is not read as a collapse */
+  const mtd = useMemo(() => monthToDate(inspections), [inspections]);
   const target = settings.passRateTarget;
 
   const openDefects = defects.filter((d) => d.status === 'Open');
   const overdue = openDefects.filter((d) => d.age > settings.goButMaxDays);
 
+  /* the four cuts, all from the same records */
+  const cutRows = useMemo(() => ({
+    site: bySite(inspections),
+    shift: byShift(inspections),
+    weekday: byWeekday(inspections),
+    item: byItem(inspections),
+    operator: byOperator(inspections),
+  }), [inspections]);
+
+  const rate = (n, d) => (d ? (n / d) * 100 : 0);
   const kpis = [
-    { l: 'Inspections', v: nf(now.total), d: <Delta now={now.total} was={was.total} />, s: series.map((m) => m.total), c: SERIES[0] },
-    { l: 'Pass rate', v: passRate(now).toFixed(1) + '%', d: <Delta now={passRate(now)} was={passRate(was)} unit=" pp" />, s: trend.map((m) => m.pass), c: SERIES[1] },
-    { l: 'No-go rate', v: (now.ng / now.total * 100).toFixed(1) + '%', d: <Delta now={now.ng / now.total * 100} was={was.ng / was.total * 100} unit=" pp" invert />, s: series.map((m) => +(m.ng / m.total * 100).toFixed(2)), c: SERIES[4] },
-    { l: 'Go-but raised', v: nf(now.go), d: <Delta now={now.go} was={was.go} invert />, s: series.map((m) => m.go), c: SERIES[2] },
+    { l: 'Inspections', v: nf(mtd.now), d: <Delta now={mtd.now} was={mtd.was} />, s: series.map((m) => m.total), c: SERIES[0] },
+    { l: 'Pass rate', v: mtd.nowPass.toFixed(1) + '%', d: <Delta now={mtd.nowPass} was={mtd.wasPass} unit=" pp" />, s: trend.map((m) => m.pass), c: SERIES[1] },
+    { l: 'No-go rate', v: rate(mtd.nowNg, mtd.now).toFixed(1) + '%',
+      d: <Delta now={rate(mtd.nowNg, mtd.now)} was={rate(mtd.wasNg, mtd.was)} unit=" pp" invert />,
+      s: series.map((m) => +rate(m.ng, m.total).toFixed(2)), c: SERIES[4] },
+    { l: 'Go-but raised', v: nf(mtd.nowGo), d: <Delta now={mtd.nowGo} was={mtd.wasGo} invert />, s: series.map((m) => m.go), c: SERIES[2] },
   ];
 
   const passTip = rechartsTip((p, label) => ({
@@ -71,37 +80,50 @@ export default function Analytics({ run, goTab }) {
   const cuts = {
     site: {
       label: 'By site',
-      rows: SITE_PERF.map((p) => ({ k: p.site, v: p.pass, n: p.insp, tone: targetTone(p.pass, settings.complianceTarget), suffix: '%' })),
+      rows: cutRows.site.map((p) => ({ k: p.k, v: p.pass, n: p.n, tone: targetTone(p.pass, settings.complianceTarget), suffix: '%' })),
       note: `pass rate against a ${settings.complianceTarget}% target`,
     },
     shift: {
       label: 'By shift',
-      rows: SHIFTS.map((s) => ({ k: s.k, v: +(100 - s.ng / s.v * 100).toFixed(1), n: s.v, tone: s.ng > 5 ? SERIES[4] : s.ng > 2 ? SERIES[2] : SERIES[1], suffix: '%' })),
-      note: 'pass rate and volume per shift',
+      rows: cutRows.shift.map((p) => ({ k: p.k, v: p.pass, n: p.n, tone: targetTone(p.pass, settings.complianceTarget), suffix: '%' })),
+      note: 'pass rate per shift, worst first',
     },
     weekday: {
       label: 'By weekday',
-      rows: WEEKDAYS.map((d) => ({ k: d.k, v: d.v, n: d.v, tone: SEQ[4], suffix: '' })),
-      note: 'where the capture load falls',
+      rows: cutRows.weekday.map((p) => ({ k: p.k, v: p.n, n: p.n, tone: SEQ[4], suffix: '' })),
+      note: 'where the capture load falls across the week',
+    },
+    operator: {
+      label: 'By operator',
+      rows: cutRows.operator.slice(0, 8).map((p) => ({ k: p.k, v: p.pass, n: p.n, tone: targetTone(p.pass, settings.complianceTarget), suffix: '%' })),
+      note: 'pass rate per operator, five sheets or more',
     },
     item: {
       label: 'By item',
-      rows: CATEGORIES.map((c, i) => ({ k: c.k, v: c.v, n: c.v, tone: SEQ[Math.max(1, 5 - i)], suffix: '%' })),
-      note: 'which items fail most often',
+      rows: cutRows.item.map((c, i) => ({ k: c.k, v: c.n, n: c.n, tone: SEQ[Math.max(1, 5 - Math.floor(i / 2))], suffix: '' })),
+      note: 'which checks fail most often, by count',
     },
   };
   const active = cuts[cut];
-  const maxCut = Math.max(...active.rows.map((r) => r.v));
+  const maxCut = Math.max(1, ...active.rows.map((r) => r.v));
 
-  const worst = [...SITE_PERF].sort((a, b) => a.pass - b.pass)[0];
-  const bestMover = [...SITE_PERF].sort((a, b) => (b.trend[5] - b.trend[0]) - (a.trend[5] - a.trend[0]))[0];
+  const ranked = [...sitePerf].sort((a, b) => a.pass - b.pass);
+  const worst = ranked[0] || { site: '—', pass: 0, ng: 0, trend: [0] };
+  const bestMover = [...sitePerf].sort((a, b) => b.drift - a.drift)[0] || worst;
+  const topItem = cutRows.item[0];
+  const weekdays = cutRows.weekday;
+  const peak = [...weekdays].sort((a, b) => b.n - a.n)[0];
+  const avgWeekday = weekdays.length
+    ? Math.round(weekdays.reduce((a, d) => a + d.n, 0) / weekdays.length) : 0;
 
   return (
     <>
       <div className="cmdstrip solo">
         <span style={{ fontSize: 12.5, color: 'var(--text2)' }}>Period</span>
         <Seg value={months} onChange={setMonths} options={[{ v: 6, l: '6 months' }, { v: 12, l: '12 months' }]} />
-        <span className="count">June 2026 compared with May 2026</span>
+        <span className="count">
+          {mtd.label} to day {mtd.day}, against the same span of {mtd.prevLabel} · {nf(inspections.length)} sheets on record
+        </span>
       </div>
 
       <div className="kpis">
@@ -153,27 +175,27 @@ export default function Analytics({ run, goTab }) {
       </div>
 
       <div className="grid-2">
-        <ChartCard title="Capture volume by site" note="the last six months, stacked by month">
+        <ChartCard title="Capture volume by site" note={`the last ${siteVolume.months.length} months, stacked by month`}>
           <ResponsiveContainer width="100%" height={210}>
-            <BarChart data={SITE_MONTHS.map((m, i) => {
+            <BarChart data={siteVolume.months.map((m, i) => {
               const row = { m };
-              SITE_SERIES.forEach((d) => { row[d.site] = d.v[i]; });
+              siteVolume.series.forEach((d) => { row[d.site] = d.v[i]; });
               return row;
             })} margin={{ top: 12, right: 6, bottom: 0, left: -14 }} barCategoryGap="26%">
               <CartesianGrid stroke="var(--grid)" vertical={false} />
               <XAxis dataKey="m" tickLine={false} axisLine={{ stroke: 'var(--stroke-strong)' }} tick={{ fontSize: 10.5, fill: 'var(--text3)' }} />
               <YAxis tickLine={false} axisLine={false} width={48} tick={{ fontSize: 10.5, fill: 'var(--text3)' }} tickFormatter={nf} />
               <Tooltip content={rechartsTip((p, label) => ({
-                head: `${label} 2026`,
+                head: label,
                 rows: p.map((x) => ({ c: x.color, k: x.dataKey, v: x.value })),
                 foot: `${nf(p.reduce((a, x) => a + x.value, 0))} in total`,
               }))} cursor={{ fill: 'rgba(23,98,181,.05)' }} />
-              {SITE_SERIES.map((d) => (
+              {siteVolume.series.map((d) => (
                 <Bar key={d.key} dataKey={d.site} stackId="a" fill={d.c} stroke="#fff" strokeWidth={1} maxBarSize={44} />
               ))}
             </BarChart>
           </ResponsiveContainer>
-          <Legend items={SITE_SERIES.map((d) => ({ c: d.c, l: d.site }))} />
+          <Legend items={siteVolume.series.map((d) => ({ c: d.c, l: d.site }))} />
         </ChartCard>
 
         <Panel title="What to do about it" note="read from the live records">
@@ -188,8 +210,8 @@ export default function Analytics({ run, goTab }) {
           <div className="insight-row">
             <Badge tone="green">Best trend</Badge>
             <div>
-              <b>{bestMover.site}</b> has gained {(bestMover.trend[5] - bestMover.trend[0]).toFixed(1)} pp over six
-              months — the clearest improvement on the platform.
+              <b>{bestMover.site}</b> has {bestMover.drift >= 0 ? 'gained' : 'lost'} {Math.abs(bestMover.drift).toFixed(1)} pp
+              over six months — the clearest {bestMover.drift >= 0 ? 'improvement' : 'decline'} on the platform.
             </div>
             <Sparkline values={bestMover.trend} color={SERIES[1]} w={62} h={22} />
           </div>
@@ -204,10 +226,21 @@ export default function Analytics({ run, goTab }) {
           <div className="insight-row">
             <Badge tone="blue">Load</Badge>
             <div>
-              Monday carries {WEEKDAYS[0].v} captures against a {Math.round(WEEKDAYS.slice(1, 5).reduce((a, d) => a + d.v, 0) / 4)} weekday
-              average — the first shift of the week is the peak.
+              <b>{peak ? peak.k : '—'}</b> carries {peak ? nf(peak.n) : 0} captures against
+              a {nf(avgWeekday)} daily average — that is where the capture load peaks.
             </div>
           </div>
+          {topItem && (
+            <div className="insight-row">
+              <Badge tone="gold">Commonest failure</Badge>
+              <div>
+                <b>{topItem.k}</b> failed {nf(topItem.n)} time{topItem.n === 1 ? '' : 's'} — {topItem.share}% of every
+                failed check, {topItem.ng ? `${nf(topItem.ng)} of them grounding the vehicle` : 'all on a concession'}.
+                It sits under <i>{topItem.section}</i>.
+              </div>
+              <Btn small icon={ArrowRight} onClick={() => setCut('item')}>Break it down</Btn>
+            </div>
+          )}
           <div className="insight-row">
             <Badge tone="purple">Fleet</Badge>
             <div>

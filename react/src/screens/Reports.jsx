@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import {
   ClipboardCheck, ShieldCheck, Truck, Users as UsersIcon, AlertTriangle, BadgeCheck,
   Download, Printer, ArrowLeft, Wrench, FileJson, Columns3, PlayCircle, PauseCircle, Mail,
-  Route, Fuel, CircleDot, Coins, Package, Receipt, ShieldAlert, Files,
+  Route, Fuel, CircleDot, Coins, Package, Receipt, ShieldAlert, Files, Wand2, Trash2, Clock,
 } from 'lucide-react';
 import { useStore } from '../store.jsx';
 import { nf } from '../theme.js';
 import { Panel, Btn, Badge, Seg } from '../components/ui.jsx';
-import Sparkline from '../charts/Sparkline.jsx';
-import { SITE_PERF, siteName } from '../data.js';
+import { siteName } from '../data.js';
+import ReportBuilder from './ReportBuilder.jsx';
+import { SOURCES, sourceById, runQuery, isNum, fmtVal, describe } from '../erp/sources.js';
 import {
   R, num, until, fmtDate, jobMargin, woCost, vehSpend, vehCpk, stockValue, invTotal,
   invPaid, invDue, invState,
@@ -18,8 +19,12 @@ const ICONS = {
   clipboard: ClipboardCheck, shield: ShieldCheck, truck: Truck,
   users: UsersIcon, alert: AlertTriangle, cert: BadgeCheck, tool: Wrench,
   route: Route, fuel: Fuel, tyre: CircleDot, coins: Coins, part: Package,
-  receipt: Receipt, incident: ShieldAlert, files: Files,
+  receipt: Receipt, incident: ShieldAlert, files: Files, clock: Clock,
 };
+
+/* the builder's reach, stated on its tile — a count that grows when
+   a register is added to the catalogue, not when this line is edited */
+const SOURCE_COUNT = SOURCES.length;
 
 /* ══════════════════════════════════════════════════════════════
    Reports build from the live store and render as a document you
@@ -200,11 +205,13 @@ const DEFS = [
   },
   {
     id: 'compliance', name: 'Compliance report', icon: 'shield', tone: 'green',
-    desc: 'Pass rate per company against the 90% target, with the trend behind it.',
-    build: () => ({
-      cols: ['Site', 'Users', 'Vehicles', 'Inspections', 'Pass rate', 'No-go', 'Trend', 'Status'],
-      rows: SITE_PERF.map((p) => [p.site, p.users, p.vehicles, p.insp, `${p.pass}%`, p.ng,
-        `${(p.trend[5] - p.trend[0]).toFixed(1)} pp`, p.pass >= 95 ? 'On track' : p.pass >= 90 ? 'Watch' : 'Below target']),
+    desc: ({ settings }) => `Pass rate per company against the ${settings.complianceTarget}% target, with the trend behind it.`,
+    build: ({ sitePerf, settings }) => ({
+      cols: ['Site', 'People', 'Vehicles', 'Inspections', 'Pass rate', 'No-go', 'Six-month drift', 'Status'],
+      rows: sitePerf.map((p) => [p.site, p.users, p.vehicles, p.insp, `${p.pass}%`, p.ng,
+        `${p.drift >= 0 ? '+' : ''}${p.drift} pp`,
+        p.pass >= settings.passRateTarget ? 'On track'
+          : p.pass >= settings.complianceTarget ? 'Watch' : 'Below target']),
       summary: (rows) => [
         ['Sites', rows.length],
         ['Below target', rows.filter((r) => r[7] === 'Below target').length],
@@ -230,7 +237,7 @@ const DEFS = [
   },
   {
     id: 'defects', name: 'Defect history', icon: 'alert', tone: 'red',
-    desc: 'Every defect raised, its age against the 30-day rule and whether it is closed.',
+    desc: ({ settings }) => `Every defect raised, its age against the ${settings.goButMaxDays}-day rule and whether it is closed.`,
     build: ({ defects }) => ({
       cols: ['Defect', 'Item', 'Section', 'Vehicle', 'Site', 'Severity', 'Raised by', 'Raised', 'Rectify by', 'Concession', 'Work order', 'Status'],
       rows: defects.map((d) => [d.id, d.item, d.section, d.plate, siteName(d.site), d.severity, d.raisedBy, d.raised, d.due,
@@ -290,6 +297,12 @@ const DEFS = [
     }),
   },
 ];
+
+/* A description that quotes a threshold has to read it from the
+   settings, or it goes stale the moment somebody moves the dial —
+   which is the whole reason the figures in these reports are derived
+   rather than written down. */
+const descOf = (d, store) => (typeof d.desc === 'function' ? d.desc(store) : d.desc);
 
 const csv = (cols, rows) =>
   [cols, ...rows].map((r) => r.map((c) => {
@@ -396,11 +409,40 @@ function ReportView({ def, data, scope, period, onBack, flash, me }) {
 
 export default function Reports({ run }) {
   const store = useStore();
-  const { reportRuns, schedules, dispatch, me, flash } = store;
+  const { reportRuns, schedules, savedReports, dispatch, me, flash } = store;
   const [open, setOpen] = useState(null);
+  const [saved, setSaved] = useState(null);
+  const [builder, setBuilder] = useState(false);
   const [scope, setScope] = useState('ALL');
   const [period, setPeriod] = useState('June 2026');
   const def = DEFS.find((d) => d.id === open);
+
+  /* A saved query is turned into a report definition on the way in,
+     so it renders through exactly the same view as the seventeen
+     fixed ones — same column chooser, same export, same print. */
+  const savedDef = (() => {
+    if (!saved) return null;
+    const rpt = savedReports.find((x) => x.id === saved);
+    if (!rpt) return null;
+    return {
+      id: rpt.id, name: rpt.name, icon: 'clipboard', tone: 'blue', desc: describe(rpt.q),
+      build: (data) => {
+        const res = runQuery(data, rpt.q, 'ALL');
+        return {
+          cols: res.cols.map((c) => c.l),
+          rows: res.rows.map((r) => r.map((v, i) => (isNum(res.cols[i].t) ? v : fmtVal(res.cols[i].t, v)))),
+          summary: (rows) => {
+            const money = res.cols.map((c, i) => [c, i]).filter(([c]) => c.t === 'money');
+            return [
+              [res.grouped ? 'Groups' : 'Rows', nf(rows.length)],
+              ['From', sourceById(rpt.q.source).name],
+              ...money.slice(0, 2).map(([c, i]) => [c.l, R(rows.reduce((a, r) => a + (+r[i] || 0), 0))]),
+            ];
+          },
+        };
+      },
+    };
+  })();
 
   const generate = (d) => {
     setOpen(d.id);
@@ -416,6 +458,17 @@ export default function Reports({ run }) {
     });
   };
 
+  if (builder) {
+    return <ReportBuilder scope={scope} period={period} onBack={() => setBuilder(false)} />;
+  }
+
+  if (savedDef) {
+    return (
+      <ReportView def={savedDef} data={store} scope="ALL" period={period} onBack={() => setSaved(null)}
+        flash={flash} me={me} />
+    );
+  }
+
   if (def) {
     return (
       <ReportView def={def} data={store} scope={scope} period={period} onBack={() => setOpen(null)}
@@ -429,7 +482,7 @@ export default function Reports({ run }) {
         <span style={{ fontSize: 12.5, color: 'var(--text2)' }}>Scope</span>
         <Seg value={scope} onChange={setScope} options={[
           { v: 'ALL', l: 'All sites' },
-          ...SITE_PERF.map((c) => ({ v: c.site, l: c.site.split(' ')[0] })),
+          ...store.sitePerf.map((c) => ({ v: c.site, l: c.site.split(' ')[0] })),
         ]} />
         <span style={{ fontSize: 12.5, color: 'var(--text2)', marginLeft: 6 }}>Period</span>
         <select className="inp" style={{ width: 168 }} value={period} onChange={(e) => setPeriod(e.target.value)}>
@@ -439,6 +492,23 @@ export default function Reports({ run }) {
       </div>
 
       <div className="grid-3">
+        <div className="chart-card rb-tile" style={{ marginBottom: 0, cursor: 'pointer' }}
+          onClick={() => setBuilder(true)}>
+          <div className="chart-body">
+            <div className="tile-ico" style={{ background: 'var(--brand)', marginBottom: 9 }}>
+              <Wand2 size={15} strokeWidth={1.8} color="#fff" />
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Build a report</div>
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3, lineHeight: 1.45 }}>
+              Pick any register, choose the columns, narrow it, group it — then
+              save the query so nobody has to build it twice.
+            </div>
+          </div>
+          <div style={{ padding: '8px 12px', borderTop: '1px solid var(--stroke-soft)', background: 'var(--pane)', fontSize: 12, color: 'var(--brand-dark)', display: 'flex', justifyContent: 'space-between' }}>
+            <span>Open the builder →</span>
+            <span style={{ color: 'var(--text3)' }}>{SOURCE_COUNT} registers</span>
+          </div>
+        </div>
         {DEFS.map((d) => {
           const Icon = ICONS[d.icon];
           const bg = d.tone === 'blue' ? 'var(--sel)' : `var(--${d.tone}-bg)`;
@@ -451,7 +521,7 @@ export default function Reports({ run }) {
                   <Icon size={15} strokeWidth={1.8} color={fg} />
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{d.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3, lineHeight: 1.45 }}>{d.desc}</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 3, lineHeight: 1.45 }}>{descOf(d, store)}</div>
               </div>
               <div style={{ padding: '8px 12px', borderTop: '1px solid var(--stroke-soft)', background: 'var(--pane)', fontSize: 12, color: 'var(--brand-dark)', display: 'flex', justifyContent: 'space-between' }}>
                 <span>Generate →</span><span style={{ color: 'var(--text3)' }}>{n} row{n === 1 ? '' : 's'}</span>
@@ -460,6 +530,42 @@ export default function Reports({ run }) {
           );
         })}
       </div>
+
+      <Panel title="Saved reports" note="built here, re-run against the live registers" flush
+        right={<Btn small icon={Wand2} onClick={() => setBuilder(true)}>New report</Btn>}>
+        <div className="gridwrap">
+          <table className="grid">
+            <thead><tr><th>Report</th><th>Register</th><th>What it asks</th><th>Saved by</th><th className="num">Rows now</th><th /></tr></thead>
+            <tbody>
+              {savedReports.map((rp) => {
+                const n = runQuery(store, rp.q, 'ALL');
+                return (
+                  <tr key={rp.id}>
+                    <td style={{ fontWeight: 600 }}>{rp.name}</td>
+                    <td style={{ color: 'var(--text2)' }}>{sourceById(rp.q.source).name}</td>
+                    <td className="clip" style={{ maxWidth: 380 }}><span title={describe(rp.q)}>{describe(rp.q)}</span></td>
+                    <td style={{ color: 'var(--text2)' }}>{rp.by}</td>
+                    <td className="num">{nf(n.rows.length)}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <Btn small icon={PlayCircle} onClick={() => setSaved(rp.id)}>Run</Btn>
+                      <Btn small icon={Trash2} onClick={() => {
+                        dispatch({ type: 'DELETE_REPORT', id: rp.id, by: me.name });
+                        flash(`“${rp.name}” removed.`, { tone: 'warn' });
+                      }}>Delete</Btn>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!savedReports.length && (
+                <tr><td colSpan={6} style={{ padding: 26, textAlign: 'center', color: 'var(--text3)' }}>
+                  Nothing saved yet. The builder saves the query, not the answer, so a
+                  saved report is current every time it runs.
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
 
       <div className="grid-2">
         <Panel title="Scheduled reports" note="delivered without anyone asking" flush>
